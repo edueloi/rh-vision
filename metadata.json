@@ -1,0 +1,6 @@
+{
+  "name": "RH Vision Pro",
+  "description": "Sistema de RH inteligente com análise de currículos por IA (Gemini), compatibilidade de vagas, teste DISC e suporte a multi-filiais.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
