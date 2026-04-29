@@ -79,6 +79,8 @@ export default function NexusAI() {
   const [matchResults, setMatchResults] = useState<MatchResult[]>([]);
   const [isMatching, setIsMatching] = useState(false);
   const [matchSummary, setMatchSummary] = useState('');
+  const [sessions, setSessions] = useState<any[]>([]);
+  const [isLoadingSessions, setIsLoadingSessions] = useState(false);
 
   // Config Match state
   const [precisionMode, setPrecisionMode] = useState('Equilibrada');
@@ -89,9 +91,19 @@ export default function NexusAI() {
   const [onlyWithResume, setOnlyWithResume] = useState(false);
   const [onlyWithDisc, setOnlyWithDisc] = useState(false);
 
+  // Comparison state
+  const [comparingCandidates, setComparingCandidates] = useState<MatchResult[]>([]);
+  const [showComparison, setShowComparison] = useState(false);
+
+  // Settings Modal state
+  const [showSettings, setShowSettings] = useState(false);
+  const [settings, setSettings] = useState<any>(null);
+
   useEffect(() => {
     fetchJobs();
-  }, []);
+    fetchSessions();
+    fetchSettings();
+  }, [currentUnit]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -107,6 +119,70 @@ export default function NexusAI() {
     } catch (error) {
       console.error(error);
     }
+  };
+
+  const fetchSessions = async () => {
+    setIsLoadingSessions(true);
+    try {
+      const res = await fetch(`/api/nexus-ai/sessions?tenantId=fadel&unitId=${currentUnit.id}`);
+      const data = await res.json();
+      setSessions(data);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsLoadingSessions(false);
+    }
+  };
+
+  const fetchSettings = async () => {
+    try {
+      const res = await fetch(`/api/nexus-ai/settings?tenantId=fadel&unitId=${currentUnit.id}`);
+      const data = await res.json();
+      setSettings(data);
+      if (data) {
+        setPrecisionMode(data.default_precision_mode || 'Equilibrada');
+        setMinScore(data.default_compatibility_threshold || 70);
+        setMaxResults(data.default_max_results || 20);
+        setRadius(data.default_distance_radius_km || 50);
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const saveSettings = async (newSettings: any) => {
+    try {
+      const res = await fetch('/api/nexus-ai/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...newSettings,
+          tenant_id: 'fadel',
+          unit_id: currentUnit.id
+        })
+      });
+      if (res.ok) {
+        toast.success('Configurações salvas!');
+        setShowSettings(false);
+        fetchSettings();
+      }
+    } catch (error) {
+      toast.error('Erro ao salvar configurações');
+    }
+  };
+
+  const toggleComparison = (candidate: MatchResult) => {
+    setComparingCandidates(prev => {
+      const exists = prev.find(c => c.candidate_id === candidate.candidate_id);
+      if (exists) {
+        return prev.filter(c => c.candidate_id !== candidate.candidate_id);
+      }
+      if (prev.length >= 3) {
+        toast.error('Você pode comparar no máximo 3 candidatos por vez');
+        return prev;
+      }
+      return [...prev, candidate];
+    });
   };
 
   const handleSendMessage = async () => {
@@ -344,8 +420,132 @@ export default function NexusAI() {
 
           {activeView === 'match' && (
             <div className="space-y-8">
-              <PanelCard 
-                title="Match de Vaga Inteligente"
+              {comparingCandidates.length > 0 && !showComparison && (
+                <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-50 bg-zinc-900 text-white px-8 py-4 rounded-3xl shadow-2xl flex items-center gap-8 border border-white/10 backdrop-blur-xl">
+                  <div className="flex items-center gap-3">
+                    <div className="flex -space-x-3">
+                      {comparingCandidates.map(c => (
+                        <div key={c.candidate_id} className="w-10 h-10 rounded-full border-2 border-zinc-900 bg-white overflow-hidden">
+                          <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${c.candidate_id}`} alt="avatar" />
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-[10px] font-black uppercase tracking-widest">
+                      {comparingCandidates.length} Candidato{comparingCandidates.length > 1 ? 's' : ''} selecionado{comparingCandidates.length > 1 ? 's' : ''}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={() => setComparingCandidates([])}
+                      className="px-4 py-2 hover:bg-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
+                    >
+                      Limpar
+                    </button>
+                    <button 
+                      onClick={() => setShowComparison(true)}
+                      className="px-6 py-2 bg-fadel-red text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-fadel-red/80 transition-all flex items-center gap-2"
+                    >
+                      Comparar Agora
+                      <Zap size={14} />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {showComparison ? (
+                <div className="bg-white rounded-3xl border border-zinc-200 shadow-xl overflow-hidden animate-in fade-in zoom-in duration-300">
+                  <div className="p-8 border-b border-zinc-100 flex items-center justify-between">
+                    <div>
+                      <h2 className="text-2xl font-black text-zinc-900 tracking-tighter">Comparativo Inteligente</h2>
+                      <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Análise Nexus AI Lado a Lado</p>
+                    </div>
+                    <button 
+                      onClick={() => setShowComparison(false)}
+                      className="p-4 bg-zinc-100 text-zinc-900 rounded-2xl hover:bg-zinc-200 transition-all"
+                    >
+                      <X size={20} />
+                    </button>
+                  </div>
+                  
+                  <div className="p-8 overflow-x-auto">
+                    <table className="w-full min-w-[800px] border-collapse">
+                      <thead>
+                        <tr>
+                          <th className="w-48"></th>
+                          {comparingCandidates.map(c => (
+                            <th key={c.candidate_id} className="p-4 text-center border-x border-zinc-50">
+                              <div className="flex flex-col items-center gap-3">
+                                <div className="w-20 h-20 rounded-2xl bg-zinc-100 overflow-hidden shadow-md">
+                                  <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${c.candidate_id}`} alt="avatar" />
+                                </div>
+                                <div>
+                                  <h4 className="text-sm font-black text-zinc-900">{c.full_name}</h4>
+                                  <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">{c.compatibility_score}% Match</p>
+                                </div>
+                              </div>
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="text-sm">
+                        <tr>
+                          <td className="p-4 font-black text-zinc-400 uppercase text-[9px] tracking-widest bg-zinc-50 rounded-l-2xl">Classificação</td>
+                          {comparingCandidates.map(c => (
+                            <td key={c.candidate_id} className="p-6 text-center border-x border-zinc-50 font-bold">{c.classification}</td>
+                          ))}
+                        </tr>
+                        <tr>
+                          <td className="p-4 font-black text-zinc-400 uppercase text-[9px] tracking-widest">DISC</td>
+                          {comparingCandidates.map(c => (
+                            <td key={c.candidate_id} className="p-6 text-center border-x border-zinc-50">
+                              <span className="px-3 py-1 bg-zinc-900 text-white rounded-lg text-xs font-black">
+                                {c.disc_profile || 'N/A'}
+                              </span>
+                            </td>
+                          ))}
+                        </tr>
+                        <tr>
+                          <td className="p-4 font-black text-zinc-400 uppercase text-[9px] tracking-widest bg-zinc-50">Localização</td>
+                          {comparingCandidates.map(c => (
+                            <td key={c.candidate_id} className="p-6 text-center border-x border-zinc-50 bg-zinc-50/30">
+                              <p className="font-bold">{c.city}/{c.state}</p>
+                              <p className="text-[10px] text-zinc-400">{c.distance_km}km de distância</p>
+                            </td>
+                          ))}
+                        </tr>
+                        <tr>
+                          <td className="p-4 font-black text-zinc-400 uppercase text-[9px] tracking-widest">Pontos Fortes</td>
+                          {comparingCandidates.map(c => (
+                            <td key={c.candidate_id} className="p-6 border-x border-zinc-50 align-top">
+                              <div className="flex flex-col gap-2">
+                                {c.strengths.map((s, i) => (
+                                  <div key={i} className="flex gap-2 text-[10px] font-bold text-green-700 bg-green-50 p-2 rounded-lg italic border border-green-100">
+                                    <CheckCircle2 size={12} className="shrink-0" />
+                                    "{s}"
+                                  </div>
+                                ))}
+                              </div>
+                            </td>
+                          ))}
+                        </tr>
+                        <tr>
+                          <td className="p-4 font-black text-zinc-400 uppercase text-[9px] tracking-widest bg-zinc-50">Principais Riscos</td>
+                          {comparingCandidates.map(c => (
+                            <td key={c.candidate_id} className="p-6 border-x border-zinc-50 bg-zinc-50/30 align-top">
+                              <p className="text-[10px] font-bold text-red-700 p-3 bg-red-50 rounded-xl border border-red-100 italic">
+                                "{c.risk_reason}"
+                              </p>
+                            </td>
+                          ))}
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <PanelCard 
+                    title="Match de Vaga Inteligente"
                 icon={Target}
                 description="Encontre os candidatos mais compatíveis com uma vaga específica usando IA."
               >
@@ -568,6 +768,21 @@ export default function NexusAI() {
 
                           {/* Score */}
                           <div className="flex items-center gap-6 px-6 md:border-l border-zinc-100">
+                            <div className="flex flex-col items-center gap-2 mr-4">
+                              <button 
+                                onClick={() => toggleComparison(result)}
+                                className={cn(
+                                  "w-10 h-10 rounded-xl flex items-center justify-center transition-all border",
+                                  comparingCandidates.find(c => c.candidate_id === result.candidate_id)
+                                    ? "bg-fadel-red text-white border-fadel-red animate-pulse"
+                                    : "bg-white text-zinc-400 border-zinc-200 hover:border-zinc-900 hover:text-zinc-900 shadow-sm"
+                                )}
+                                title="Adicionar para comparar"
+                              >
+                                {comparingCandidates.find(c => c.candidate_id === result.candidate_id) ? <Target size={18} /> : <Search size={18} />}
+                              </button>
+                              <span className="text-[8px] font-black uppercase text-zinc-400">Comparar</span>
+                            </div>
                             <div className="text-center shrink-0">
                               <p className={cn(
                                 "text-3xl font-black leading-none mb-1",
@@ -622,11 +837,13 @@ export default function NexusAI() {
                         </div>
                       </motion.div>
                     ))}
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
-          )}
+                )}
+              </>
+            )}
+          </div>
+        )}
 
           {activeView === 'history' && (
             <div className="space-y-6">
@@ -638,20 +855,35 @@ export default function NexusAI() {
                 </button>
               </div>
 
-              {[1, 2, 3].map(i => (
-                <div key={i} className="bg-white border border-zinc-200 rounded-3xl p-6 flex items-center justify-between hover:border-zinc-900 transition-all cursor-pointer group">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-zinc-50 text-zinc-900 rounded-2xl flex items-center justify-center border border-zinc-100 group-hover:bg-zinc-900 group-hover:text-white transition-all">
-                      <Target size={20} />
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-black text-zinc-900">Análise: Motorista Carreteiro - Tatuí</h4>
-                      <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mt-1">20 Mar 2024 • 14:35 • 45 candidatos analisados</p>
-                    </div>
-                  </div>
-                  <ChevronRight size={18} className="text-zinc-200 group-hover:text-zinc-900 transition-all" />
+              {isLoadingSessions ? (
+                <div className="flex flex-col items-center justify-center py-20 space-y-4">
+                  <div className="w-12 h-12 border-4 border-zinc-200 border-t-zinc-900 rounded-full animate-spin" />
+                  <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Carregando Histórico...</p>
                 </div>
-              ))}
+              ) : sessions.length === 0 ? (
+                <div className="p-12 border-2 border-dashed border-zinc-200 rounded-[32px] text-center">
+                  <p className="text-sm font-bold text-zinc-400">Nenhuma consulta realizada recentemente.</p>
+                </div>
+              ) : (
+                sessions.map(session => (
+                  <div key={session.id} className="bg-white border border-zinc-200 rounded-3xl p-6 flex items-center justify-between hover:border-zinc-900 transition-all cursor-pointer group">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 bg-zinc-50 text-zinc-900 rounded-2xl flex items-center justify-center border border-zinc-100 group-hover:bg-zinc-900 group-hover:text-white transition-all">
+                        {session.search_type === 'match-job' ? <Target size={20} /> : <MessageSquare size={20} />}
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-black text-zinc-900">
+                          {session.search_type === 'match-job' ? 'Match de Vaga' : 'Conversa com Nexus AI'}
+                        </h4>
+                        <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mt-1">
+                          {new Date(session.created_at).toLocaleDateString()} • {new Date(session.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • Precisão: {session.precision_mode}
+                        </p>
+                      </div>
+                    </div>
+                    <ChevronRight size={18} className="text-zinc-200 group-hover:text-zinc-900 transition-all" />
+                  </div>
+                ))
+              )}
             </div>
           )}
         </div>
@@ -762,7 +994,9 @@ export default function NexusAI() {
             </button>
 
             <button 
-              onClick={() => toast.success("Configurações Nexus: Pesos e critérios globais atualizados.")}
+              onClick={() => {
+                setShowSettings(true);
+              }}
               className="w-full bg-white border border-zinc-200 p-6 rounded-3xl flex items-center justify-between hover:shadow-xl hover:shadow-zinc-200/40 hover:-translate-y-1 transition-all group overflow-hidden relative"
             >
                <div className="absolute top-0 right-0 w-24 h-24 bg-zinc-50 rounded-full blur-2xl -mr-12 -mt-12 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -798,6 +1032,126 @@ export default function NexusAI() {
           </div>
         </div>
       </div>
+
+      {/* Settings Modal */}
+      <AnimatePresence>
+        {showSettings && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-zinc-900/40 backdrop-blur-sm"
+              onClick={() => setShowSettings(false)}
+            />
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="relative w-full max-w-2xl bg-white rounded-[40px] shadow-3xl overflow-hidden"
+            >
+              <div className="p-8 border-b border-zinc-100 flex items-center justify-between bg-zinc-50/50">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-zinc-900 text-white rounded-2xl">
+                    <SettingsIcon size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-black text-zinc-900 tracking-tighter">Configurações do Nexus AI</h3>
+                    <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Ajuste os algoritmos de match para sua unidade</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setShowSettings(false)}
+                  className="p-3 bg-white text-zinc-400 hover:bg-zinc-100 hover:text-zinc-900 rounded-2xl transition-all"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="p-10 max-h-[70vh] overflow-y-auto space-y-10">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-4">
+                     <h4 className="text-[10px] font-black text-zinc-900 uppercase tracking-[0.2em] mb-4">Padronização de Match</h4>
+                     <div className="space-y-6">
+                        <div className="space-y-2">
+                           <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Precisão Padrão</label>
+                           <select 
+                             className="w-full p-4 bg-zinc-100 border border-transparent rounded-2xl text-xs font-bold focus:bg-white focus:border-zinc-200 outline-none"
+                             value={settings?.default_precision_mode || 'Equilibrada'}
+                             onChange={(e) => setSettings({ ...settings, default_precision_mode: e.target.value })}
+                           >
+                             <option>Flexível</option>
+                             <option>Equilibrada</option>
+                             <option>Rigorosa</option>
+                           </select>
+                        </div>
+                        <div className="space-y-2">
+                           <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Raio de Distância (km)</label>
+                           <input 
+                             type="number" 
+                             step="5" 
+                             value={settings?.default_distance_radius_km || 50} 
+                             onChange={(e) => setSettings({ ...settings, default_distance_radius_km: Number(e.target.value) })}
+                             className="w-full p-4 bg-zinc-100 border border-transparent rounded-2xl text-xs font-bold" 
+                           />
+                        </div>
+                     </div>
+                  </div>
+
+                  <div className="space-y-4">
+                     <h4 className="text-[10px] font-black text-zinc-900 uppercase tracking-[0.2em] mb-4">Pesos dos Algoritmos (%)</h4>
+                     <div className="space-y-4">
+                        {[
+                          { label: 'Localização', key: 'weight_location', val: settings?.weight_location ?? 10 },
+                          { label: 'Experiência', key: 'weight_experience', val: settings?.weight_experience ?? 20 },
+                          { label: 'Hard Skills', key: 'weight_hard_skills', val: settings?.weight_hard_skills ?? 20 },
+                          { label: 'Soft Skills', key: 'weight_soft_skills', val: settings?.weight_soft_skills ?? 15 },
+                          { label: 'DISC Behavioral', key: 'weight_disc', val: settings?.weight_disc ?? 15 },
+                        ].map(w => (
+                          <div key={w.key} className="space-y-2 group cursor-pointer" onClick={() => {
+                            const current = settings?.[w.key] ?? w.val;
+                            const next = current >= 40 ? 0 : current + 5;
+                            setSettings({ ...settings, [w.key]: next });
+                          }}>
+                            <div className="flex justify-between text-[10px] font-black uppercase tracking-widest">
+                               <span className="text-zinc-500 group-hover:text-zinc-900 transition-colors">{w.label}</span>
+                               <span className="text-zinc-900">{w.val}%</span>
+                            </div>
+                            <div className="h-1 bg-zinc-100 rounded-full overflow-hidden">
+                               <div className="h-full bg-zinc-900 transition-all duration-500" style={{ width: `${w.val}%` }} />
+                            </div>
+                          </div>
+                        ))}
+                     </div>
+                  </div>
+                </div>
+
+                <div className="bg-amber-50 p-6 rounded-3xl border border-amber-100 flex items-start gap-4">
+                   <AlertCircle className="text-amber-500 shrink-0 mt-1" size={18} />
+                   <p className="text-[11px] font-bold text-amber-900 leading-relaxed italic">
+                     "As mudanças nos pesos impactam diretamente o score gerado pela IA. Recomendamos cautela ao alterar pesos comportamentais para vagas operacionais."
+                   </p>
+                </div>
+              </div>
+
+              <div className="p-8 border-t border-zinc-100 bg-zinc-50/50 flex items-center justify-end gap-4">
+                <button 
+                  onClick={() => setShowSettings(false)}
+                  className="px-8 py-4 text-xs font-black text-zinc-500 uppercase tracking-widest hover:text-zinc-900"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  onClick={() => saveSettings(settings)}
+                  className="px-10 py-4 bg-zinc-900 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-xl shadow-zinc-900/10 active:scale-95 transition-all"
+                >
+                  Salvar Alterações
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
