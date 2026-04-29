@@ -6,9 +6,9 @@ import { cn } from "@/src/lib/utils";
 //
 // Cores semânticas:
 //   default   → zinc
-//   primary   → amber (cor da marca)
+//   primary   → navy (cor da marca)
 //   success   → emerald
-//   warning   → amber escuro
+//   warning   → red
 //   danger    → red
 //   info      → blue
 //   purple    → violet (misto/pagamentos combinados)
@@ -40,9 +40,9 @@ interface BadgeProps {
 
 const colorMap: Record<BadgeColor, string> = {
   default:  "bg-zinc-100  text-zinc-700  border border-zinc-200",
-  primary:  "bg-amber-50  text-amber-700 border border-amber-200",
+  primary:  "bg-fadel-navy/5 text-fadel-navy border border-fadel-navy/10",
   success:  "bg-emerald-50 text-emerald-700 border border-emerald-200",
-  warning:  "bg-yellow-50 text-yellow-700 border border-yellow-200",
+  warning:  "bg-fadel-red/5 text-fadel-red border border-fadel-red/10",
   danger:   "bg-red-50    text-red-700   border border-red-200",
   info:     "bg-blue-50   text-blue-700  border border-blue-200",
   purple:   "bg-violet-50 text-violet-700 border border-violet-200",
@@ -52,9 +52,9 @@ const colorMap: Record<BadgeColor, string> = {
 
 const dotColorMap: Record<BadgeColor, string> = {
   default:  "bg-zinc-400",
-  primary:  "bg-amber-500",
+  primary:  "bg-fadel-navy",
   success:  "bg-emerald-500",
-  warning:  "bg-yellow-500",
+  warning:  "bg-fadel-red",
   danger:   "bg-red-500",
   info:     "bg-blue-500",
   purple:   "bg-violet-500",

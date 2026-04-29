@@ -226,22 +226,22 @@ export default function HRTools() {
         label: 'Respostas Recebidas', 
         value: allResponses.length.toString(), 
         icon: Users, 
-        color: 'text-amber-600', 
-        bg: 'bg-amber-50' 
+        color: 'text-fadel-red', 
+        bg: 'bg-fadel-red/5' 
       },
       { 
         label: 'Taxa de Conclusão', 
         value: tools.length > 0 ? '82%' : '--', 
         icon: BarChart3, 
-        color: 'text-zinc-600', 
-        bg: 'bg-zinc-50' 
+        color: 'text-fadel-navy', 
+        bg: 'bg-fadel-navy/5' 
       },
       { 
         label: 'Tempo Médio', 
         value: '12m', 
         icon: Target, 
-        color: 'text-amber-500', 
-        bg: 'bg-amber-50' 
+        color: 'text-fadel-blue', 
+        bg: 'bg-fadel-blue/5' 
       },
     ];
 
@@ -342,16 +342,17 @@ export default function HRTools() {
           </div>
 
           <div className="lg:col-span-4 space-y-6">
-            <div className="bg-zinc-900 text-white rounded-[32px] p-8 relative overflow-hidden">
-               <div className="absolute top-0 right-0 w-32 h-32 bg-amber-400/20 rounded-full blur-3xl -mr-16 -mt-16" />
-               <h3 className="text-xs font-black uppercase tracking-[0.2em] mb-4 text-amber-400">Insights Nexus AI</h3>
-               <p className="text-sm font-bold leading-relaxed mb-6 italic opacity-90">
-                 "Candidatos com perfil <span className="text-green-400">Estável (S)</span> possuem maior retenção em unidades com alto volume de entregas metropolitanas."
-               </p>
-               <button className="w-full py-4 bg-white text-zinc-900 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-amber-400 transition-all flex items-center justify-center gap-2">
-                 <Sparkles size={14} />
-                 Análise Comportamental
-               </button>
+            <div className="bg-fadel-navy text-white rounded-[32px] p-8 relative overflow-hidden shadow-2xl">
+               <div className="absolute top-0 right-0 w-48 h-48 bg-fadel-blue/10 rounded-full blur-3xl opacity-50 -mr-20 -mt-20" />
+               <div className="relative z-10">
+                 <h3 className="text-xs font-black uppercase tracking-[0.2em] mb-4 text-fadel-blue">Insights Nexus AI</h3>
+                 <p className="text-sm font-bold leading-relaxed mb-6 italic opacity-90">
+                   "Candidatos com perfil <span className="text-fadel-blue">Estabilidade (S)</span> possuem maior retenção em unidades Fadel com alto volume de entregas."
+                 </p>
+                 <button className="w-full py-4 bg-white text-fadel-navy rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-fadel-red hover:text-white transition-all flex items-center justify-center gap-2 shadow-lg">
+                   <Sparkles size={14} /> Análise Comportamental
+                 </button>
+               </div>
             </div>
 
             <div className="bg-white border border-zinc-200 rounded-[32px] p-6 shadow-sm">
@@ -391,9 +392,11 @@ export default function HRTools() {
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           key={tool.id} 
-          className="bg-white border border-zinc-200 rounded-[32px] p-8 flex flex-col hover:shadow-xl hover:shadow-zinc-200/40 hover:-translate-y-1 transition-all group relative overflow-hidden"
+          className="bg-white border border-zinc-200 rounded-[32px] p-8 flex flex-col hover:shadow-xl hover:shadow-zinc-200/40 hover:-translate-y-1 transition-all group relative"
         >
-          <div className="absolute top-0 right-0 w-32 h-32 bg-zinc-50 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-amber-50 transition-colors" />
+          <div className="absolute inset-0 rounded-[32px] overflow-hidden pointer-events-none">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-zinc-50 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-fadel-navy/5 transition-colors" />
+          </div>
           
           <div className="flex justify-between items-start mb-6 relative z-10">
             <div className={cn(
@@ -785,27 +788,27 @@ export default function HRTools() {
       {showCreateModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-300">
           <motion.div 
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-[40px] w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl"
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            className="bg-white rounded-[40px] w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col shadow-2xl m-4"
           >
             <div className="p-8 border-b border-zinc-100 flex justify-between items-center bg-zinc-50/50">
                <div>
                   <h2 className="text-2xl font-black text-zinc-900 tracking-tight">Nova Ferramenta</h2>
                   <p className="text-xs text-zinc-500 font-bold uppercase tracking-widest mt-1">Configure campos e critérios</p>
                </div>
-               <button onClick={() => setShowCreateModal(false)} className="p-3 bg-white border border-zinc-200 rounded-2xl text-zinc-400 hover:text-zinc-900 transition-all">
+               <button onClick={() => setShowCreateModal(false)} className="p-3 bg-white border border-zinc-200 rounded-2xl text-zinc-400 hover:text-fadel-navy hover:border-fadel-navy transition-all">
                   <Plus size={20} className="rotate-45" />
                </button>
             </div>
             
-            <form onSubmit={handleCreateTool} className="flex-1 overflow-y-auto p-8 space-y-8">
-              <div className="p-6 bg-amber-50 border border-amber-200 rounded-3xl space-y-4">
+            <form onSubmit={handleCreateTool} className="flex-1 overflow-y-auto p-8 space-y-8 custom-scrollbar">
+              <div className="p-6 bg-fadel-navy/5 border border-fadel-navy/10 rounded-3xl space-y-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-amber-500 rounded-xl flex items-center justify-center text-white">
+                  <div className="w-8 h-8 bg-fadel-navy rounded-xl flex items-center justify-center text-white">
                     <Zap size={16} />
                   </div>
-                  <h4 className="text-[10px] font-black text-amber-950 uppercase tracking-widest">Modelos Rápidos</h4>
+                  <h4 className="text-[10px] font-black text-fadel-navy uppercase tracking-widest">Modelos Rápidos</h4>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <button 
@@ -820,7 +823,7 @@ export default function HRTools() {
                         { question_text: 'Como você prefere se comunicar com a equipe?', question_type: 'select', is_required: true }
                       ]
                     })}
-                    className="p-4 bg-white border border-amber-200 rounded-2xl text-[9px] font-black text-zinc-600 uppercase tracking-widest hover:border-amber-500 transition-all text-center"
+                    className="p-4 bg-white border border-zinc-200 rounded-2xl text-[9px] font-black text-zinc-600 uppercase tracking-widest hover:border-fadel-navy transition-all text-center"
                   >
                     Perfil DISC
                   </button>
@@ -836,7 +839,7 @@ export default function HRTools() {
                         { question_text: 'De 0 a 10, quanto você domina Y?', question_type: 'number', is_required: true }
                       ]
                     })}
-                    className="p-4 bg-white border border-amber-200 rounded-2xl text-[9px] font-black text-zinc-600 uppercase tracking-widest hover:border-amber-500 transition-all text-center"
+                    className="p-4 bg-white border border-zinc-200 rounded-2xl text-[9px] font-black text-zinc-600 uppercase tracking-widest hover:border-fadel-navy transition-all text-center"
                   >
                     Teste Técnico
                   </button>

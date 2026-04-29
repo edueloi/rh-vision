@@ -110,7 +110,7 @@ export default function Dashboard() {
     );
   }
 
-  const COLORS = ['#09090b', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444'];
+  const COLORS = ['#0a1c3e', '#cc1f26', '#6cb4e4', '#10b981', '#f5a623', '#8b5cf6'];
 
   return (
     <div className="space-y-8 pb-20">
@@ -157,13 +157,13 @@ export default function Dashboard() {
            <div className="flex items-center gap-2">
               <button 
                 onClick={fetchDashboardData}
-                className="p-3 bg-white border border-zinc-200 text-zinc-400 rounded-2xl hover:text-zinc-900 hover:border-zinc-900 transition-all shadow-sm"
+                className="p-3 bg-white border border-zinc-200 text-zinc-400 rounded-2xl hover:text-fadel-navy hover:border-fadel-navy transition-all shadow-sm"
               >
                  <RefreshCw size={18} className={loading ? "animate-spin" : ""} />
               </button>
               <Link 
                 to="/vagas"
-                className="px-6 py-3 bg-zinc-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-zinc-800 transition-all flex items-center gap-2 shadow-lg shadow-zinc-900/10"
+                className="px-6 py-3 bg-fadel-navy text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all flex items-center gap-2 shadow-lg shadow-fadel-navy/10"
               >
                  <Plus size={16} /> Nova Vaga
               </Link>
@@ -174,11 +174,11 @@ export default function Dashboard() {
       {/* Main Metrics Grid */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         {[
-          { label: 'Vagas Ativas', value: data.stats.active_jobs, icon: Briefcase, color: 'info' as const, trend: '+12%' },
-          { label: 'Candidatos', value: data.stats.total_candidates, icon: Users, color: 'purple' as const, trend: '+8%' },
+          { label: 'Vagas Ativas', value: data.stats.active_jobs, icon: Briefcase, color: 'navy' as const, trend: '+12%' },
+          { label: 'Candidatos', value: data.stats.total_candidates, icon: Users, color: 'navy' as const, trend: '+8%' },
           { label: 'Novos no Período', value: data.stats.new_candidates, icon: UserCheck, color: 'success' as const, trend: '+24%' },
-          { label: 'Compatíveis (>80%)', value: data.stats.compatible_candidates, icon: Target, color: 'warning' as const, trend: '+5%' },
-          { label: 'DISC Respondidos', value: data.stats.tool_responses, icon: Brain, color: 'danger' as const, trend: '+18%' },
+          { label: 'Compatíveis (>80%)', value: data.stats.compatible_candidates, icon: Target, color: 'red' as const, trend: '+5%' },
+          { label: 'DISC Respondidos', value: data.stats.tool_responses, icon: Brain, color: 'red' as const, trend: '+18%' },
         ].map((stat, i) => (
           <React.Fragment key={stat.label}>
             <StatCard 
@@ -237,7 +237,7 @@ export default function Dashboard() {
                    { label: 'Triagem', count: data.funnel.find((f: any) => f.status === 'Triagem')?.count || 0, color: 'bg-zinc-100' },
                    { label: 'IA Match', count: data.funnel.find((f: any) => f.status === 'IA Match')?.count || 0, color: 'bg-blue-50 text-blue-600' },
                    { label: 'Entrevista', count: data.funnel.find((f: any) => f.status === 'Entrevista')?.count || 0, color: 'bg-purple-50 text-purple-600' },
-                   { label: 'Finalista', count: data.funnel.find((f: any) => f.status === 'Finalista')?.count || 0, color: 'bg-amber-50 text-amber-600 text-amber-600' },
+                   { label: 'Finalista', count: data.funnel.find((f: any) => f.status === 'Finalista')?.count || 0, color: 'bg-fadel-navy/5 text-fadel-navy border border-fadel-navy/10' },
                    { label: 'Aprovado', count: data.funnel.find((f: any) => f.status === 'Aprovado')?.count || 0, color: 'bg-emerald-50 text-emerald-600' },
                    { label: 'Contratado', count: data.funnel.find((f: any) => f.status === 'Contratado')?.count || 0, color: 'bg-zinc-900 text-white' },
                  ].map((stage, i) => (
@@ -344,15 +344,15 @@ export default function Dashboard() {
         {/* AI Insights & Recommended */}
         <div className="lg:col-span-4 space-y-8">
            
-           <div className="bg-zinc-900 rounded-[40px] p-8 text-white relative overflow-hidden shadow-2xl">
-              <div className="absolute top-0 right-0 w-48 h-48 bg-blue-500/10 rounded-full blur-3xl opacity-50 -mr-20 -mt-20" />
+           <div className="bg-fadel-navy rounded-[40px] p-8 text-white relative overflow-hidden shadow-2xl">
+              <div className="absolute top-0 right-0 w-48 h-48 bg-fadel-blue/10 rounded-full blur-3xl opacity-50 -mr-20 -mt-20" />
               <div className="relative z-10">
                 <div className="flex items-center gap-3 mb-6">
-                   <div className="w-10 h-10 bg-white/10 rounded-2xl flex items-center justify-center text-blue-400">
+                   <div className="w-10 h-10 bg-white/10 rounded-2xl flex items-center justify-center text-fadel-blue">
                       <Sparkles size={20} />
                    </div>
                    <div>
-                      <h3 className="text-xs font-black uppercase tracking-[0.2em] text-blue-400">Nexus AI Advisor</h3>
+                      <h3 className="text-xs font-black uppercase tracking-[0.2em] text-fadel-blue">Nexus AI Advisor</h3>
                       <p className="text-[9px] font-bold text-white/40">ANÁLISE EM TEMPO REAL</p>
                    </div>
                 </div>
@@ -360,12 +360,12 @@ export default function Dashboard() {
                 <div className="space-y-6 mb-8">
                    <div className="p-4 bg-white/5 rounded-2xl border border-white/10">
                       <p className="text-xs font-bold leading-relaxed italic opacity-90 text-white">
-                        "Sua taxa de conversão de <span className="text-blue-400">Pendente</span> para <span className="text-blue-400">Entrevista</span> aumentou 15% após a última triagem automática."
+                        "Sua taxa de conversão de <span className="text-fadel-blue">Pendente</span> para <span className="text-fadel-blue">Entrevista</span> aumentou 15% após a última triagem automática."
                       </p>
                    </div>
                    <div className="p-4 bg-white/5 rounded-2xl border border-white/10">
                       <p className="text-xs font-bold leading-relaxed italic opacity-90 text-white">
-                        "A vaga <span className="text-amber-400">Analista Financeiro</span> está com excesso de candidatos abaixo de 60% de compatibilidade."
+                        "A vaga <span className="text-fadel-red">Analista Financeiro</span> está com excesso de candidatos abaixo de 60% de compatibilidade."
                       </p>
                    </div>
                 </div>

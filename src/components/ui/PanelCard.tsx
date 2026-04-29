@@ -54,11 +54,11 @@ export function PanelCard({
             {Icon && (
               <div
                 className={cn(
-                  "flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-amber-100 bg-amber-50",
+                  "flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-fadel-navy/10 bg-fadel-navy/5",
                   iconWrapClassName
                 )}
               >
-                <Icon size={20} className={cn("text-amber-600", iconClassName)} />
+                <Icon size={20} className={cn("text-fadel-navy", iconClassName)} />
               </div>
             )}
 

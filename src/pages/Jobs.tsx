@@ -164,7 +164,7 @@ export default function Jobs() {
 
           <button 
             onClick={() => { setView('create'); setSelectedJob(null); setImportInitialData(null); }}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 bg-zinc-900 hover:bg-amber-400 hover:text-amber-950 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-lg shadow-zinc-900/10"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 bg-fadel-navy hover:bg-black text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-lg shadow-fadel-navy/10"
           >
             <Plus size={16} /> Nova Vaga
           </button>
@@ -204,7 +204,7 @@ export default function Jobs() {
       >
         {loading ? (
           <div className="p-20 flex flex-col items-center justify-center gap-4">
-            <div className="w-10 h-10 border-4 border-amber-400 border-t-transparent rounded-full animate-spin"></div>
+            <div className="w-10 h-10 border-4 border-fadel-navy border-t-transparent rounded-full animate-spin"></div>
             <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Carregando Vagas...</p>
           </div>
         ) : jobs.length === 0 ? (
@@ -218,7 +218,7 @@ export default function Jobs() {
             </div>
             <button 
               onClick={() => setView('create')}
-              className="px-6 py-2.5 bg-amber-400 text-amber-950 text-[10px] font-black uppercase tracking-widest rounded-xl shadow-lg shadow-amber-400/10"
+              className="px-6 py-2.5 bg-fadel-navy text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-lg shadow-fadel-navy/10"
             >
               Começar Agora
             </button>
@@ -241,12 +241,12 @@ export default function Jobs() {
                       <div className="flex items-start gap-4">
                         <div className={cn(
                           "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border-2",
-                          job.is_public ? "bg-amber-50 border-amber-100 text-amber-600" : "bg-zinc-50 border-zinc-100 text-zinc-300"
+                          job.is_public ? "bg-fadel-red/5 border-fadel-red/10 text-fadel-red" : "bg-zinc-50 border-zinc-100 text-zinc-300"
                         )}>
                           {job.is_public ? <Globe size={20} /> : <Briefcase size={20} />}
                         </div>
                         <div className="flex flex-col min-w-0">
-                          <span className="text-sm font-black text-zinc-900 group-hover:text-amber-600 transition-colors truncate">{job.title}</span>
+                          <span className="text-sm font-black text-zinc-900 group-hover:text-fadel-red transition-colors truncate">{job.title}</span>
                           <div className="flex items-center gap-2 mt-1">
                             <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">{job.department || "Geral"}</span>
                             <span className="w-1 h-1 bg-zinc-200 rounded-full"></span>
@@ -290,7 +290,7 @@ export default function Jobs() {
                         <button 
                           onClick={(e) => { e.stopPropagation(); setSelectedJob(job); setShowDetails(true); }}
                           title="Ver Detalhes"
-                          className="p-2.5 bg-white border border-zinc-200 rounded-xl text-zinc-500 hover:text-amber-600 hover:border-amber-400 transition-all shadow-sm active:scale-95"
+                          className="p-2.5 bg-white border border-zinc-200 rounded-xl text-zinc-500 hover:text-fadel-red hover:border-fadel-red/40 transition-all shadow-sm active:scale-95"
                         >
                           <Eye size={16} />
                         </button>
@@ -307,8 +307,8 @@ export default function Jobs() {
                           className={cn(
                             "p-2.5 border rounded-xl transition-all shadow-sm active:scale-95",
                             job.is_public 
-                              ? "bg-amber-400 border-amber-500 text-amber-950 hover:bg-amber-500" 
-                              : "bg-white border-zinc-200 text-zinc-500 hover:text-amber-600 hover:border-amber-400"
+                              ? "bg-fadel-red border-fadel-red/20 text-white hover:bg-red-700" 
+                              : "bg-white border-zinc-200 text-zinc-500 hover:text-fadel-red hover:border-fadel-red/40"
                           )}
                         >
                           <Globe size={16} />

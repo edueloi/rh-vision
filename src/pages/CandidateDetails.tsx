@@ -363,14 +363,14 @@ export default function CandidateDetails({ candidate, onClose, onEdit, onRefresh
                   initial={{ height: 0, opacity: 0 }}
                   animate={{ height: 'auto', opacity: 1 }}
                   exit={{ height: 0, opacity: 0 }}
-                  className="bg-white p-6 rounded-3xl border-2 border-amber-400/20 overflow-hidden"
+                  className="bg-white p-6 rounded-3xl border-2 border-fadel-navy/20 overflow-hidden"
                 >
-                  <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-4">Selecionar Oportunidade</p>
+                  <p className="text-[10px] font-black text-fadel-navy uppercase tracking-widest mb-4">Selecionar Oportunidade</p>
                   <div className="flex gap-3">
                     <select 
                       value={selectedJobId}
                       onChange={(e) => setSelectedJobId(e.target.value)}
-                      className="flex-1 px-4 py-3 bg-zinc-100 border-none rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-amber-400"
+                      className="flex-1 px-4 py-3 bg-zinc-100 border-none rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-fadel-navy"
                     >
                       <option value="">Escolha a vaga...</option>
                       {availableJobs.map(j => (
@@ -380,7 +380,7 @@ export default function CandidateDetails({ candidate, onClose, onEdit, onRefresh
                     <button 
                       onClick={handleLinkJob}
                       disabled={loading || !selectedJobId}
-                      className="px-6 py-3 bg-zinc-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-amber-400 hover:text-amber-950 transition-all disabled:opacity-50"
+                      className="px-6 py-3 bg-fadel-navy text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all disabled:opacity-50"
                     >
                       Vincular
                     </button>
@@ -412,7 +412,7 @@ export default function CandidateDetails({ candidate, onClose, onEdit, onRefresh
                           <Building2 size={20} />
                         </div>
                         <div>
-                          <p className="text-xs font-black text-zinc-900 group-hover:text-amber-600 transition-colors">{match.job_title}</p>
+                          <p className="text-xs font-black text-zinc-900 group-hover:text-fadel-red transition-colors">{match.job_title}</p>
                           <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">{match.job_city}/{match.job_state}</p>
                         </div>
                       </div>
@@ -436,7 +436,7 @@ export default function CandidateDetails({ candidate, onClose, onEdit, onRefresh
                        <button 
                         onClick={() => runAiAnalysis(match.job_id)}
                         disabled={loading}
-                        className="flex items-center gap-2 px-4 py-2 bg-zinc-100 hover:bg-amber-400 hover:text-amber-950 text-zinc-500 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all active:scale-95"
+                        className="flex items-center gap-2 px-4 py-2 bg-fadel-navy/5 hover:bg-fadel-navy hover:text-white text-fadel-navy rounded-xl text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 border border-fadel-navy/10"
                        >
                          <Sparkles size={14} /> 
                          {match.compatibility_score ? "Refazer Análise" : "Rodar Análise IA"}
@@ -451,12 +451,12 @@ export default function CandidateDetails({ candidate, onClose, onEdit, onRefresh
 
         {activeTab === 'ai' && (
            <div className="space-y-8">
-             <div className="bg-amber-50 p-6 rounded-3xl border border-amber-100">
-               <div className="flex items-center gap-3 mb-4 text-amber-950">
-                 <Sparkles size={20} />
+             <div className="bg-fadel-red/5 p-6 rounded-3xl border border-fadel-red/20">
+               <div className="flex items-center gap-3 mb-4 text-fadel-navy">
+                 <Sparkles size={20} className="text-fadel-red" />
                  <h4 className="text-xs font-black uppercase tracking-widest">Relatório Gemini AI</h4>
                </div>
-               <p className="text-[11px] font-bold text-amber-800 leading-relaxed">
+               <p className="text-[11px] font-bold text-zinc-500 leading-relaxed">
                  O Gemini analisa currículos, disc e requisitos das vagas para gerar insights profundos sobre o fit cultural e técnico.
                </p>
              </div>
@@ -565,18 +565,18 @@ export default function CandidateDetails({ candidate, onClose, onEdit, onRefresh
                 </div>
               ))}
 
-              <div className="relative pl-8">
-                <div className="absolute left-[-4px] top-1 w-2 h-2 rounded-full bg-amber-400" />
-                <div className="bg-amber-50 p-4 rounded-2xl border border-amber-100">
-                  <div className="flex items-center gap-2 mb-2 text-amber-950">
+              <div className="relative pl-8 text-fadel-navy">
+                <div className="absolute left-[-4px] top-1 w-2 h-2 rounded-full bg-fadel-navy" />
+                <div className="bg-fadel-navy/5 p-4 rounded-2xl border border-fadel-navy/10">
+                  <div className="flex items-center gap-2 mb-2 text-fadel-navy">
                     <Plus size={14} />
                     <span className="text-[10px] font-black uppercase tracking-widest">Adicionar Nota</span>
                   </div>
                   <textarea 
                     placeholder="Escreva uma observação interna..."
-                    className="w-full bg-white border border-amber-200 rounded-xl p-3 text-[11px] font-bold focus:ring-2 focus:ring-amber-400 outline-none min-h-[80px]"
+                    className="w-full bg-white border border-fadel-navy/10 rounded-xl p-3 text-[11px] font-bold focus:ring-2 focus:ring-fadel-navy outline-none min-h-[80px]"
                   />
-                  <button className="mt-3 px-4 py-2 bg-amber-400 text-amber-950 text-[9px] font-black uppercase tracking-widest rounded-lg shadow-md shadow-amber-400/20 active:scale-95 transition-all">
+                  <button className="mt-3 px-4 py-2 bg-fadel-navy text-white text-[9px] font-black uppercase tracking-widest rounded-lg shadow-md shadow-fadel-navy/20 active:scale-95 transition-all">
                     Salvar Nota
                   </button>
                 </div>

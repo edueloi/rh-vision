@@ -10,16 +10,26 @@ import { cn } from "@/src/lib/utils";
 //  • Mobile (2 colunas): valor grande, ícone menor, menos padding
 //  • Tablet+ (4 colunas): versão completa com hover animado
 //
-// Variantes de cor de ícone: default (amber) | success | info | danger | purple | warning
+// Variantes de cor de ícone: default (navy) | success | info | danger | purple | warning
 // ─────────────────────────────────────────────────────────────────────────────
 
-type StatCardColor = "default" | "success" | "info" | "danger" | "purple" | "warning";
+type StatCardColor = "default" | "success" | "info" | "danger" | "purple" | "warning" | "navy" | "red";
 
 const colorMap: Record<StatCardColor, { wrap: string; icon: string; glow: string }> = {
   default: {
-    wrap: "bg-amber-50 border-amber-100 group-hover:bg-amber-500 group-hover:border-amber-500",
-    icon: "text-amber-600 group-hover:text-white",
-    glow: "bg-amber-500/5",
+    wrap: "bg-fadel-navy/5 border-fadel-navy/10 group-hover:bg-fadel-navy group-hover:border-fadel-navy",
+    icon: "text-fadel-navy group-hover:text-white",
+    glow: "bg-fadel-navy/5",
+  },
+  navy: {
+    wrap: "bg-fadel-navy/5 border-fadel-navy/10 group-hover:bg-fadel-navy group-hover:border-fadel-navy",
+    icon: "text-fadel-navy group-hover:text-white",
+    glow: "bg-fadel-navy/5",
+  },
+  red: {
+    wrap: "bg-fadel-red/5 border-fadel-red/10 group-hover:bg-fadel-red group-hover:border-fadel-red",
+    icon: "text-fadel-red group-hover:text-white",
+    glow: "bg-fadel-red/5",
   },
   success: {
     wrap: "bg-emerald-50 border-emerald-100 group-hover:bg-emerald-500 group-hover:border-emerald-500",

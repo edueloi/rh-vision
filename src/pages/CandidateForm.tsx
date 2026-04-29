@@ -111,7 +111,7 @@ export default function CandidateForm({ candidate, onBack, onSuccess }: Candidat
           form="candidate-form"
           type="submit"
           disabled={loading}
-          className="px-6 py-3 bg-zinc-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-amber-400 hover:text-amber-950 transition-all active:scale-95 shadow-lg shadow-zinc-900/10 disabled:opacity-50"
+          className="px-6 py-3 bg-fadel-navy text-white rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-black transition-all active:scale-95 shadow-lg shadow-fadel-navy/10 disabled:opacity-50"
         >
           <Save size={16} /> {candidate ? 'Salvar Alterações' : 'Cadastrar Candidato'}
         </button>
@@ -278,7 +278,7 @@ export default function CandidateForm({ candidate, onBack, onSuccess }: Candidat
         {/* Sidebar do Formulário */}
         <div className="space-y-8">
            <div className="bg-zinc-900 p-8 rounded-[40px] text-white space-y-6">
-              <h3 className="text-xs font-black text-amber-400 uppercase tracking-widest flex items-center gap-2">
+              <h3 className="text-xs font-black text-fadel-red uppercase tracking-widest flex items-center gap-2">
                 Status e Controle
               </h3>
               
@@ -288,7 +288,7 @@ export default function CandidateForm({ candidate, onBack, onSuccess }: Candidat
                    <select 
                     value={formData.status}
                     onChange={e => setFormData(f => ({ ...f, status: e.target.value as any }))}
-                    className="w-full px-4 py-3 bg-zinc-800 border-none rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-amber-400 transition-all"
+                    className="w-full px-4 py-3 bg-zinc-800 border-none rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-fadel-navy transition-all"
                    >
                      {['Novo', 'Em análise', 'Compatível', 'Entrevista', 'Aprovado', 'Reprovado', 'Banco de talentos', 'Contratado'].map(s => (
                        <option key={s} value={s}>{s}</option>
@@ -301,7 +301,7 @@ export default function CandidateForm({ candidate, onBack, onSuccess }: Candidat
                    <select 
                     value={formData.desired_work_model}
                     onChange={e => setFormData(f => ({ ...f, desired_work_model: e.target.value as any }))}
-                    className="w-full px-4 py-3 bg-zinc-800 border-none rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-amber-400 transition-all"
+                    className="w-full px-4 py-3 bg-zinc-800 border-none rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-fadel-navy transition-all"
                    >
                      <option value="Presencial">Presencial</option>
                      <option value="Híbrido">Híbrido</option>
@@ -315,7 +315,7 @@ export default function CandidateForm({ candidate, onBack, onSuccess }: Candidat
                    <select 
                     value={formData.source}
                     onChange={e => setFormData(f => ({ ...f, source: e.target.value }))}
-                    className="w-full px-4 py-3 bg-zinc-800 border-none rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-amber-400 transition-all"
+                    className="w-full px-4 py-3 bg-zinc-800 border-none rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-fadel-navy transition-all"
                    >
                      <option value="Manual">Cadastro Manual</option>
                      <option value="Portal">Portal de Vagas</option>
@@ -332,8 +332,8 @@ export default function CandidateForm({ candidate, onBack, onSuccess }: Candidat
               <h3 className="text-xs font-black text-zinc-400 uppercase tracking-widest flex items-center gap-2">
                 Anexar Currículo
               </h3>
-              <div className="border-2 border-dashed border-zinc-100 rounded-3xl p-8 flex flex-col items-center justify-center text-center gap-4 hover:border-amber-400 hover:bg-amber-50/10 transition-all cursor-pointer group">
-                  <div className="w-12 h-12 bg-zinc-50 rounded-2xl flex items-center justify-center text-zinc-300 group-hover:text-amber-500 transition-colors">
+              <div className="border-2 border-dashed border-zinc-100 rounded-3xl p-8 flex flex-col items-center justify-center text-center gap-4 hover:border-fadel-navy hover:bg-fadel-navy/5 transition-all cursor-pointer group">
+                  <div className="w-12 h-12 bg-zinc-50 rounded-2xl flex items-center justify-center text-zinc-300 group-hover:text-fadel-navy transition-colors">
                     <FileText size={24} />
                   </div>
                   <div className="space-y-1">

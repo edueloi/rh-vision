@@ -98,12 +98,12 @@ function AppContent() {
       )}>
         <div className="p-8 h-full flex flex-col">
           <div className="flex items-center gap-3 mb-10">
-            <div className="w-10 h-10 bg-amber-400 rounded-2xl flex items-center justify-center text-amber-950 shadow-lg shadow-amber-400/20">
+            <div className="w-10 h-10 bg-fadel-navy rounded-2xl flex items-center justify-center text-white shadow-lg shadow-fadel-navy/20">
               <Building2 size={22} strokeWidth={3} />
             </div>
             <div>
               <h1 className="text-lg font-black text-zinc-900 tracking-tighter leading-none">FADEL RH</h1>
-              <p className="text-[10px] text-amber-600 font-black uppercase tracking-widest mt-0.5">Recrutamento Central</p>
+              <p className="text-[10px] text-fadel-red font-black uppercase tracking-widest mt-0.5">Recrutamento Central</p>
             </div>
             <button onClick={() => setSidebarOpen(false)} className="lg:hidden ml-auto p-2 text-zinc-400">
               <X size={20} />
@@ -133,7 +133,7 @@ function AppContent() {
                       onClick={() => handleUnitChange(u)}
                       className={cn(
                         "w-full text-left px-4 py-2.5 text-xs font-bold hover:bg-zinc-50 transition-colors",
-                        currentUnit.id === u.id ? "text-amber-600 bg-amber-50/50" : "text-zinc-600"
+                        currentUnit.id === u.id ? "text-fadel-red bg-red-50/50" : "text-zinc-600"
                       )}
                     >
                       {u.name}
@@ -155,26 +155,26 @@ function AppContent() {
                   className={cn(
                     "w-full flex items-center justify-between px-4 py-3.5 rounded-2xl transition-all duration-200 group text-left",
                     active 
-                      ? "bg-amber-400 text-amber-950 font-black shadow-lg shadow-amber-400/10" 
+                      ? "bg-fadel-navy text-white font-black shadow-lg shadow-fadel-navy/10" 
                       : "text-zinc-500 hover:bg-zinc-50 font-bold"
                   )}
                 >
                   <div className="flex items-center gap-3">
-                    <Icon size={18} strokeWidth={active ? 2.5 : 2} className={cn("transition-colors", active ? "text-amber-950" : "text-zinc-400 group-hover:text-zinc-900")} />
+                    <Icon size={18} strokeWidth={active ? 2.5 : 2} className={cn("transition-colors", active ? "text-white" : "text-zinc-400 group-hover:text-zinc-900")} />
                     <span className="text-[11px] uppercase tracking-widest">{item.label}</span>
                   </div>
-                  {active && <ChevronRight size={14} strokeWidth={3} className="text-amber-950/40" />}
+                  {active && <ChevronRight size={14} strokeWidth={3} className="text-white/40" />}
                 </button>
               );
             })}
           </nav>
 
           <div className="mt-auto pt-8">
-            <div className="bg-zinc-900 rounded-3xl p-5 text-white overflow-hidden relative">
-              <div className="absolute top-0 right-0 w-24 h-24 bg-amber-400/20 rounded-full -mr-12 -mt-12" />
-              <p className="text-[10px] font-black uppercase tracking-widest text-amber-400 mb-1">Acesso Master</p>
+            <div className="bg-fadel-navy rounded-3xl p-5 text-white overflow-hidden relative">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-fadel-red/20 rounded-full -mr-12 -mt-12" />
+              <p className="text-[10px] font-black uppercase tracking-widest text-fadel-red mb-1">Acesso Master</p>
               <p className="text-xs font-bold leading-relaxed mb-4 opacity-80">Você tem visão total de todas as unidades Fadel.</p>
-              <button className="w-full py-2 bg-white text-zinc-900 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-amber-400 transition-colors">
+              <button className="w-full py-2 bg-white text-fadel-navy text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-fadel-red hover:text-white transition-colors">
                 Gerenciar Master
               </button>
             </div>
@@ -244,13 +244,13 @@ function AppContent() {
           )}
 
           {!isMaster && (
-             <div className="mb-6 p-4 bg-zinc-900 text-white rounded-3xl flex items-center justify-between">
+             <div className="mb-6 p-4 bg-fadel-navy text-white rounded-3xl flex items-center justify-between">
                <div className="flex items-center gap-3">
-                 <div className="p-2 bg-amber-400 text-amber-950 rounded-xl">
+                 <div className="p-2 bg-fadel-red text-white rounded-xl">
                    <Building2 size={16} />
                  </div>
                  <p className="text-xs font-bold">
-                   Sessão Ativa: <span className="text-amber-400 font-black">{currentUnit.name}</span>. Você só vê candidatos e vagas desta localidade.
+                   Sessão Ativa: <span className="text-fadel-blue font-black">{currentUnit.name}</span>. Você só vê candidatos e vagas desta localidade.
                  </p>
                </div>
              </div>

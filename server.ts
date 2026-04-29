@@ -458,15 +458,18 @@ async function startServer() {
     const { unitId, tenantId, period = '30d' } = req.query;
     try {
       const p = period === 'all' ? '10 year' : period === '90d' ? '90 days' : period === '30d' ? '30 days' : '7 days';
-      const unitFilter = unitId && unitId !== 'master' ? 'AND unit_id = ?' : '';
+      const unitFilter = (alias?: string) => {
+        const prefix = alias ? `${alias}.` : '';
+        return unitId && unitId !== 'master' ? `AND ${prefix}unit_id = ?` : '';
+      };
       const unitParams = unitId && unitId !== 'master' ? [unitId] : [];
 
       // 1. Core Stats
       const stats = db.prepare(`
         SELECT 
-          (SELECT COUNT(*) FROM jobs WHERE tenant_id = ? ${unitFilter} AND deleted_at IS NULL AND status = 'Aberta') as active_jobs,
-          (SELECT COUNT(*) FROM candidates WHERE tenant_id = ? ${unitFilter} AND deleted_at IS NULL) as total_candidates,
-          (SELECT COUNT(*) FROM candidates WHERE tenant_id = ? ${unitFilter} AND deleted_at IS NULL AND created_at >= date('now', '-${p}')) as new_candidates,
+          (SELECT COUNT(*) FROM jobs WHERE tenant_id = ? ${unitFilter()} AND deleted_at IS NULL AND status = 'Aberta') as active_jobs,
+          (SELECT COUNT(*) FROM candidates WHERE tenant_id = ? ${unitFilter()} AND deleted_at IS NULL) as total_candidates,
+          (SELECT COUNT(*) FROM candidates WHERE tenant_id = ? ${unitFilter()} AND deleted_at IS NULL AND created_at >= date('now', '-${p}')) as new_candidates,
           (SELECT COUNT(*) FROM candidate_job_matches WHERE compatibility_score >= 80) as compatible_candidates,
           (SELECT COUNT(*) FROM hr_tool_responses) as tool_responses
       `).get(tenantId, ...unitParams, tenantId, ...unitParams, tenantId, ...unitParams) as any;
@@ -485,7 +488,7 @@ async function startServer() {
           (SELECT COUNT(*) FROM candidate_job_matches WHERE job_id = j.id) as candidates_count,
           (SELECT COUNT(*) FROM candidate_job_matches WHERE job_id = j.id AND compatibility_score >= 80) as compatible_count
         FROM jobs j
-        WHERE j.tenant_id = ? ${unitFilter} AND j.deleted_at IS NULL
+        WHERE j.tenant_id = ? ${unitFilter('j')} AND j.deleted_at IS NULL
         ORDER BY j.created_at DESC
         LIMIT 5
       `).all(tenantId, ...unitParams);
@@ -496,7 +499,7 @@ async function startServer() {
         FROM candidate_job_matches m
         JOIN candidates c ON m.candidate_id = c.id
         JOIN jobs j ON m.job_id = j.id
-        WHERE c.tenant_id = ? ${unitId && unitId !== 'master' ? 'AND c.unit_id = ?' : ''} AND m.compatibility_score >= 70
+        WHERE c.tenant_id = ? ${unitFilter('c')} AND m.compatibility_score >= 70
         ORDER BY m.compatibility_score DESC, c.created_at DESC
         LIMIT 5
       `).all(tenantId, ...unitParams);
@@ -505,7 +508,7 @@ async function startServer() {
       const recentImports = db.prepare(`
         SELECT id, name, created_at, total_files, processed_files, created_candidates, status
         FROM import_batches
-        WHERE tenant_id = ? ${unitFilter}
+        WHERE tenant_id = ? ${unitFilter()}
         ORDER BY created_at DESC
         LIMIT 3
       `).all(tenantId, ...unitParams);
@@ -513,18 +516,22 @@ async function startServer() {
       // 6. Distribution Charts
       const charts = {
         candidatesByStatus: db.prepare(`
-          SELECT status, COUNT(*) as value FROM candidates WHERE tenant_id = ? GROUP BY status
-        `).all(tenantId),
+          SELECT status, COUNT(*) as value FROM candidates WHERE tenant_id = ? ${unitFilter()} GROUP BY status
+        `).all(tenantId, ...unitParams),
         compatibilityMédia: db.prepare(`
           SELECT j.title as name, AVG(m.compatibility_score) as value 
           FROM jobs j 
           JOIN candidate_job_matches m ON j.id = m.job_id 
-          WHERE j.tenant_id = ? 
+          WHERE j.tenant_id = ? ${unitFilter('j')}
           GROUP BY j.id
-        `).all(tenantId),
+        `).all(tenantId, ...unitParams),
         discDistribution: db.prepare(`
-          SELECT predominant_profile as name, COUNT(*) as value FROM candidate_disc_results GROUP BY predominant_profile
-        `).all()
+          SELECT predominant_profile as name, COUNT(*) as value 
+          FROM candidate_disc_results r
+          JOIN candidates c ON r.candidate_id = c.id
+          WHERE c.tenant_id = ? ${unitFilter('c')}
+          GROUP BY predominant_profile
+        `).all(tenantId, ...unitParams)
       };
 
       // 7. Smart Alerts & Suggestions
@@ -1151,7 +1158,13 @@ async function startServer() {
   app.get('/api/hr-tools', (req, res) => {
     const { tenantId, unitId } = req.query;
     try {
-      const tools = db.prepare('SELECT * FROM hr_tools WHERE tenant_id = ? AND deleted_at IS NULL').all(tenantId);
+      let query = 'SELECT * FROM hr_tools WHERE tenant_id = ? AND deleted_at IS NULL';
+      const params = [tenantId];
+      if (unitId && unitId !== 'master') {
+        query += ' AND unit_id = ?';
+        params.push(unitId);
+      }
+      const tools = db.prepare(query).all(...params);
       res.json(tools);
     } catch (error) {
       res.status(500).json({ error: 'Failed to fetch HR tools' });
@@ -1160,53 +1173,73 @@ async function startServer() {
 
   app.get('/api/hr-tools/dashboard', (req, res) => {
     const { tenantId, unitId } = req.query;
+    
+    if (!tenantId) {
+      return res.status(400).json({ error: 'tenantId is required' });
+    }
+
     try {
-      const totalSent = db.prepare('SELECT COUNT(*) as count FROM hr_tool_responses WHERE tenant_id = ?').get(tenantId) as any;
-      const totalReceived = db.prepare('SELECT COUNT(*) as count FROM hr_tool_responses WHERE tenant_id = ? AND status = "Concluído"').get(tenantId) as any;
-      const candidatesWithDisc = db.prepare('SELECT COUNT(DISTINCT candidate_id) as count FROM candidate_disc_results').get() as any;
-      const activeForms = db.prepare('SELECT COUNT(*) as count FROM hr_tools WHERE tenant_id = ? AND status = "Ativo"').get(tenantId) as any;
+      const unitFilter = unitId && unitId !== 'master' ? 'AND unit_id = ?' : '';
+      const params = unitId && unitId !== 'master' ? [tenantId, unitId] : [tenantId];
+
+      const totalSent = db.prepare(`SELECT COUNT(*) as count FROM hr_tool_responses WHERE tenant_id = ? ${unitFilter}`).get(...params) as any || { count: 0 };
+      const totalReceived = db.prepare(`SELECT COUNT(*) as count FROM hr_tool_responses WHERE tenant_id = ? AND status = "Concluído" ${unitFilter}`).get(...params) as any || { count: 0 };
+      
+      const candidatesWithDiscQuery = unitId && unitId !== 'master' 
+        ? 'SELECT COUNT(DISTINCT r.candidate_id) as count FROM candidate_disc_results r JOIN candidates c ON r.candidate_id = c.id WHERE c.tenant_id = ? AND c.unit_id = ?'
+        : 'SELECT COUNT(DISTINCT r.candidate_id) as count FROM candidate_disc_results r JOIN candidates c ON r.candidate_id = c.id WHERE c.tenant_id = ?';
+      const candidatesWithDisc = db.prepare(candidatesWithDiscQuery).get(...(unitId && unitId !== 'master' ? [tenantId, unitId] : [tenantId])) as any || { count: 0 };
+      
+      const activeForms = db.prepare(`SELECT COUNT(*) as count FROM hr_tools WHERE tenant_id = ? AND status = "Ativo" ${unitFilter}`).get(...params) as any || { count: 0 };
 
       // DISC Distribution
-      const discDistribution = db.prepare(`
-        SELECT predominant_profile, COUNT(*) as count 
-        FROM candidate_disc_results 
-        GROUP BY predominant_profile
-      `).all();
+      const discDistributionQuery = unitId && unitId !== 'master'
+        ? `SELECT r.predominant_profile, COUNT(*) as count 
+           FROM candidate_disc_results r 
+           JOIN candidates c ON r.candidate_id = c.id 
+           WHERE c.tenant_id = ? AND c.unit_id = ?
+           GROUP BY r.predominant_profile`
+        : `SELECT r.predominant_profile, COUNT(*) as count 
+           FROM candidate_disc_results r 
+           JOIN candidates c ON r.candidate_id = c.id 
+           WHERE c.tenant_id = ?
+           GROUP BY r.predominant_profile`;
+      const discDistribution = db.prepare(discDistributionQuery).all(...(unitId && unitId !== 'master' ? [tenantId, unitId] : [tenantId]));
 
       // Tool usage
       const toolUsage = db.prepare(`
         SELECT t.name, COUNT(r.id) as count
         FROM hr_tools t
         LEFT JOIN hr_tool_responses r ON t.id = r.tool_id
-        WHERE t.tenant_id = ?
+        WHERE t.tenant_id = ? ${unitFilter.replace('unit_id', 't.unit_id')}
         GROUP BY t.id
-      `).all(tenantId);
+      `).all(...params);
 
       // Status funnel
       const statusFunnel = db.prepare(`
         SELECT status, COUNT(*) as count
         FROM hr_tool_responses
-        WHERE tenant_id = ?
+        WHERE tenant_id = ? ${unitFilter}
         GROUP BY status
-      `).all(tenantId);
+      `).all(...params);
 
       res.json({
         indicators: {
-          sent: totalSent.count,
-          received: totalReceived.count,
-          completionRate: totalSent.count > 0 ? Math.round((totalReceived.count / totalSent.count) * 100) : 0,
-          discCount: candidatesWithDisc.count,
-          activeForms: activeForms.count
+          sent: totalSent.count || 0,
+          received: totalReceived.count || 0,
+          completionRate: (totalSent.count || 0) > 0 ? Math.round(((totalReceived.count || 0) / (totalSent.count || 1)) * 100) : 0,
+          discCount: candidatesWithDisc.count || 0,
+          activeForms: activeForms.count || 0
         },
         charts: {
-          disc: discDistribution,
-          usage: toolUsage,
-          funnel: statusFunnel
+          disc: discDistribution || [],
+          usage: toolUsage || [],
+          funnel: statusFunnel || []
         }
       });
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ error: 'Failed to fetch HR dashboard data' });
+    } catch (error: any) {
+      console.error('HR Dashboard Error:', error);
+      res.status(500).json({ error: 'Failed to fetch HR dashboard data', details: error.message });
     }
   });
 
@@ -1280,15 +1313,24 @@ async function startServer() {
   app.get('/api/hr-tools/all/responses', (req, res) => {
     const { tenantId, unitId } = req.query;
     try {
-      const responses = db.prepare(`
+      let query = `
         SELECT r.*, c.full_name as candidate_name, j.title as job_title, t.name as tool_name, t.type as tool_type
         FROM hr_tool_responses r
         JOIN hr_tools t ON r.tool_id = t.id
         LEFT JOIN candidates c ON r.candidate_id = c.id
         LEFT JOIN jobs j ON r.job_id = j.id
-        WHERE t.tenant_id = ? AND t.unit_id = ?
-        ORDER BY r.created_at DESC
-      `).all(tenantId, unitId);
+        WHERE t.tenant_id = ?
+      `;
+      const params = [tenantId];
+      
+      if (unitId && unitId !== 'master') {
+        query += ' AND r.unit_id = ?';
+        params.push(unitId);
+      }
+      
+      query += ' ORDER BY r.created_at DESC';
+      
+      const responses = db.prepare(query).all(...params);
       res.json(responses);
     } catch (error) {
        console.error(error);

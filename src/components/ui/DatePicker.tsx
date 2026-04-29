@@ -218,9 +218,9 @@ export const DatePicker: React.FC<DatePickerProps> = ({
                   className={[
                     'flex h-8 items-center justify-center rounded-lg text-xs font-bold transition relative',
                     !isCurrentMonth ? 'text-zinc-300' : 'text-zinc-700',
-                    isSelected ? 'bg-amber-500 text-white shadow-sm hover:bg-amber-600' : '',
-                    isToday && !isSelected ? 'bg-amber-50 border border-amber-200 text-amber-700' : '',
-                    !isSelected && !isToday ? 'hover:bg-amber-50 hover:text-amber-700' : '',
+                    isSelected ? 'bg-fadel-navy text-white shadow-sm hover:bg-black' : '',
+                    isToday && !isSelected ? 'bg-fadel-navy/5 border border-fadel-navy/20 text-fadel-navy' : '',
+                    !isSelected && !isToday ? 'hover:bg-fadel-navy/5 hover:text-fadel-navy' : '',
                     disabledDate ? 'cursor-not-allowed opacity-40 hover:bg-transparent' : '',
                   ].join(' ')}
                 >
@@ -239,7 +239,7 @@ export const DatePicker: React.FC<DatePickerProps> = ({
         <div className="grid grid-cols-3 gap-2 p-3 h-[260px]">
           {monthNames.map((m, i) => (
             <button key={i} type="button" onClick={() => { setViewDate(new Date(viewDate.getFullYear(), i, 1)); setMode('day'); }}
-              className={`rounded-xl flex items-center justify-center font-bold text-xs transition-colors border ${viewDate.getMonth() === i ? 'bg-amber-500 text-white border-transparent' : 'bg-zinc-50 text-zinc-700 hover:bg-amber-50 border-zinc-200'}`}>
+              className={`rounded-xl flex items-center justify-center font-bold text-xs transition-colors border ${viewDate.getMonth() === i ? 'bg-fadel-navy text-white border-transparent' : 'bg-zinc-50 text-zinc-700 hover:bg-fadel-navy/5 border-zinc-200'}`}>
               {m.slice(0, 3).toUpperCase()}
             </button>
           ))}
@@ -252,7 +252,7 @@ export const DatePicker: React.FC<DatePickerProps> = ({
             const y = yearRangeStart + i;
             return (
               <button key={y} type="button" onClick={() => { setViewDate(new Date(y, viewDate.getMonth(), 1)); setMode('month'); }}
-                className={`rounded-xl flex items-center justify-center font-bold text-xs transition-colors border ${viewDate.getFullYear() === y ? 'bg-amber-500 text-white border-transparent' : 'bg-zinc-50 text-zinc-700 hover:bg-amber-50 border-zinc-200'}`}>
+                className={`rounded-xl flex items-center justify-center font-bold text-xs transition-colors border ${viewDate.getFullYear() === y ? 'bg-fadel-navy text-white border-transparent' : 'bg-zinc-50 text-zinc-700 hover:bg-fadel-navy/5 border-zinc-200'}`}>
                 {y}
               </button>
             );
@@ -262,7 +262,7 @@ export const DatePicker: React.FC<DatePickerProps> = ({
 
       <div className="flex items-center justify-between border-t border-zinc-100 px-3 py-2 bg-zinc-50/80">
         <button type="button" onClick={() => { const now = new Date(); setViewDate(now); if (mode === 'day') handleSelectDate(now); else setMode('day'); }}
-          className="rounded-lg px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-zinc-500 hover:text-amber-600 hover:bg-amber-50 transition-colors">
+          className="rounded-lg px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-zinc-500 hover:text-fadel-navy hover:bg-fadel-navy/5 transition-colors">
           Hoje
         </button>
         <button type="button" onClick={() => { onChange(null); setIsOpen(false); }}
@@ -276,7 +276,7 @@ export const DatePicker: React.FC<DatePickerProps> = ({
 
   const inputStyles = variant === 'ghost' 
     ? "flex h-10 w-full items-center justify-center bg-transparent px-3 text-xs font-black text-zinc-800 transition-all placeholder:text-zinc-400 placeholder:font-normal focus:outline-none focus:ring-0 disabled:cursor-not-allowed disabled:bg-transparent"
-    : "flex h-10 w-full items-center gap-2 rounded-xl border border-zinc-200 bg-zinc-50 px-3 pr-10 text-xs font-bold text-zinc-800 shadow-sm transition-all placeholder:text-zinc-400 placeholder:font-normal hover:border-zinc-300 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400 disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-400";
+    : "flex h-10 w-full items-center gap-2 rounded-xl border border-zinc-200 bg-zinc-50 px-3 pr-10 text-xs font-bold text-zinc-800 shadow-sm transition-all placeholder:text-zinc-400 placeholder:font-normal hover:border-zinc-300 focus:outline-none focus:ring-2 focus:ring-fadel-navy/20 focus:border-fadel-navy disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-400";
 
   return (
     <div ref={containerRef} className={cn("flex flex-col gap-1.5", variant !== 'ghost' ? className : '')}>
@@ -301,7 +301,7 @@ export const DatePicker: React.FC<DatePickerProps> = ({
               className={cn(inputStyles, variant === 'ghost' ? className : '')}
             />
             {showIcon && variant !== 'ghost' && (
-              <CalendarDays size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none group-focus-within:text-amber-500 transition-colors" />
+              <CalendarDays size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none group-focus-within:text-fadel-navy transition-colors" />
             )}
           </>
         )}

@@ -203,7 +203,7 @@ export default function JobDetails({ job, onClose, onEdit }: JobDetailsProps) {
                     <div className="space-y-3">
                       <div className="flex items-center justify-between p-3 bg-white rounded-2xl border border-zinc-100 shadow-sm">
                         <span className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Score Mínimo</span>
-                        <span className="text-xs font-black text-amber-600">{job.compatibility_threshold}%</span>
+                        <span className="text-xs font-black text-fadel-red">{job.compatibility_threshold}%</span>
                       </div>
                       <div className="flex items-center justify-between p-3 bg-white rounded-2xl border border-zinc-100 shadow-sm">
                         <span className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Peso Hard Skills</span>
@@ -275,12 +275,12 @@ export default function JobDetails({ job, onClose, onEdit }: JobDetailsProps) {
 
           {activeTab === 'ai' && (
             <div className="space-y-8">
-              <div className="p-6 bg-amber-50 border border-amber-100 rounded-3xl">
+              <div className="p-6 bg-fadel-red/5 border border-fadel-red/20 rounded-3xl">
                 <div className="flex items-center gap-3 mb-4">
-                  <Sparkles size={20} className="text-amber-600" />
-                  <h4 className="text-xs font-black text-amber-950 uppercase tracking-widest">Divulgação com IA</h4>
+                  <Sparkles size={20} className="text-fadel-red" />
+                  <h4 className="text-xs font-black text-fadel-navy uppercase tracking-widest">Divulgação com IA</h4>
                 </div>
-                <p className="text-[11px] font-bold text-amber-800 mb-6 leading-relaxed">
+                <p className="text-[11px] font-bold text-zinc-500 mb-6 leading-relaxed">
                   Gere textos atraentes para diferentes canais usando o Gemini.
                 </p>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -294,7 +294,7 @@ export default function JobDetails({ job, onClose, onEdit }: JobDetailsProps) {
                       key={c.id}
                       onClick={() => generateAIText(c.id)}
                       disabled={aiLoading}
-                      className="flex flex-col items-center gap-2 p-3 bg-white hover:bg-zinc-50 rounded-2xl border border-amber-100 transition-all active:scale-95 group shadow-sm"
+                      className="flex flex-col items-center gap-2 p-3 bg-white hover:bg-zinc-50 rounded-2xl border border-fadel-red/10 transition-all active:scale-95 group shadow-sm"
                     >
                       <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-md group-hover:rotate-12 transition-all", c.color)}>
                         <c.icon size={20} />
@@ -324,7 +324,7 @@ export default function JobDetails({ job, onClose, onEdit }: JobDetailsProps) {
                     action={
                       <button 
                         onClick={() => handleCopy(aiOutput.text!, 'full')}
-                        className="p-2 text-zinc-400 hover:text-amber-500 transition-colors"
+                        className="p-2 text-zinc-400 hover:text-fadel-red transition-colors"
                       >
                         {copied === 'full' ? <Check size={16} /> : <Copy size={16} />}
                       </button>

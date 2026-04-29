@@ -196,12 +196,12 @@ export const Combobox: React.FC<ComboboxProps> = ({
 
   /* ── Group header icon colours ── */
   const GROUP_STYLES: Record<string, string> = {
-    "Serviços":  "text-amber-600 bg-amber-50 border-amber-200",
-    "Pacotes":   "text-violet-600 bg-violet-50 border-violet-200",
+    "Serviços":  "text-fadel-navy bg-fadel-navy/5 border-fadel-navy/10",
+    "Pacotes":   "text-fadel-red bg-fadel-red/5 border-fadel-red/10",
   };
   const GROUP_DOT: Record<string, string> = {
-    "Serviços": "bg-amber-400",
-    "Pacotes":  "bg-violet-400",
+    "Serviços": "bg-fadel-navy",
+    "Pacotes":  "bg-fadel-red",
   };
 
   return (
@@ -219,10 +219,10 @@ export const Combobox: React.FC<ComboboxProps> = ({
         }}
         className={cn(
           "w-full flex items-center gap-1.5 rounded-xl border border-zinc-200 bg-zinc-50 text-left transition-all cursor-pointer select-none",
-          "focus:outline-none focus:ring-2 focus:ring-amber-400/40 focus:border-amber-400",
+          "focus:outline-none focus:ring-2 focus:ring-fadel-navy/40 focus:border-fadel-navy",
           disabled && "opacity-50 cursor-not-allowed",
           sizeClasses[size],
-          open && "ring-2 ring-amber-400/40 border-amber-400"
+          open && "ring-2 ring-fadel-navy/40 border-fadel-navy"
         )}
       >
         <div className="flex-1 flex flex-wrap gap-1 min-w-0">
@@ -232,7 +232,7 @@ export const Combobox: React.FC<ComboboxProps> = ({
             selectedLabels.map((label, i) => (
               <span
                 key={selectedValues[i]}
-                className="inline-flex items-center gap-1 bg-amber-50 text-amber-800 border border-amber-200 rounded-md px-1.5 py-0.5 text-[10px] font-medium max-w-full"
+                className="inline-flex items-center gap-1 bg-fadel-navy/5 text-fadel-navy border border-fadel-navy/10 rounded-md px-1.5 py-0.5 text-[10px] font-medium max-w-full"
               >
                 <span className="truncate max-w-[120px]">{label}</span>
                 <button
@@ -347,13 +347,13 @@ export const Combobox: React.FC<ComboboxProps> = ({
                             onClick={() => handleSelect(opt.value)}
                             className={cn(
                               "w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors",
-                              "hover:bg-amber-50",
-                              isSelected && "bg-amber-50/60"
+                              "hover:bg-fadel-navy/5",
+                              isSelected && "bg-fadel-navy/5"
                             )}
                           >
                             <div className={cn(
                               "w-4 h-4 rounded-[4px] border flex items-center justify-center shrink-0 transition-all",
-                              isSelected ? "bg-amber-500 border-amber-500" : "border-zinc-300"
+                              isSelected ? "bg-fadel-navy border-fadel-navy" : "border-zinc-300"
                             )}>
                               {isSelected && <Check size={10} className="text-white" />}
                             </div>
@@ -387,13 +387,13 @@ export const Combobox: React.FC<ComboboxProps> = ({
                         onClick={() => handleSelect(opt.value)}
                         className={cn(
                           "w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors",
-                          "hover:bg-amber-50",
-                          isSelected && "bg-amber-50/60"
+                          "hover:bg-fadel-navy/5",
+                          isSelected && "bg-fadel-navy/5"
                         )}
                       >
                         <div className={cn(
                           "w-4 h-4 rounded-[4px] border flex items-center justify-center shrink-0 transition-all",
-                          isSelected ? "bg-amber-500 border-amber-500" : "border-zinc-300"
+                          isSelected ? "bg-fadel-navy border-fadel-navy" : "border-zinc-300"
                         )}>
                           {isSelected && <Check size={10} className="text-white" />}
                         </div>
@@ -420,12 +420,12 @@ export const Combobox: React.FC<ComboboxProps> = ({
                   <button
                     type="button"
                     onClick={handleCustomAdd}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-amber-50 border-t border-zinc-100"
+                    className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-fadel-navy/5 border-t border-zinc-100"
                   >
-                    <div className="w-4 h-4 rounded-full bg-amber-100 border border-amber-300 flex items-center justify-center shrink-0">
-                      <Plus size={9} className="text-amber-600" />
+                    <div className="w-4 h-4 rounded-full bg-fadel-navy/10 border border-fadel-navy/20 flex items-center justify-center shrink-0">
+                      <Plus size={9} className="text-fadel-navy" />
                     </div>
-                    <span className="text-xs text-amber-700 font-medium">
+                    <span className="text-xs text-fadel-navy font-medium">
                       Adicionar "{search.trim()}"
                     </span>
                   </button>

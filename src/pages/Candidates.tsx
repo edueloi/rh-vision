@@ -112,7 +112,7 @@ export default function Candidates() {
             </button>
             <button 
               onClick={() => setView('create')}
-              className="flex items-center gap-2 px-6 py-2.5 bg-zinc-900 hover:bg-amber-400 hover:text-amber-950 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-lg shadow-zinc-900/10"
+              className="flex items-center gap-2 px-6 py-2.5 bg-fadel-navy hover:bg-black text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-lg shadow-fadel-navy/10"
             >
               <Plus size={16} /> Novo Talento
             </button>

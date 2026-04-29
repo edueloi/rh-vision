@@ -158,7 +158,7 @@ export default function Administration() {
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
           <div className="flex items-center gap-2 mb-2">
-            <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-black uppercase tracking-widest rounded-md">Configurações</span>
+            <span className="px-2 py-0.5 bg-fadel-navy/10 text-fadel-navy text-[10px] font-black uppercase tracking-widest rounded-md">Configurações</span>
             <div className="w-1 h-1 bg-zinc-300 rounded-full" />
             <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Painel de Controle</span>
           </div>
@@ -220,7 +220,7 @@ export default function Administration() {
           <input 
             type="text" 
             placeholder={activeTab === 'units' ? "Buscar por unidade..." : "Buscar por nome ou e-mail..."}
-            className="w-full pl-12 pr-4 py-3 bg-white border border-zinc-200 rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-amber-400/20 transition-all shadow-sm"
+            className="w-full pl-12 pr-4 py-3 bg-white border border-zinc-200 rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-fadel-navy/20 transition-all shadow-sm"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -247,12 +247,12 @@ export default function Administration() {
               key={unit.id}
               className="group bg-white border border-zinc-200 rounded-[32px] p-8 hover:shadow-xl hover:shadow-zinc-200/50 transition-all relative overflow-hidden"
             >
-              <div className="absolute top-0 right-0 w-24 h-24 bg-amber-400/5 rounded-full -mr-12 -mt-12 transition-all group-hover:bg-amber-400/10" />
+              <div className="absolute top-0 right-0 w-24 h-24 bg-fadel-navy/5 rounded-full -mr-12 -mt-12 transition-all group-hover:bg-fadel-navy/10" />
               
               <div className="flex justify-between items-start mb-6">
                 <div className={cn(
                   "p-3 rounded-2xl",
-                  unit.id === 'master' ? "bg-zinc-900 text-amber-400" : "bg-amber-50 text-amber-600"
+                  unit.id === 'master' ? "bg-fadel-navy text-white" : "bg-fadel-navy/5 text-fadel-navy"
                 )}>
                   {unit.id === 'master' ? <Globe size={24} /> : <Building2 size={24} />}
                 </div>
@@ -310,7 +310,7 @@ export default function Administration() {
                     </div>
                   ))}
                 </div>
-                <button className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-zinc-400 hover:text-amber-600 transition-colors">
+                <button className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-zinc-400 hover:text-fadel-red transition-colors">
                   Gerenciar
                   <ArrowRight size={12} />
                 </button>
@@ -321,7 +321,7 @@ export default function Administration() {
           {isMaster && (
             <button 
               onClick={() => setShowUnitModal(true)}
-              className="border-2 border-dashed border-zinc-200 rounded-[32px] p-8 flex flex-col items-center justify-center gap-4 text-zinc-400 hover:border-amber-400 hover:text-amber-600 transition-all hover:bg-amber-50/30"
+              className="border-2 border-dashed border-zinc-200 rounded-[32px] p-8 flex flex-col items-center justify-center gap-4 text-zinc-400 hover:border-fadel-navy hover:text-fadel-navy transition-all hover:bg-fadel-navy/5"
             >
                <div className="p-4 bg-zinc-50 rounded-2xl">
                  <Plus size={32} />
@@ -351,16 +351,16 @@ export default function Administration() {
                        <tr key={user.id} className="hover:bg-zinc-50/50 transition-colors group">
                           <td className="px-8 py-5">
                              <div className="flex items-center gap-4">
-                                <div className="w-10 h-10 rounded-2xl bg-zinc-100 flex items-center justify-center text-xs font-black text-zinc-600 overflow-hidden shadow-sm border border-zinc-200 group-hover:border-amber-300 transition-all">
+                                <div className="w-10 h-10 rounded-2xl bg-zinc-100 flex items-center justify-center text-xs font-black text-zinc-600 overflow-hidden shadow-sm border border-zinc-200 group-hover:border-fadel-navy transition-all">
                                    <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user.name}`} alt="avatar" />
                                 </div>
                                 <div>
                                    <p className="text-sm font-black text-zinc-900 tracking-tight">{user.name}</p>
                                    <div className="flex flex-col">
-                                      <div className="flex items-center gap-1.5 text-amber-600 text-[10px] font-black uppercase tracking-widest mt-0.5">
+                                      <div className="flex items-center gap-1.5 text-fadel-navy text-[10px] font-black uppercase tracking-widest mt-0.5">
                                          <AtSign size={10} />
                                          {user.username}
-                                         <span className="ml-1 px-1.5 py-0.5 bg-amber-50 text-[8px] rounded border border-amber-100">Login</span>
+                                         <span className="ml-1 px-1.5 py-0.5 bg-fadel-navy/5 text-[8px] rounded border border-fadel-navy/10">Login</span>
                                       </div>
                                       <div className="flex items-center gap-1.5 text-zinc-400 text-[10px] font-bold mt-0.5">
                                          <Mail size={10} />
@@ -374,7 +374,7 @@ export default function Administration() {
                           <td className="px-8 py-5">
                              <div className="flex items-center gap-2">
                                 {user.role === 'admin' ? (
-                                   <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-100 text-amber-700 rounded-lg text-[9px] font-black uppercase tracking-widest">
+                                   <div className="flex items-center gap-1.5 px-3 py-1 bg-fadel-navy text-white rounded-lg text-[9px] font-black uppercase tracking-widest">
                                       <ShieldCheck size={12} />
                                       Administrador
                                    </div>
@@ -408,7 +408,7 @@ export default function Administration() {
                                 <button 
                                   title="Resetar Senha"
                                   onClick={() => setShowResetModal(user.id)}
-                                  className="p-2 text-zinc-400 hover:text-amber-600 hover:bg-amber-50 rounded-xl transition-all"
+                                  className="p-2 text-zinc-400 hover:text-fadel-red hover:bg-fadel-red/5 rounded-xl transition-all"
                                 >
                                    <RefreshCw size={16} />
                                 </button>
@@ -450,14 +450,14 @@ export default function Administration() {
 
       {/* Permissions Disclaimer */}
       {!isMaster && (
-        <div className="p-6 bg-amber-50 border border-amber-100 rounded-[32px] flex items-start gap-4">
-           <div className="p-2 bg-amber-400 text-amber-950 rounded-xl">
+        <div className="p-6 bg-fadel-red/5 border border-fadel-red/20 rounded-[32px] flex items-start gap-4 shadow-sm">
+           <div className="p-2 bg-fadel-red text-white rounded-xl shadow-lg shadow-fadel-red/20">
               <AlertCircle size={20} />
            </div>
-           <div>
-              <h4 className="text-sm font-black text-amber-900 uppercase tracking-widest">Restrição de Unidade</h4>
-              <p className="text-xs font-bold text-amber-800/80 mt-1 leading-relaxed">
-                 Como você está na unidade <span className="font-black underline">{currentUnit.name}</span>, você só tem permissão para visualizar e gerenciar acessos vinculados exclusivamente a esta localidade. A criação de novas unidades e o gerenciamento global são exclusivos da <span className="font-black">Unidade Master</span>.
+           <div className="flex-1">
+              <h4 className="text-sm font-black text-fadel-navy uppercase tracking-widest">Restrição de Unidade</h4>
+              <p className="text-xs font-bold text-zinc-500 mt-1.5 leading-relaxed">
+                 Como você está na unidade <span className="font-black text-fadel-red underline">{currentUnit.name}</span>, você só tem permissão para visualizar e gerenciar acessos vinculados exclusivamente a esta localidade. A criação de novas unidades e o gerenciamento global são exclusivos da <span className="font-black text-fadel-navy">Unidade Master</span>.
               </p>
            </div>
         </div>
@@ -481,7 +481,7 @@ export default function Administration() {
                   required
                   type="text" 
                   placeholder="Ex: Fadel - Sorocaba"
-                  className="w-full px-5 py-3.5 bg-zinc-50 border border-zinc-200 rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-amber-400 transition-all"
+                  className="w-full px-5 py-3.5 bg-zinc-50 border border-zinc-200 rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-fadel-navy transition-all"
                   value={newUnit.name}
                   onChange={e => setNewUnit({...newUnit, name: e.target.value})}
                 />
@@ -492,7 +492,7 @@ export default function Administration() {
                   required
                   type="text" 
                   placeholder="Ex: Sorocaba, SP"
-                  className="w-full px-5 py-3.5 bg-zinc-50 border border-zinc-200 rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-amber-400 transition-all"
+                  className="w-full px-5 py-3.5 bg-zinc-50 border border-zinc-200 rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-fadel-navy transition-all"
                   value={newUnit.location}
                   onChange={e => setNewUnit({...newUnit, location: e.target.value})}
                 />
@@ -500,7 +500,7 @@ export default function Administration() {
               
               <div className="flex gap-3 pt-4">
                 <Button type="button" variant="ghost" onClick={() => { setShowUnitModal(false); setEditingUnit(null); }} className="flex-1 rounded-2xl">Cancelar</Button>
-                <Button type="submit" className="flex-1 rounded-2xl group">
+                <Button type="submit" className="flex-1 rounded-2xl bg-fadel-navy hover:bg-black group">
                   {editingUnit ? 'Salvar Alterações' : 'Criar Unidade'}
                   <ArrowRight size={16} className="ml-2 group-hover:translate-x-1 transition-transform" />
                 </Button>
@@ -527,7 +527,7 @@ export default function Administration() {
                   required
                   type="text" 
                   placeholder="Nome do colaborador"
-                  className="w-full px-5 py-3.5 bg-zinc-50 border border-zinc-200 rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-amber-400 transition-all"
+                  className="w-full px-5 py-3.5 bg-zinc-50 border border-zinc-200 rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-fadel-navy transition-all"
                   value={newUser.name}
                   onChange={e => {
                     const name = e.target.value;
@@ -542,11 +542,11 @@ export default function Administration() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-amber-600 ml-1">Login (Acesso eduardo.santos)</label>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-fadel-navy ml-1">Login (Acesso automatizado)</label>
                   <input 
                     type="text" 
                     placeholder="exemplo.login"
-                    className="w-full px-5 py-3.5 bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl text-sm font-black outline-none cursor-not-allowed"
+                    className="w-full px-5 py-3.5 bg-fadel-navy/5 border border-fadel-navy/20 text-fadel-navy rounded-2xl text-sm font-black outline-none cursor-not-allowed"
                     value={newUser.username}
                     readOnly
                   />
@@ -557,7 +557,7 @@ export default function Administration() {
                     required
                     type="email" 
                     placeholder="colaborador@fadel.rh"
-                    className="w-full px-5 py-3.5 bg-zinc-50 border border-zinc-200 rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-amber-400 transition-all shadow-sm"
+                    className="w-full px-5 py-3.5 bg-zinc-50 border border-zinc-200 rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-fadel-navy transition-all shadow-sm"
                     value={newUser.email}
                     onChange={e => setNewUser({...newUser, email: e.target.value})}
                   />
@@ -570,7 +570,7 @@ export default function Administration() {
                   <input 
                     type="email" 
                     placeholder="pessoal@gmail.com"
-                    className="w-full px-5 py-3.5 bg-zinc-50 border border-zinc-200 rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-amber-400 transition-all"
+                    className="w-full px-5 py-3.5 bg-zinc-50 border border-zinc-200 rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-fadel-navy transition-all"
                     value={newUser.recovery_email}
                     onChange={e => setNewUser({...newUser, recovery_email: e.target.value})}
                   />
@@ -583,7 +583,7 @@ export default function Administration() {
                       required
                       type="password" 
                       placeholder="Senha forte"
-                      className="w-full pl-12 pr-5 py-3.5 bg-zinc-50 border border-zinc-200 rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-amber-400 transition-all"
+                      className="w-full pl-12 pr-5 py-3.5 bg-zinc-50 border border-zinc-200 rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-fadel-navy transition-all"
                       value={newUser.initial_password}
                       onChange={e => setNewUser({...newUser, initial_password: e.target.value})}
                     />
@@ -595,7 +595,7 @@ export default function Administration() {
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 ml-1">Nível</label>
                   <select 
-                    className="w-full px-5 py-3.5 bg-zinc-50 border border-zinc-200 rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-amber-400 transition-all appearance-none"
+                    className="w-full px-5 py-3.5 bg-zinc-50 border border-zinc-200 rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-fadel-navy transition-all appearance-none shadow-sm"
                     value={newUser.role}
                     onChange={e => setNewUser({...newUser, role: e.target.value as 'admin' | 'user'})}
                   >
@@ -607,7 +607,7 @@ export default function Administration() {
                   <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 ml-1">Unidade</label>
                   <select 
                     disabled={!isMaster}
-                    className="w-full px-5 py-3.5 bg-zinc-50 border border-zinc-200 rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-amber-400 transition-all appearance-none disabled:opacity-60"
+                    className="w-full px-5 py-3.5 bg-zinc-50 border border-zinc-200 rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-fadel-navy transition-all appearance-none disabled:opacity-60 shadow-sm"
                     value={newUser.unit_id}
                     onChange={e => setNewUser({...newUser, unit_id: e.target.value})}
                   >
@@ -619,8 +619,8 @@ export default function Administration() {
               </div>
               
               <div className="flex gap-3 pt-4">
-                <Button type="button" variant="ghost" onClick={() => { setShowUserModal(false); setEditingUser(null); }} className="flex-1 rounded-2xl">Cancelar</Button>
-                <Button type="submit" className="flex-1 rounded-2xl group">
+                <Button type="button" variant="ghost" onClick={() => { setShowUserModal(false); setEditingUser(null); }} className="flex-1 rounded-2xl border-zinc-200">Cancelar</Button>
+                <Button type="submit" className="flex-1 rounded-2xl bg-fadel-navy hover:bg-black group shadow-lg shadow-fadel-navy/20">
                   {editingUser ? 'Salvar Alterações' : 'Conceder Acesso'}
                   <ArrowRight size={16} className="ml-2 group-hover:translate-x-1 transition-transform" />
                 </Button>
@@ -629,15 +629,16 @@ export default function Administration() {
           </div>
         </div>
       )}
+
       {showResetModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-300">
           <div className="bg-white rounded-[40px] w-full max-w-sm p-8 shadow-2xl animate-in zoom-in-95 duration-300">
-            <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-3xl flex items-center justify-center mb-6">
+            <div className="w-16 h-16 bg-fadel-red/10 text-fadel-red rounded-3xl flex items-center justify-center mb-6 shadow-sm">
                <RefreshCw size={32} />
             </div>
             <h2 className="text-2xl font-black text-zinc-900 tracking-tight mb-2">Resetar Senha</h2>
             <p className="text-sm text-zinc-500 font-medium mb-8">
-              Defina uma nova senha temporária para o acesso de <span className="text-zinc-900 font-black">{filteredUsers.find(u => u.id === showResetModal)?.name}</span>.
+              Defina uma nova senha temporária para o acesso de <span className="text-fadel-navy font-black">{filteredUsers.find(u => u.id === showResetModal)?.name}</span>.
             </p>
             
             <form onSubmit={(e) => { e.preventDefault(); setShowResetModal(null); }} className="space-y-6">
@@ -649,14 +650,14 @@ export default function Administration() {
                     required
                     type="password" 
                     placeholder="Digite a nova senha"
-                    className="w-full pl-12 pr-5 py-3.5 bg-zinc-50 border border-zinc-200 rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-amber-400 transition-all"
+                    className="w-full pl-12 pr-5 py-3.5 bg-zinc-50 border border-zinc-200 rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-fadel-navy transition-all"
                   />
                 </div>
               </div>
               
               <div className="flex gap-3 pt-2">
-                <Button type="button" variant="ghost" onClick={() => setShowResetModal(null)} className="flex-1 rounded-2xl">Cancelar</Button>
-                <Button type="submit" className="flex-1 rounded-2xl">Confirmar</Button>
+                <Button type="button" variant="ghost" onClick={() => setShowResetModal(null)} className="flex-1 rounded-2xl border-zinc-200">Cancelar</Button>
+                <Button type="submit" className="flex-1 rounded-2xl bg-fadel-navy hover:bg-black shadow-lg shadow-fadel-navy/20">Confirmar</Button>
               </div>
             </form>
           </div>
@@ -666,17 +667,17 @@ export default function Administration() {
       {deleteConfirm && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-300">
           <div className="bg-white rounded-[40px] w-full max-w-sm p-8 shadow-2xl animate-in zoom-in-95 duration-300 text-center">
-            <div className="w-16 h-16 bg-red-100 text-red-600 rounded-3xl flex items-center justify-center mb-6 mx-auto">
+            <div className="w-16 h-16 bg-red-100 text-red-600 rounded-3xl flex items-center justify-center mb-6 mx-auto shadow-sm">
                <Trash2 size={32} />
             </div>
             <h2 className="text-2xl font-black text-zinc-900 tracking-tight mb-2">Excluir {deleteConfirm.type === 'unit' ? 'Unidade' : 'Acesso'}?</h2>
             <p className="text-sm text-zinc-500 font-medium mb-8">
-              Você tem certeza que deseja excluir <span className="text-zinc-900 font-black">{deleteConfirm.name}</span>? Esta ação não pode ser desfeita.
+              Você tem certeza que deseja excluir <span className="text-red-600 font-black">{deleteConfirm.name}</span>? Esta ação não pode ser desfeita.
             </p>
             
             <div className="flex gap-3">
-              <Button variant="ghost" onClick={() => setDeleteConfirm(null)} className="flex-1 rounded-2xl">Cancelar</Button>
-              <Button onClick={handleDelete} variant="destructive" className="flex-1 rounded-2xl bg-red-600 hover:bg-red-700">Confirmar Exclusão</Button>
+              <Button variant="ghost" onClick={() => setDeleteConfirm(null)} className="flex-1 rounded-2xl border-zinc-200">Cancelar</Button>
+              <Button onClick={handleDelete} variant="destructive" className="flex-1 rounded-2xl bg-red-600 hover:bg-red-700 shadow-lg shadow-red-600/20">Confirmar Exclusão</Button>
             </div>
           </div>
         </div>

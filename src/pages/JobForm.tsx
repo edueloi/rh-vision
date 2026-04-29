@@ -133,7 +133,7 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
        <div className={cn(
          "flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest",
          level === 'Alta' ? "bg-emerald-50 text-emerald-600" :
-         level === 'Média' ? "bg-amber-50 text-amber-600" :
+         level === 'Média' ? "bg-fadel-red/5 text-fadel-red" :
          "bg-red-50 text-red-600 border border-red-100"
        )}>
           {level === 'Alta' ? <CheckCircle2 size={10} /> : level === 'Média' ? <Info size={10} /> : <AlertCircle size={10} />}
@@ -206,7 +206,7 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
             <button 
               onClick={() => setImportMode(true)}
               disabled={loading}
-              className="px-5 py-2.5 bg-zinc-100 hover:bg-amber-400 hover:text-amber-950 text-zinc-600 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all md:flex items-center gap-2 hidden"
+              className="px-5 py-2.5 bg-zinc-100 hover:bg-fadel-navy hover:text-white text-zinc-600 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all md:flex items-center gap-2 hidden"
             >
               <RefreshCcw size={14} /> Reprocessar
             </button>
@@ -221,7 +221,7 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
           <button 
             onClick={() => handleSave(true)}
             disabled={loading}
-            className="px-5 py-2.5 bg-amber-400 hover:bg-amber-500 text-amber-950 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-amber-400/20"
+            className="px-5 py-2.5 bg-fadel-navy hover:bg-black text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-fadel-navy/20"
           >
             {loading ? "Salvando..." : "Salvar e Publicar"}
           </button>
@@ -255,7 +255,7 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
         <div className="max-w-4xl mx-auto py-12">
            <PanelCard title="Importar vaga por arquivo" icon={FileUp}>
               <div className="p-8 text-center space-y-6">
-                 <div className="w-20 h-20 bg-zinc-50 border-2 border-dashed border-zinc-200 rounded-3xl mx-auto flex items-center justify-center text-zinc-300 group-hover:border-amber-400 group-hover:text-amber-500 transition-all">
+                 <div className="w-20 h-20 bg-zinc-50 border-2 border-dashed border-zinc-200 rounded-3xl mx-auto flex items-center justify-center text-zinc-300 group-hover:border-fadel-navy group-hover:text-fadel-navy transition-all">
                     {isAnalyzing ? (
                        <div className="w-10 h-10 border-4 border-amber-400 border-t-transparent rounded-full animate-spin"></div>
                     ) : (
@@ -317,7 +317,7 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
                 </div>
 
                 <div className="p-4 bg-zinc-900 text-white rounded-2xl space-y-2">
-                  <div className="flex items-center gap-2 text-[8px] font-black uppercase tracking-widest text-amber-400">
+                  <div className="flex items-center gap-2 text-[8px] font-black uppercase tracking-widest text-fadel-red">
                     <Sparkles size={12} /> Resumo da IA
                   </div>
                   <p className="text-[11px] font-bold opacity-80 leading-relaxed italic">
@@ -337,11 +337,11 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
                     className={cn(
                       "w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all text-left group",
                       active 
-                        ? "bg-amber-400 text-amber-950 font-black shadow-lg shadow-amber-400/5" 
+                        ? "bg-fadel-navy text-white font-black shadow-lg shadow-fadel-navy/20" 
                         : "text-zinc-500 hover:bg-zinc-50 font-bold"
                     )}
                   >
-                    <Icon size={18} className={cn("transition-colors", active ? "text-amber-950" : "text-zinc-400 group-hover:text-zinc-700")} />
+                    <Icon size={18} className={cn("transition-colors", active ? "text-white" : "text-zinc-400 group-hover:text-zinc-700")} />
                     <span className="text-[11px] uppercase tracking-widest">{s.label}</span>
                   </button>
                 );
@@ -366,7 +366,7 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
                     onChange={(e) => handleChange('title', e.target.value)}
                     placeholder="Ex: Motorista Carreteiro" 
                     className={cn(
-                      "w-full px-4 py-3 bg-zinc-50 border rounded-2xl text-sm font-bold outline-none focus:border-amber-400 transition-all",
+                      "w-full px-4 py-3 bg-zinc-50 border rounded-2xl text-sm font-bold outline-none focus:border-fadel-navy transition-all",
                       confidence?.title === 'Baixa' ? "border-red-200 bg-red-50/30" : "border-zinc-200"
                     )}
                   />
@@ -424,7 +424,7 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
                 </div>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1 text-amber-600">Requisitos Técnicos (Base para IA)</label>
+                    <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1 text-fadel-red">Requisitos Técnicos (Base para IA)</label>
                     {renderConfidenceBadge('requirements')}
                   </div>
                   <div className={cn(
@@ -566,9 +566,9 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
           {activeSection === 'ia' && (
             <PanelCard title="Critérios de Compatibilidade IA" icon={Sparkles}>
               <div className="space-y-6">
-                <div className="p-4 bg-amber-50 border border-amber-100 rounded-2xl flex gap-3">
-                  <Info size={20} className="text-amber-600 shrink-0 mt-0.5" />
-                  <p className="text-[10px] font-bold text-amber-900 leading-relaxed uppercase tracking-widest">
+                <div className="p-4 bg-fadel-navy/5 border border-fadel-navy/10 rounded-2xl flex gap-3">
+                  <Info size={20} className="text-fadel-navy shrink-0 mt-0.5" />
+                  <p className="text-[10px] font-bold text-fadel-navy leading-relaxed uppercase tracking-widest">
                     Estes pesos definem como o Gemini AI irá priorizar os candidatos. O total não precisa somar 100, os valores são relativos.
                   </p>
                 </div>
@@ -586,7 +586,7 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
                       <div className="flex items-center justify-between gap-2">
                         <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest truncate">{w.label}</label>
                         {confidence && (
-                           <Sparkles size={10} className="text-amber-400" />
+                           <Sparkles size={10} className="text-fadel-red" />
                         )}
                       </div>
                       <input 
@@ -596,7 +596,7 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
                         className="w-full bg-transparent border-none p-0 text-sm font-black outline-none focus:ring-0" 
                       />
                       {confidence && (
-                         <div className="absolute top-0 right-0 w-1 h-full bg-amber-400"></div>
+                         <div className="absolute top-0 right-0 w-1 h-full bg-fadel-navy"></div>
                       )}
                     </div>
                   ))}

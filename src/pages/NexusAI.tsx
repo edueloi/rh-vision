@@ -196,7 +196,7 @@ export default function NexusAI() {
               <Brain size={24} />
             </div>
             <h1 className="text-3xl font-black text-zinc-900 tracking-tighter">Nexus AI</h1>
-            <div className="px-3 py-1 bg-amber-100 text-amber-700 text-[10px] font-black uppercase tracking-widest rounded-full">
+            <div className="px-3 py-1 bg-fadel-blue/10 text-fadel-blue text-[10px] font-black uppercase tracking-widest rounded-full">
               Intelligent Core
             </div>
           </div>
@@ -284,7 +284,7 @@ export default function NexusAI() {
                   >
                     <div className={cn(
                       "w-8 h-8 rounded-xl flex items-center justify-center shrink-0 shadow-sm",
-                      msg.role === 'assistant' ? "bg-zinc-900 text-white" : "bg-amber-400 text-amber-950"
+                      msg.role === 'assistant' ? "bg-fadel-navy text-white" : "bg-fadel-red text-white"
                     )}>
                       {msg.role === 'assistant' ? <Bot size={16} /> : <User size={16} />}
                     </div>
@@ -292,12 +292,12 @@ export default function NexusAI() {
                       "max-w-[80%] p-4 rounded-2xl text-sm leading-relaxed",
                       msg.role === 'assistant' 
                         ? "bg-zinc-100 text-zinc-800 rounded-tl-none font-medium" 
-                        : "bg-amber-400 text-amber-950 rounded-tr-none font-black shadow-lg shadow-amber-400/20"
+                        : "bg-fadel-red text-white rounded-tr-none font-bold shadow-lg shadow-fadel-red/20"
                     )}>
                       {msg.content}
                       <p className={cn(
                         "text-[9px] mt-2 opacity-50",
-                        msg.role === 'assistant' ? "text-zinc-500" : "text-amber-900"
+                        msg.role === 'assistant' ? "text-zinc-500" : "text-white"
                       )}>
                         {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </p>
@@ -461,12 +461,12 @@ export default function NexusAI() {
                   >
                     {isMatching ? (
                       <>
-                        <Zap size={18} className="animate-pulse text-amber-400" />
+                        <Zap size={18} className="animate-pulse text-fadel-blue" />
                         Nexus AI analisando...
                       </>
                     ) : (
                       <>
-                        <Zap size={18} className="text-amber-400" />
+                        <Zap size={18} className="text-fadel-blue" />
                         {!selectedJobId ? 'Selecione uma Vaga para Iniciar' : 'Rodar Análise de Match'}
                       </>
                     )}
@@ -478,19 +478,19 @@ export default function NexusAI() {
                 <motion.div 
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="bg-amber-50 border border-amber-200 rounded-3xl p-8 relative overflow-hidden"
+                  className="bg-fadel-navy text-white rounded-3xl p-8 relative overflow-hidden"
                 >
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-amber-200/50 rounded-full -mr-16 -mt-16 blur-3xl" />
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-fadel-red/20 rounded-full -mr-16 -mt-16 blur-3xl" />
                   <div className="flex items-center gap-4 mb-4">
-                    <div className="p-3 bg-amber-400 text-amber-950 rounded-2xl shadow-lg shadow-amber-400/20">
+                    <div className="p-3 bg-fadel-red text-white rounded-2xl shadow-lg shadow-fadel-red/20">
                       <BarChart3 size={24} />
                     </div>
                     <div>
-                      <h3 className="text-xs font-black text-amber-950 uppercase tracking-[0.2em]">Resumo Executivo Nexus AI</h3>
-                      <p className="text-[10px] font-bold text-amber-700/80 uppercase tracking-widest">IA Insights</p>
+                      <h3 className="text-xs font-black text-white uppercase tracking-[0.2em]">Resumo Executivo Nexus AI</h3>
+                      <p className="text-[10px] font-bold text-white/60 uppercase tracking-widest">IA Insights</p>
                     </div>
                   </div>
-                  <p className="text-sm font-bold text-amber-900 leading-relaxed italic border-l-4 border-amber-400 pl-6 py-2">
+                  <p className="text-sm font-bold text-white leading-relaxed italic border-l-4 border-fadel-red pl-6 py-2">
                     "{matchSummary}"
                   </p>
                 </motion.div>
@@ -527,7 +527,7 @@ export default function NexusAI() {
                         <div className="flex flex-col md:flex-row md:items-center gap-6">
                           {/* Rank & Photo */}
                           <div className="flex items-center gap-4 shrink-0">
-                            <span className="text-2xl font-black text-zinc-200 group-hover:text-amber-500 transition-colors w-8">
+                            <span className="text-2xl font-black text-zinc-200 group-hover:text-fadel-red transition-colors w-8">
                               #{idx + 1}
                             </span>
                             <div className="w-16 h-16 rounded-2xl bg-zinc-100 flex items-center justify-center font-black text-zinc-400 overflow-hidden border-2 border-zinc-50 shadow-sm">
@@ -540,7 +540,7 @@ export default function NexusAI() {
                             <div className="flex items-center gap-2 mb-1">
                                <h4 className="text-base font-black text-zinc-900 truncate">{result.full_name}</h4>
                                {result.compatibility_score >= 90 && (
-                                 <Sparkles size={14} className="text-amber-500 shrink-0" />
+                                 <Sparkles size={14} className="text-fadel-red shrink-0" />
                                )}
                             </div>
                             <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-3">{result.desired_position}</p>
@@ -659,29 +659,29 @@ export default function NexusAI() {
         {/* Right Column: Quick Tools & Tools */}
         <div className="lg:col-span-4 space-y-8">
            {/* AI Status Card */}
-           <div className="bg-zinc-900 rounded-[32px] p-8 text-white relative overflow-hidden shadow-2xl shadow-zinc-900/20">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-amber-400/20 rounded-full blur-3xl -mr-16 -mt-16" />
+           <div className="bg-fadel-navy rounded-[32px] p-8 text-white relative overflow-hidden shadow-2xl shadow-fadel-navy/20">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-fadel-red/20 rounded-full blur-3xl -mr-16 -mt-16" />
             <div className="relative z-10">
               <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 bg-amber-400 text-amber-950 rounded-xl">
+                <div className="p-2 bg-fadel-red text-white rounded-xl">
                   <Cpu size={18} />
                 </div>
                 <div>
-                  <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-400">System Status</h4>
-                  <p className="text-xs font-bold font-mono">NEXUS_V2_ACTIVE</p>
+                  <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-fadel-blue">System Status</h4>
+                  <p className="text-xs font-bold font-mono text-white">NEXUS_V2_ACTIVE</p>
                 </div>
               </div>
               <div className="space-y-4 mb-8">
                 <div className="flex justify-between items-end">
-                   <p className="text-[10px] font-black uppercase tracking-widest opacity-60">IA Precision</p>
-                   <p className="text-xs font-bold">98.4%</p>
+                   <p className="text-[10px] font-black uppercase tracking-widest opacity-60 text-white">IA Precision</p>
+                   <p className="text-xs font-bold text-white">98.4%</p>
                 </div>
                 <div className="h-1 bg-white/10 rounded-full overflow-hidden">
-                  <div className="h-full bg-amber-400 w-[98%]" />
+                  <div className="h-full bg-fadel-red w-[98%]" />
                 </div>
                 <div className="flex justify-between items-end">
-                   <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Banco Local</p>
-                   <p className="text-xs font-bold">1.2k Perfis</p>
+                   <p className="text-[10px] font-black uppercase tracking-widest opacity-60 text-white">Banco Local</p>
+                   <p className="text-xs font-bold text-white">1.2k Perfis</p>
                 </div>
                 <div className="h-1 bg-white/10 rounded-full overflow-hidden">
                   <div className="h-full bg-white w-[60%]" />
@@ -689,7 +689,7 @@ export default function NexusAI() {
               </div>
               <button 
                 onClick={() => toast.success("Algoritmo otimizado com sucesso!")}
-                className="w-full py-4 bg-white text-zinc-900 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-amber-400 transition-all shadow-lg active:scale-95"
+                className="w-full py-4 bg-white text-fadel-navy rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-fadel-red hover:text-white transition-all shadow-lg active:scale-95"
               >
                 Otimizar Algoritmo
               </button>

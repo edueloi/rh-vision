@@ -66,11 +66,11 @@ export const FilterItem: React.FC<FilterItemProps> = ({
     ),
     button: cn(
       "rounded-lg",
-      active ? "bg-amber-100 text-amber-700" : "text-zinc-500 hover:bg-zinc-50"
+      active ? "bg-fadel-navy text-white" : "text-zinc-500 hover:bg-zinc-50"
     ),
     ghost: cn(
       "rounded-lg",
-      active ? "text-amber-600" : "text-zinc-400 hover:text-zinc-600 hover:bg-zinc-50"
+      active ? "text-fadel-navy" : "text-zinc-400 hover:text-zinc-600 hover:bg-zinc-50"
     ),
   };
 
@@ -139,7 +139,7 @@ export const FilterSearch: React.FC<FilterSearchProps> = ({
   className,
 }) => (
   <div className={cn("relative group min-w-[200px]", className)}>
-    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-amber-500 transition-colors pointer-events-none">
+    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-fadel-navy transition-colors pointer-events-none">
       <Search size={14} />
     </div>
     <input
@@ -150,7 +150,7 @@ export const FilterSearch: React.FC<FilterSearchProps> = ({
       className={cn(
         "w-full h-10 pl-9 pr-4 bg-white border border-zinc-200 rounded-xl text-xs font-bold text-zinc-800 transition-all shadow-sm",
         "placeholder:text-zinc-400 placeholder:font-normal hover:border-zinc-300",
-        "focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+        "focus:outline-none focus:ring-2 focus:ring-fadel-navy/20 focus:border-fadel-navy"
       )}
     />
   </div>

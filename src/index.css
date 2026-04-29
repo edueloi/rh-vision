@@ -10,12 +10,21 @@
   --surface: #FFFFFF;
   --text: #0F172A;
   --muted: #64748B;
-  --accent: #2563EB;
+  --accent: #0a1c3e;
+  --accent-red: #cc1f26;
+  --accent-light: #6cb4e4;
   --accent-soft: #EFF6FF;
   --emerald: #10B981;
   --border: #E2E8F0;
   --radius-xl: 1.5rem;
   --radius-lg: 1rem;
+}
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --color-fadel-navy: #0a1c3e;
+  --color-fadel-red: #cc1f26;
+  --color-fadel-blue: #6cb4e4;
 }
 
 .custom-scrollbar::-webkit-scrollbar {

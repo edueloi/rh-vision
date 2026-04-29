@@ -64,7 +64,7 @@ export function Pagination({
         "w-8 h-8 flex items-center justify-center rounded-xl border text-zinc-500 transition-all",
         disabled
           ? "opacity-30 cursor-not-allowed border-zinc-100 bg-zinc-50"
-          : "border-zinc-200 bg-white hover:border-amber-400 hover:text-amber-600 active:scale-95",
+          : "border-zinc-200 bg-white hover:border-fadel-navy hover:text-fadel-navy active:scale-95",
       )}
     >
       {icon}
@@ -97,8 +97,8 @@ export function Pagination({
               className={cn(
                 "w-8 h-8 flex items-center justify-center rounded-xl text-xs font-black transition-all",
                 p === page
-                  ? "bg-amber-400 text-white border border-amber-400 shadow-sm"
-                  : "bg-white border border-zinc-200 text-zinc-600 hover:border-amber-300 hover:text-amber-600",
+                  ? "bg-fadel-navy text-white border border-fadel-navy shadow-sm"
+                  : "bg-white border border-zinc-200 text-zinc-600 hover:border-fadel-navy/40 hover:text-fadel-navy",
               )}
             >
               {p}
@@ -117,7 +117,7 @@ export function Pagination({
           <select
             value={pageSize}
             onChange={e => { onPageSizeChange(Number(e.target.value)); onPageChange(1); }}
-            className="h-8 px-2 text-xs font-black text-zinc-700 bg-white border border-zinc-200 rounded-xl outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/10 transition-all cursor-pointer"
+            className="h-8 px-2 text-xs font-black text-zinc-700 bg-white border border-zinc-200 rounded-xl outline-none focus:border-fadel-navy focus:ring-2 focus:ring-fadel-navy/10 transition-all cursor-pointer"
           >
             {PAGE_SIZE_OPTIONS.map(s => (
               <option key={s} value={s}>{s}</option>
