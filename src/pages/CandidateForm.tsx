@@ -66,7 +66,7 @@ export default function CandidateForm({ candidate, onBack, onSuccess }: Candidat
       
       const payload = {
         ...formData,
-        tenant_id: 'fadel',
+        tenant_id: 'develoi',
         unit_id: currentUnit.id
       };
 
@@ -99,7 +99,7 @@ export default function CandidateForm({ candidate, onBack, onSuccess }: Candidat
             <ArrowLeft size={20} />
           </button>
           <div>
-            <h2 className="text-xl font-black text-zinc-900 tracking-tight">
+            <h2 className="text-xl font-bold text-zinc-900 tracking-tight">
               {candidate ? 'Editar Talento' : 'Novo Talento'}
             </h2>
             <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest mt-0.5">
@@ -111,7 +111,7 @@ export default function CandidateForm({ candidate, onBack, onSuccess }: Candidat
           form="candidate-form"
           type="submit"
           disabled={loading}
-          className="px-6 py-3 bg-fadel-navy text-white rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-black transition-all active:scale-95 shadow-lg shadow-fadel-navy/10 disabled:opacity-50"
+          className="px-6 py-3 bg-develoi-navy text-white rounded-2xl text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 hover:bg-black transition-all active:scale-95 shadow-lg shadow-develoi-navy/10 disabled:opacity-50"
         >
           <Save size={16} /> {candidate ? 'Salvar Alterações' : 'Cadastrar Candidato'}
         </button>
@@ -121,13 +121,13 @@ export default function CandidateForm({ candidate, onBack, onSuccess }: Candidat
         <div className="lg:col-span-2 space-y-8">
            {/* Seção Dados Básicos */}
            <div className="bg-white p-8 rounded-[40px] border border-zinc-100 shadow-sm space-y-6">
-              <h3 className="text-xs font-black text-zinc-400 uppercase tracking-widest mb-6 flex items-center gap-2">
+              <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-6 flex items-center gap-2">
                 <User size={16} /> Informações Pessoais
               </h3>
               
               <div className="grid sm:grid-cols-2 gap-6">
                  <div className="space-y-1.5">
-                   <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest ml-1">Nome Completo</label>
+                   <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Nome Completo</label>
                    <input 
                     required
                     type="text" 
@@ -138,7 +138,7 @@ export default function CandidateForm({ candidate, onBack, onSuccess }: Candidat
                    />
                  </div>
                  <div className="space-y-1.5">
-                   <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest ml-1">E-mail Corporativo/Pessoal</label>
+                   <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest ml-1">E-mail Corporativo/Pessoal</label>
                    <input 
                     required
                     type="email" 
@@ -149,7 +149,7 @@ export default function CandidateForm({ candidate, onBack, onSuccess }: Candidat
                    />
                  </div>
                  <div className="space-y-1.5">
-                   <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest ml-1">Telefone / WhatsApp</label>
+                   <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Telefone / WhatsApp</label>
                    <input 
                     type="text" 
                     value={formData.phone}
@@ -159,7 +159,7 @@ export default function CandidateForm({ candidate, onBack, onSuccess }: Candidat
                    />
                  </div>
                  <div className="space-y-1.5">
-                   <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest ml-1">LinkedIn URL</label>
+                   <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest ml-1">LinkedIn URL</label>
                    <input 
                     type="text" 
                     value={formData.linkedin_url}
@@ -172,7 +172,7 @@ export default function CandidateForm({ candidate, onBack, onSuccess }: Candidat
 
               <div className="grid sm:grid-cols-2 gap-6">
                 <div className="space-y-1.5">
-                   <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest ml-1">Cidade</label>
+                   <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Cidade</label>
                    <input 
                     type="text" 
                     value={formData.city}
@@ -181,7 +181,7 @@ export default function CandidateForm({ candidate, onBack, onSuccess }: Candidat
                    />
                  </div>
                  <div className="space-y-1.5">
-                   <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest ml-1">Estado</label>
+                   <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Estado</label>
                    <input 
                     type="text" 
                     value={formData.state}
@@ -196,13 +196,13 @@ export default function CandidateForm({ candidate, onBack, onSuccess }: Candidat
 
            {/* Seção Acadêmica/Profissional */}
            <div className="bg-white p-8 rounded-[40px] border border-zinc-100 shadow-sm space-y-6">
-              <h3 className="text-xs font-black text-zinc-400 uppercase tracking-widest mb-6 flex items-center gap-2">
+              <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-6 flex items-center gap-2">
                 <Briefcase size={16} /> Experiência e Formação
               </h3>
 
               <div className="grid sm:grid-cols-2 gap-6">
                  <div className="space-y-1.5">
-                   <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest ml-1">Cargo Atual / Alvo</label>
+                   <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Cargo Atual / Alvo</label>
                    <input 
                     type="text" 
                     value={formData.desired_position}
@@ -211,7 +211,7 @@ export default function CandidateForm({ candidate, onBack, onSuccess }: Candidat
                    />
                  </div>
                  <div className="space-y-1.5">
-                   <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest ml-1">Escolaridade</label>
+                   <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Escolaridade</label>
                    <select 
                     value={formData.education_level}
                     onChange={e => setFormData(f => ({ ...f, education_level: e.target.value }))}
@@ -230,7 +230,7 @@ export default function CandidateForm({ candidate, onBack, onSuccess }: Candidat
 
               <div className="grid sm:grid-cols-2 gap-6">
                 <div className="space-y-1.5">
-                   <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest ml-1">Anos de Experiência</label>
+                   <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Anos de Experiência</label>
                    <input 
                     type="number" 
                     value={formData.experience_years || ""}
@@ -239,7 +239,7 @@ export default function CandidateForm({ candidate, onBack, onSuccess }: Candidat
                    />
                  </div>
                  <div className="space-y-1.5">
-                   <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest ml-1">Pretensão Salarial</label>
+                   <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Pretensão Salarial</label>
                    <div className="relative">
                       <DollarSign size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" />
                       <input 
@@ -254,7 +254,7 @@ export default function CandidateForm({ candidate, onBack, onSuccess }: Candidat
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest ml-1">Hard Skills (separadas por vírgula)</label>
+                <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Hard Skills (separadas por vírgula)</label>
                 <textarea 
                   value={formData.hard_skills}
                   onChange={e => setFormData(f => ({ ...f, hard_skills: e.target.value }))}
@@ -278,13 +278,13 @@ export default function CandidateForm({ candidate, onBack, onSuccess }: Candidat
         {/* Sidebar do Formulário */}
         <div className="space-y-8">
            <div className="bg-zinc-900 p-8 rounded-[40px] text-white space-y-6">
-              <h3 className="text-xs font-black text-fadel-red uppercase tracking-widest flex items-center gap-2">
+              <h3 className="text-xs font-bold text-develoi-gold uppercase tracking-widest flex items-center gap-2">
                 Status e Controle
               </h3>
               
               <div className="space-y-4">
                  <div className="space-y-1.5">
-                   <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest ml-1">Status do Processo</label>
+                   <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest ml-1">Status do Processo</label>
                    <select 
                     value={formData.status}
                     onChange={e => setFormData(f => ({ ...f, status: e.target.value as any }))}
@@ -297,7 +297,7 @@ export default function CandidateForm({ candidate, onBack, onSuccess }: Candidat
                  </div>
 
                  <div className="space-y-1.5">
-                   <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest ml-1">Modelo Desejado</label>
+                   <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest ml-1">Modelo Desejado</label>
                    <select 
                     value={formData.desired_work_model}
                     onChange={e => setFormData(f => ({ ...f, desired_work_model: e.target.value as any }))}
@@ -311,7 +311,7 @@ export default function CandidateForm({ candidate, onBack, onSuccess }: Candidat
                  </div>
 
                  <div className="space-y-1.5">
-                   <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest ml-1">Origem do Candidato</label>
+                   <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest ml-1">Origem do Candidato</label>
                    <select 
                     value={formData.source}
                     onChange={e => setFormData(f => ({ ...f, source: e.target.value }))}
@@ -329,15 +329,15 @@ export default function CandidateForm({ candidate, onBack, onSuccess }: Candidat
            </div>
 
            <div className="bg-white p-8 rounded-[40px] border border-zinc-100 shadow-sm space-y-6">
-              <h3 className="text-xs font-black text-zinc-400 uppercase tracking-widest flex items-center gap-2">
+              <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-2">
                 Anexar Currículo
               </h3>
-              <div className="border-2 border-dashed border-zinc-100 rounded-3xl p-8 flex flex-col items-center justify-center text-center gap-4 hover:border-fadel-navy hover:bg-fadel-navy/5 transition-all cursor-pointer group">
-                  <div className="w-12 h-12 bg-zinc-50 rounded-2xl flex items-center justify-center text-zinc-300 group-hover:text-fadel-navy transition-colors">
+              <div className="border-2 border-dashed border-zinc-100 rounded-3xl p-8 flex flex-col items-center justify-center text-center gap-4 hover:border-develoi-navy hover:bg-develoi-navy/5 transition-all cursor-pointer group">
+                  <div className="w-12 h-12 bg-zinc-50 rounded-2xl flex items-center justify-center text-zinc-300 group-hover:text-develoi-navy transition-colors">
                     <FileText size={24} />
                   </div>
                   <div className="space-y-1">
-                    <p className="text-[10px] font-black text-zinc-900 uppercase tracking-widest">Arraste seu PDF</p>
+                    <p className="text-[10px] font-bold text-zinc-900 uppercase tracking-widest">Arraste seu PDF</p>
                     <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">Máximo 10MB</p>
                   </div>
               </div>

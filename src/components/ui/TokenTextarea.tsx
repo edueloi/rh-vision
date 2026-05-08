@@ -118,7 +118,7 @@ export function TokenTextarea({
                 type="button"
                 title={v.desc}
                 onClick={() => insertVar(v.key)}
-                className="text-[11px] px-2.5 py-1 bg-fadel-navy/5 border border-fadel-navy/20 text-fadel-navy font-mono rounded-lg hover:bg-fadel-navy/10 transition-colors font-semibold"
+                className="text-[11px] px-2.5 py-1 bg-develoi-navy/5 border border-develoi-navy/20 text-develoi-navy font-mono rounded-lg hover:bg-develoi-navy/10 transition-colors font-semibold"
               >
                 {v.key}
               </button>
@@ -136,7 +136,7 @@ export function TokenTextarea({
         onKeyDown={handleKeyDown}
         data-placeholder={placeholder}
         style={{ minHeight: minH }}
-        className="token-editor w-full border border-zinc-200 rounded-2xl px-4 py-3 text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-fadel-navy/20 focus:border-fadel-navy/40 transition-all bg-white text-zinc-800 font-medium"
+        className="token-editor w-full border border-zinc-200 rounded-2xl px-4 py-3 text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-develoi-navy/20 focus:border-develoi-navy/40 transition-all bg-white text-zinc-800 font-medium"
       />
 
       <style>{`

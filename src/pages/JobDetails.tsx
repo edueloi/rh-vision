@@ -109,10 +109,10 @@ export default function JobDetails({ job, onClose, onEdit }: JobDetailsProps) {
               <Briefcase size={24} />
             </div>
             <div>
-              <h3 className="text-lg font-black text-zinc-900 leading-tight">{job.title}</h3>
+              <h3 className="text-lg font-bold text-zinc-900 leading-tight">{job.title}</h3>
               <div className="flex items-center gap-2 mt-1">
                 <Badge color={job.status === 'Aberta' ? 'success' : 'default'} size="sm">{job.status}</Badge>
-                <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">{job.department || "Geral"}</span>
+                <span className="text-[10px] text-zinc-400 font-semibold uppercase tracking-widest">{job.department || "Geral"}</span>
               </div>
             </div>
           </div>
@@ -131,7 +131,7 @@ export default function JobDetails({ job, onClose, onEdit }: JobDetailsProps) {
           <button 
             onClick={() => setActiveTab('details')}
             className={cn(
-              "px-4 py-4 text-[10px] font-black uppercase tracking-widest transition-all relative shrink-0",
+              "px-4 py-4 text-[10px] font-bold uppercase tracking-widest transition-all relative shrink-0",
               activeTab === 'details' ? "text-zinc-900" : "text-zinc-400 hover:text-zinc-600"
             )}
           >
@@ -141,7 +141,7 @@ export default function JobDetails({ job, onClose, onEdit }: JobDetailsProps) {
           <button 
             onClick={() => setActiveTab('candidates')}
             className={cn(
-              "px-4 py-4 text-[10px] font-black uppercase tracking-widest transition-all relative shrink-0 flex items-center gap-2",
+              "px-4 py-4 text-[10px] font-bold uppercase tracking-widest transition-all relative shrink-0 flex items-center gap-2",
               activeTab === 'candidates' ? "text-zinc-900" : "text-zinc-400 hover:text-zinc-600"
             )}
           >
@@ -151,7 +151,7 @@ export default function JobDetails({ job, onClose, onEdit }: JobDetailsProps) {
           <button 
             onClick={() => setActiveTab('ai')}
             className={cn(
-              "px-4 py-4 text-[10px] font-black uppercase tracking-widest transition-all relative shrink-0 flex items-center gap-2",
+              "px-4 py-4 text-[10px] font-bold uppercase tracking-widest transition-all relative shrink-0 flex items-center gap-2",
               activeTab === 'ai' ? "text-zinc-900" : "text-zinc-400 hover:text-zinc-600"
             )}
           >
@@ -174,8 +174,8 @@ export default function JobDetails({ job, onClose, onEdit }: JobDetailsProps) {
                 ].map((item, i) => (
                   <div key={i} className="p-4 bg-white border border-zinc-100 rounded-2xl shadow-sm">
                     <item.icon size={14} className="text-zinc-400 mb-2" />
-                    <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest leading-none">{item.label}</p>
-                    <p className="text-xs font-black text-zinc-900 mt-1 truncate">{item.val}</p>
+                    <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest leading-none">{item.label}</p>
+                    <p className="text-xs font-bold text-zinc-900 mt-1 truncate">{item.val}</p>
                   </div>
                 ))}
               </div>
@@ -183,7 +183,7 @@ export default function JobDetails({ job, onClose, onEdit }: JobDetailsProps) {
               {/* Sections */}
               <div className="space-y-8">
                 <section>
-                  <h4 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                  <h4 className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-3 flex items-center gap-2">
                     <FileText size={14} /> Descrição da Vaga
                   </h4>
                   <div className="text-sm font-bold text-zinc-700 leading-relaxed bg-white p-6 rounded-3xl border border-zinc-100 shadow-sm prose prose-zinc" 
@@ -193,25 +193,25 @@ export default function JobDetails({ job, onClose, onEdit }: JobDetailsProps) {
 
                 <div className="grid md:grid-cols-2 gap-8">
                   <section>
-                    <h4 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-3">Requisitos Técnicos</h4>
+                    <h4 className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-3">Requisitos Técnicos</h4>
                     <div className="p-5 bg-white rounded-3xl text-xs font-bold text-zinc-600 leading-relaxed border border-zinc-100 shadow-sm" 
                       dangerouslySetInnerHTML={{ __html: job.technical_requirements || "Ver descrição geral." }}
                     />
                   </section>
                   <section>
-                    <h4 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-3">Critérios de IA</h4>
+                    <h4 className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-3">Critérios de IA</h4>
                     <div className="space-y-3">
                       <div className="flex items-center justify-between p-3 bg-white rounded-2xl border border-zinc-100 shadow-sm">
-                        <span className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Score Mínimo</span>
-                        <span className="text-xs font-black text-fadel-red">{job.compatibility_threshold}%</span>
+                        <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">Score Mínimo</span>
+                        <span className="text-xs font-bold text-develoi-gold">{job.compatibility_threshold}%</span>
                       </div>
                       <div className="flex items-center justify-between p-3 bg-white rounded-2xl border border-zinc-100 shadow-sm">
-                        <span className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Peso Hard Skills</span>
-                        <span className="text-xs font-black text-zinc-900">{job.weight_technical}</span>
+                        <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">Peso Hard Skills</span>
+                        <span className="text-xs font-bold text-zinc-900">{job.weight_technical}</span>
                       </div>
                       <div className="flex items-center justify-between p-3 bg-white rounded-2xl border border-zinc-100 shadow-sm">
-                        <span className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Anos de Experiência</span>
-                        <span className="text-xs font-black text-zinc-900">{job.min_experience_years || 0}a</span>
+                        <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">Anos de Experiência</span>
+                        <span className="text-xs font-bold text-zinc-900">{job.min_experience_years || 0}a</span>
                       </div>
                     </div>
                   </section>
@@ -225,7 +225,7 @@ export default function JobDetails({ job, onClose, onEdit }: JobDetailsProps) {
                <div className="flex justify-between items-center bg-white p-4 rounded-3xl border border-zinc-100 shadow-sm">
                   <div className="flex items-center gap-2">
                     <Users size={16} className="text-zinc-400" />
-                    <span className="text-[10px] font-black uppercase tracking-widest text-zinc-900">{appliedCandidates.length} Candidatos</span>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-900">{appliedCandidates.length} Candidatos</span>
                   </div>
                   <button 
                     onClick={fetchAppliedCandidates}
@@ -238,28 +238,28 @@ export default function JobDetails({ job, onClose, onEdit }: JobDetailsProps) {
                {loadingCandidates ? (
                  <div className="py-20 flex flex-col items-center justify-center gap-4">
                     <div className="w-8 h-8 border-3 border-zinc-900 border-t-transparent rounded-full animate-spin"></div>
-                    <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Buscando candidatos...</p>
+                    <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Buscando candidatos...</p>
                  </div>
                ) : appliedCandidates.length === 0 ? (
                  <div className="py-20 flex flex-col items-center justify-center gap-4 text-center border-2 border-dashed border-zinc-100 rounded-[40px]">
                     <div className="w-12 h-12 bg-zinc-50 rounded-full flex items-center justify-center text-zinc-300">
                       <User size={24} />
                     </div>
-                    <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Nenhum candidato inscrito ainda.</p>
+                    <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Nenhum candidato inscrito ainda.</p>
                  </div>
                ) : (
                  <div className="grid gap-3">
                     {appliedCandidates.map(match => (
                        <div key={match.id} className="bg-white p-4 rounded-3xl border border-zinc-100 shadow-sm flex items-center justify-between group hover:border-zinc-300 transition-all">
                           <div className="flex items-center gap-4">
-                             <div className="w-10 h-10 bg-zinc-50 rounded-2xl flex items-center justify-center font-black text-zinc-400 text-[10px]">
+                             <div className="w-10 h-10 bg-zinc-50 rounded-2xl flex items-center justify-center font-bold text-zinc-400 text-[10px]">
                                {match.full_name?.split(' ').map((n: string) => n[0]).slice(0, 2).join('')}
                              </div>
                              <div>
-                               <p className="text-xs font-black text-zinc-900">{match.full_name}</p>
+                               <p className="text-xs font-bold text-zinc-900">{match.full_name}</p>
                                <div className="flex items-center gap-2 mt-0.5">
                                  <Badge color="default" size="sm">{match.status}</Badge>
-                                 <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">{match.compatibility_score}% Match IA</span>
+                                 <span className="text-[9px] font-bold text-emerald-600 uppercase tracking-widest">{match.compatibility_score}% Match IA</span>
                                </div>
                              </div>
                           </div>
@@ -275,10 +275,10 @@ export default function JobDetails({ job, onClose, onEdit }: JobDetailsProps) {
 
           {activeTab === 'ai' && (
             <div className="space-y-8">
-              <div className="p-6 bg-fadel-red/5 border border-fadel-red/20 rounded-3xl">
+              <div className="p-6 bg-develoi-gold/5 border border-develoi-gold/20 rounded-3xl">
                 <div className="flex items-center gap-3 mb-4">
-                  <Sparkles size={20} className="text-fadel-red" />
-                  <h4 className="text-xs font-black text-fadel-navy uppercase tracking-widest">Divulgação com IA</h4>
+                  <Sparkles size={20} className="text-develoi-gold" />
+                  <h4 className="text-xs font-bold text-develoi-navy uppercase tracking-widest">Divulgação com IA</h4>
                 </div>
                 <p className="text-[11px] font-bold text-zinc-500 mb-6 leading-relaxed">
                   Gere textos atraentes para diferentes canais usando o Gemini.
@@ -294,12 +294,12 @@ export default function JobDetails({ job, onClose, onEdit }: JobDetailsProps) {
                       key={c.id}
                       onClick={() => generateAIText(c.id)}
                       disabled={aiLoading}
-                      className="flex flex-col items-center gap-2 p-3 bg-white hover:bg-zinc-50 rounded-2xl border border-fadel-red/10 transition-all active:scale-95 group shadow-sm"
+                      className="flex flex-col items-center gap-2 p-3 bg-white hover:bg-zinc-50 rounded-2xl border border-develoi-gold/10 transition-all active:scale-95 group shadow-sm"
                     >
                       <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-md group-hover:rotate-12 transition-all", c.color)}>
                         <c.icon size={20} />
                       </div>
-                      <span className="text-[9px] font-black text-zinc-900 uppercase tracking-widest">{c.id.split('/')[0]}</span>
+                      <span className="text-[9px] font-bold text-zinc-900 uppercase tracking-widest">{c.id.split('/')[0]}</span>
                     </button>
                   ))}
                 </div>
@@ -308,7 +308,7 @@ export default function JobDetails({ job, onClose, onEdit }: JobDetailsProps) {
               {aiLoading && (
                 <div className="p-12 flex flex-col items-center justify-center gap-4 text-center">
                    <div className="w-8 h-8 border-3 border-amber-400 border-t-transparent rounded-full animate-spin"></div>
-                   <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Gemini está trabalhando...</p>
+                   <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Gemini está trabalhando...</p>
                 </div>
               )}
 
@@ -324,7 +324,7 @@ export default function JobDetails({ job, onClose, onEdit }: JobDetailsProps) {
                     action={
                       <button 
                         onClick={() => handleCopy(aiOutput.text!, 'full')}
-                        className="p-2 text-zinc-400 hover:text-fadel-red transition-colors"
+                        className="p-2 text-zinc-400 hover:text-develoi-gold transition-colors"
                       >
                         {copied === 'full' ? <Check size={16} /> : <Copy size={16} />}
                       </button>
@@ -344,12 +344,12 @@ export default function JobDetails({ job, onClose, onEdit }: JobDetailsProps) {
         <div className="p-6 border-t border-zinc-100 bg-zinc-50/50 flex gap-3">
           <button 
             onClick={() => window.open(`/portal/vagas/${job.id}`, '_blank')}
-            className="flex-1 flex items-center justify-center gap-2 py-3.5 bg-white border border-zinc-200 text-zinc-900 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-zinc-50 transition-all font-sans"
+            className="flex-1 flex items-center justify-center gap-2 py-3.5 bg-white border border-zinc-200 text-zinc-900 rounded-2xl text-[10px] font-bold uppercase tracking-widest hover:bg-zinc-50 transition-all font-sans"
           >
             <Share2 size={16} /> Link Público
           </button>
           <button 
-            className="flex-1 flex items-center justify-center gap-2 py-3.5 bg-zinc-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-zinc-800 transition-all shadow-lg active:scale-[0.98]"
+            className="flex-1 flex items-center justify-center gap-2 py-3.5 bg-zinc-900 text-white rounded-2xl text-[10px] font-bold uppercase tracking-widest hover:bg-zinc-800 transition-all shadow-lg active:scale-[0.98]"
           >
             <Check size={16} /> Publicar Vaga
           </button>

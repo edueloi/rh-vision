@@ -82,7 +82,7 @@ export default function CandidateDetails({ candidate, onClose, onEdit, onRefresh
 
   const fetchAvailableJobs = async () => {
     try {
-      const res = await fetch(`/api/jobs?tenantId=fadel&status=Aberta`);
+      const res = await fetch(`/api/jobs?tenantId=develoi&status=Aberta`);
       const data = await res.json();
       setAvailableJobs(data);
     } catch (err) {
@@ -97,7 +97,7 @@ export default function CandidateDetails({ candidate, onClose, onEdit, onRefresh
       const res = await fetch(`/api/candidates/${candidate.id}/link-job`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ job_id: selectedJobId, tenant_id: 'fadel' })
+        body: JSON.stringify({ job_id: selectedJobId, tenant_id: 'develoi' })
       });
       if (!res.ok) {
         const error = await res.json();
@@ -119,7 +119,7 @@ export default function CandidateDetails({ candidate, onClose, onEdit, onRefresh
       const res = await fetch(`/api/candidates/${candidate.id}/analyze-job/${jobId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tenant_id: 'fadel' })
+        body: JSON.stringify({ tenant_id: 'develoi' })
       });
       if (!res.ok) throw new Error("Falha na análise IA.");
       toast.success("Análise IA concluída!");
@@ -153,12 +153,12 @@ export default function CandidateDetails({ candidate, onClose, onEdit, onRefresh
               {candidate.full_name.split(' ').map(n => n[0]).slice(0, 2).join('')}
             </div>
             <div>
-              <h3 className="text-xl font-black text-zinc-900">{candidate.full_name}</h3>
+              <h3 className="text-lg font-bold text-zinc-900">{candidate.full_name}</h3>
               <div className="flex items-center gap-2 mt-1">
-                <Badge color="default" size="sm" className="bg-white border-zinc-200">
+                <Badge color="default" size="sm" className="bg-white border-zinc-200 text-[10px]">
                   {candidate.status}
                 </Badge>
-                <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">
+                <span className="text-[10px] text-zinc-400 font-semibold uppercase tracking-widest">
                   {candidate.city}, {candidate.state}
                 </span>
               </div>
@@ -183,7 +183,7 @@ export default function CandidateDetails({ candidate, onClose, onEdit, onRefresh
           </div>
         </div>
 
-        <div className="flex items-center gap-4 text-[10px] font-black uppercase tracking-widest text-zinc-400 overflow-x-auto pb-1 no-scrollbar">
+        <div className="flex items-center gap-4 text-[9px] font-bold uppercase tracking-widest text-zinc-400 overflow-x-auto pb-1 no-scrollbar">
            <div className="flex items-center gap-1 shrink-0"><Mail size={12} className="text-zinc-300" /> {candidate.email}</div>
            <div className="flex items-center gap-1 shrink-0"><Phone size={12} className="text-zinc-300" /> {candidate.phone || "N/A"}</div>
            <div className="flex items-center gap-1 shrink-0"><Linkedin size={12} className="text-zinc-300" /> LinkedIn</div>
@@ -198,7 +198,7 @@ export default function CandidateDetails({ candidate, onClose, onEdit, onRefresh
             key={tab.id}
             onClick={() => setActiveTab(tab.id as any)}
             className={cn(
-              "px-4 py-4 text-[10px] font-black uppercase tracking-widest transition-all relative flex items-center gap-2 shrink-0",
+              "px-3 py-4 text-[10px] font-bold uppercase tracking-widest transition-all relative flex items-center gap-2 shrink-0",
               activeTab === tab.id ? "text-zinc-900" : "text-zinc-400 hover:text-zinc-600"
             )}
           >
@@ -214,8 +214,8 @@ export default function CandidateDetails({ candidate, onClose, onEdit, onRefresh
         {activeTab === 'evaluations' && (
           <div className="space-y-6">
             <div className="flex justify-between items-center mb-2">
-               <h4 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Instrumentos Aplicados</h4>
-               <button className="text-[9px] font-black text-blue-600 uppercase tracking-widest hover:underline flex items-center gap-1">
+               <h4 className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Instrumentos Aplicados</h4>
+               <button className="text-[9px] font-bold text-blue-600 uppercase tracking-widest hover:underline flex items-center gap-1">
                  <Plus size={10} /> Enviar Nova
                </button>
             </div>
@@ -350,7 +350,7 @@ export default function CandidateDetails({ candidate, onClose, onEdit, onRefresh
               {!showLinkJob && (
                 <button 
                   onClick={() => { setShowLinkJob(true); fetchAvailableJobs(); }}
-                  className="px-4 py-2 bg-zinc-900 text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-amber-400 hover:text-amber-950 transition-all active:scale-95 flex items-center gap-2"
+                  className="px-4 py-2 bg-zinc-900 text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-develoi-gold hover:text-white transition-all active:scale-95 flex items-center gap-2"
                 >
                   <Plus size={14} /> Vincular a Vaga
                 </button>
@@ -363,14 +363,14 @@ export default function CandidateDetails({ candidate, onClose, onEdit, onRefresh
                   initial={{ height: 0, opacity: 0 }}
                   animate={{ height: 'auto', opacity: 1 }}
                   exit={{ height: 0, opacity: 0 }}
-                  className="bg-white p-6 rounded-3xl border-2 border-fadel-navy/20 overflow-hidden"
+                  className="bg-white p-6 rounded-3xl border-2 border-develoi-navy/20 overflow-hidden"
                 >
-                  <p className="text-[10px] font-black text-fadel-navy uppercase tracking-widest mb-4">Selecionar Oportunidade</p>
+                  <p className="text-[10px] font-black text-develoi-navy uppercase tracking-widest mb-4">Selecionar Oportunidade</p>
                   <div className="flex gap-3">
                     <select 
                       value={selectedJobId}
                       onChange={(e) => setSelectedJobId(e.target.value)}
-                      className="flex-1 px-4 py-3 bg-zinc-100 border-none rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-fadel-navy"
+                      className="flex-1 px-4 py-3 bg-zinc-100 border-none rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-develoi-navy"
                     >
                       <option value="">Escolha a vaga...</option>
                       {availableJobs.map(j => (
@@ -380,7 +380,7 @@ export default function CandidateDetails({ candidate, onClose, onEdit, onRefresh
                     <button 
                       onClick={handleLinkJob}
                       disabled={loading || !selectedJobId}
-                      className="px-6 py-3 bg-fadel-navy text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all disabled:opacity-50"
+                      className="px-6 py-3 bg-develoi-navy text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all disabled:opacity-50"
                     >
                       Vincular
                     </button>
@@ -412,7 +412,7 @@ export default function CandidateDetails({ candidate, onClose, onEdit, onRefresh
                           <Building2 size={20} />
                         </div>
                         <div>
-                          <p className="text-xs font-black text-zinc-900 group-hover:text-fadel-red transition-colors">{match.job_title}</p>
+                          <p className="text-xs font-black text-zinc-900 group-hover:text-develoi-gold transition-colors">{match.job_title}</p>
                           <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">{match.job_city}/{match.job_state}</p>
                         </div>
                       </div>
@@ -436,7 +436,7 @@ export default function CandidateDetails({ candidate, onClose, onEdit, onRefresh
                        <button 
                         onClick={() => runAiAnalysis(match.job_id)}
                         disabled={loading}
-                        className="flex items-center gap-2 px-4 py-2 bg-fadel-navy/5 hover:bg-fadel-navy hover:text-white text-fadel-navy rounded-xl text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 border border-fadel-navy/10"
+                        className="flex items-center gap-2 px-4 py-2 bg-develoi-navy/5 hover:bg-develoi-navy hover:text-white text-develoi-navy rounded-xl text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 border border-develoi-navy/10"
                        >
                          <Sparkles size={14} /> 
                          {match.compatibility_score ? "Refazer Análise" : "Rodar Análise IA"}
@@ -451,9 +451,9 @@ export default function CandidateDetails({ candidate, onClose, onEdit, onRefresh
 
         {activeTab === 'ai' && (
            <div className="space-y-8">
-             <div className="bg-fadel-red/5 p-6 rounded-3xl border border-fadel-red/20">
-               <div className="flex items-center gap-3 mb-4 text-fadel-navy">
-                 <Sparkles size={20} className="text-fadel-red" />
+             <div className="bg-develoi-gold/5 p-6 rounded-3xl border border-develoi-gold/20">
+               <div className="flex items-center gap-3 mb-4 text-develoi-navy">
+                 <Sparkles size={20} className="text-develoi-gold" />
                  <h4 className="text-xs font-black uppercase tracking-widest">Relatório Gemini AI</h4>
                </div>
                <p className="text-[11px] font-bold text-zinc-500 leading-relaxed">
@@ -565,18 +565,18 @@ export default function CandidateDetails({ candidate, onClose, onEdit, onRefresh
                 </div>
               ))}
 
-              <div className="relative pl-8 text-fadel-navy">
-                <div className="absolute left-[-4px] top-1 w-2 h-2 rounded-full bg-fadel-navy" />
-                <div className="bg-fadel-navy/5 p-4 rounded-2xl border border-fadel-navy/10">
-                  <div className="flex items-center gap-2 mb-2 text-fadel-navy">
+              <div className="relative pl-8 text-develoi-navy">
+                <div className="absolute left-[-4px] top-1 w-2 h-2 rounded-full bg-develoi-navy" />
+                <div className="bg-develoi-navy/5 p-4 rounded-2xl border border-develoi-navy/10">
+                  <div className="flex items-center gap-2 mb-2 text-develoi-navy">
                     <Plus size={14} />
                     <span className="text-[10px] font-black uppercase tracking-widest">Adicionar Nota</span>
                   </div>
                   <textarea 
                     placeholder="Escreva uma observação interna..."
-                    className="w-full bg-white border border-fadel-navy/10 rounded-xl p-3 text-[11px] font-bold focus:ring-2 focus:ring-fadel-navy outline-none min-h-[80px]"
+                    className="w-full bg-white border border-develoi-navy/10 rounded-xl p-3 text-[11px] font-bold focus:ring-2 focus:ring-develoi-navy outline-none min-h-[80px]"
                   />
-                  <button className="mt-3 px-4 py-2 bg-fadel-navy text-white text-[9px] font-black uppercase tracking-widest rounded-lg shadow-md shadow-fadel-navy/20 active:scale-95 transition-all">
+                  <button className="mt-3 px-4 py-2 bg-develoi-navy text-white text-[9px] font-black uppercase tracking-widest rounded-lg shadow-md shadow-develoi-navy/20 active:scale-95 transition-all">
                     Salvar Nota
                   </button>
                 </div>

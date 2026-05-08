@@ -31,6 +31,39 @@ async function startServer() {
 
   // --- API Routes ---
 
+  // Authentication
+  app.post('/api/auth/login', (req, res) => {
+    const { email, password } = req.body;
+    const cleanEmail = email?.trim().toLowerCase();
+    const cleanPassword = password?.trim();
+    
+    console.log(`Login attempt for: [${cleanEmail}]`);
+    try {
+      const stmt = db.prepare('SELECT u.*, un.name as unit_name FROM users u LEFT JOIN units un ON u.unit_id = un.id WHERE (LOWER(u.email) = ? OR LOWER(u.id) = ?) AND u.password = ?');
+      const user = stmt.get(cleanEmail, cleanEmail, cleanPassword) as any;
+      
+      if (user) {
+        console.log(`Login success: ${user.full_name} (${user.role})`);
+        db.prepare('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?').run(user.id);
+        
+        const userResponse = { ...user };
+        delete userResponse.password;
+        res.json(userResponse);
+      } else {
+        // Fallback for first-run
+        if (cleanEmail === 'admin' && cleanPassword === 'admin') {
+           console.log('Login success via Fallback Admin');
+           return res.json({ id: 'admin-root', full_name: 'Admin Master', email: 'admin', role: 'admin', tenant_id: 'develoi' });
+        }
+        console.log(`Login failed for: [${cleanEmail}]. No user found with these credentials.`);
+        res.status(401).json({ error: 'Invalid credentials' });
+      }
+    } catch (error) {
+      console.error('Login error details:', error);
+      res.status(500).json({ error: 'Auth failed' });
+    }
+  });
+
   // Candidate File Import
   app.post('/api/candidates/import-file', upload.single('resume'), async (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
@@ -369,7 +402,7 @@ async function startServer() {
       res.json({ success: true, data: parsedData });
     } catch (error) {
       console.error(error);
-      db.prepare('UPDATE job_imports SET status = "error", error_message = ? WHERE id = ?').run(String(error), id);
+      db.prepare('UPDATE job_imports SET status = \'error\', error_message = ? WHERE id = ?').run(String(error), id);
       res.status(500).json({ error: 'AI analysis failed' });
     }
   });
@@ -645,8 +678,8 @@ async function startServer() {
     }
 
     if (search) {
-      query += ' AND (full_name LIKE ? OR email LIKE ? OR phone LIKE ? OR desired_position LIKE ?)';
-      params.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`);
+      query += ' AND (full_name LIKE ? OR email LIKE ? OR phone LIKE ? OR desired_position LIKE ? OR hard_skills LIKE ? OR summary LIKE ?)';
+      params.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`);
     }
 
     query += ' ORDER BY created_at DESC';
@@ -883,9 +916,9 @@ async function startServer() {
     }
   });
 
-  // --- Nexus AI Endpoints ---
+  // --- Aurora AI Endpoints ---
 
-  app.get('/api/nexus-ai/settings', (req, res) => {
+  app.get('/api/aurora-ai/settings', (req, res) => {
     const { tenantId, unitId } = req.query;
     try {
       const settings = db.prepare('SELECT * FROM ai_matching_settings WHERE tenant_id = ? AND unit_id = ?').get(tenantId, unitId);
@@ -912,7 +945,7 @@ async function startServer() {
     }
   });
 
-  app.put('/api/nexus-ai/settings', (req, res) => {
+  app.put('/api/aurora-ai/settings', (req, res) => {
     const settings = req.body;
     const { tenant_id, unit_id } = settings;
 
@@ -936,7 +969,7 @@ async function startServer() {
     }
   });
 
-  app.post('/api/nexus-ai/match-job', async (req, res) => {
+  app.post('/api/aurora-ai/match-job', async (req, res) => {
     const { 
       jobId, 
       tenantId, 
@@ -997,7 +1030,7 @@ async function startServer() {
       const candidatesToProcess = candidates.slice(0, 50); 
 
       const prompt = `
-        Você é o Nexus AI, sistema de inteligência de recrutamento.
+        Você é a Aurora AI, sistema de inteligência de recrutamento.
         Sua tarefa é comparar uma lista de candidatos com uma vaga específica.
         Avalie requisitos obrigatórios, desejáveis, experiência, localização, modelo de trabalho, formação, habilidades, DISC e critérios eliminatórios.
         
@@ -1086,7 +1119,7 @@ async function startServer() {
     }
   });
 
-  app.post('/api/nexus-ai/chat', async (req, res) => {
+  app.post('/api/aurora-ai/chat', async (req, res) => {
     const { message, tenantId, unitId, sessionId } = req.body;
     
     try {
@@ -1102,7 +1135,7 @@ async function startServer() {
       const history = db.prepare('SELECT role, message FROM ai_chat_messages WHERE session_id = ? ORDER BY created_at ASC').all(currentSessionId) as any[];
 
       const systemPrompt = `
-        Você é o Nexus AI, o assistente inteligente central do Nexus AI Recruitment OS.
+        Você é a Aurora AI, a assistente inteligente central da Develoi.
         Sua missão é ajudar o RH a encontrar os melhores candidatos, analisar perfis, comparar currículos e responder dúvidas sobre o banco de talentos.
         
         Diretrizes:
@@ -1143,7 +1176,7 @@ async function startServer() {
     }
   });
 
-  app.get('/api/nexus-ai/sessions', (req, res) => {
+  app.get('/api/aurora-ai/sessions', (req, res) => {
     const { tenantId, unitId } = req.query;
     try {
       const sessions = db.prepare('SELECT * FROM ai_search_sessions WHERE tenant_id = ? ORDER BY created_at DESC').all(tenantId);
@@ -1183,14 +1216,14 @@ async function startServer() {
       const params = unitId && unitId !== 'master' ? [tenantId, unitId] : [tenantId];
 
       const totalSent = db.prepare(`SELECT COUNT(*) as count FROM hr_tool_responses WHERE tenant_id = ? ${unitFilter}`).get(...params) as any || { count: 0 };
-      const totalReceived = db.prepare(`SELECT COUNT(*) as count FROM hr_tool_responses WHERE tenant_id = ? AND status = "Concluído" ${unitFilter}`).get(...params) as any || { count: 0 };
+      const totalReceived = db.prepare(`SELECT COUNT(*) as count FROM hr_tool_responses WHERE tenant_id = ? AND status = 'Concluído' ${unitFilter}`).get(...params) as any || { count: 0 };
       
       const candidatesWithDiscQuery = unitId && unitId !== 'master' 
         ? 'SELECT COUNT(DISTINCT r.candidate_id) as count FROM candidate_disc_results r JOIN candidates c ON r.candidate_id = c.id WHERE c.tenant_id = ? AND c.unit_id = ?'
         : 'SELECT COUNT(DISTINCT r.candidate_id) as count FROM candidate_disc_results r JOIN candidates c ON r.candidate_id = c.id WHERE c.tenant_id = ?';
       const candidatesWithDisc = db.prepare(candidatesWithDiscQuery).get(...(unitId && unitId !== 'master' ? [tenantId, unitId] : [tenantId])) as any || { count: 0 };
       
-      const activeForms = db.prepare(`SELECT COUNT(*) as count FROM hr_tools WHERE tenant_id = ? AND status = "Ativo" ${unitFilter}`).get(...params) as any || { count: 0 };
+      const activeForms = db.prepare(`SELECT COUNT(*) as count FROM hr_tools WHERE tenant_id = ? AND status = 'Ativo' ${unitFilter}`).get(...params) as any || { count: 0 };
 
       // DISC Distribution
       const discDistributionQuery = unitId && unitId !== 'master'
@@ -1338,6 +1371,93 @@ async function startServer() {
     }
   });
 
+  app.get('/api/hr-tools/responses/:responseId', (req, res) => {
+    try {
+      const response = db.prepare(`
+        SELECT r.*, c.full_name as candidate_name, c.email as candidate_email, j.title as job_title, t.name as tool_name, t.type as tool_type
+        FROM hr_tool_responses r
+        JOIN hr_tools t ON r.tool_id = t.id
+        LEFT JOIN candidates c ON r.candidate_id = c.id
+        LEFT JOIN jobs j ON r.job_id = j.id
+        WHERE r.id = ?
+      `).get(req.params.responseId) as any;
+
+      if (!response) return res.status(404).json({ error: 'Response not found' });
+
+      const answers = db.prepare(`
+        SELECT a.*, q.question_text, q.question_type
+        FROM hr_tool_answers a
+        JOIN hr_tool_questions q ON a.question_id = q.id
+        WHERE a.response_id = ?
+        ORDER BY q.position ASC
+      `).all(req.params.responseId);
+
+      res.json({ ...response, answers });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: 'Failed to fetch response details' });
+    }
+  });
+
+  app.post('/api/hr-tools/responses/:responseId/analyze', async (req, res) => {
+    try {
+      const responseId = req.params.responseId;
+      const response = db.prepare(`
+        SELECT r.*, t.name as tool_name, t.description as tool_description
+        FROM hr_tool_responses r
+        JOIN hr_tools t ON r.tool_id = t.id
+        WHERE r.id = ?
+      `).get(responseId) as any;
+
+      if (!response) return res.status(404).json({ error: 'Response not found' });
+
+      const answers = db.prepare(`
+        SELECT a.*, q.question_text
+        FROM hr_tool_answers a
+        JOIN hr_tool_questions q ON a.question_id = q.id
+        WHERE a.response_id = ?
+      `).all(responseId) as any[];
+
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
+      
+      const prompt = `
+        Você é Aurora, a Inteligência Artificial especialista em RH da Develoi.
+        Sua missão é analisar as respostas de um candidato para a ferramenta: "${response.tool_name}".
+        Descrição da ferramenta: ${response.tool_description}
+
+        RESPOSTAS DO CANDIDATO:
+        ${answers.map(a => `Pergunta: ${a.question_text}\nResposta: ${a.answer_text}`).join('\n\n')}
+
+        Com base nessas respostas, forneça uma análise técnica e comportamental profunda.
+        Retorne APENAS um JSON no seguinte formato:
+        {
+          "summary": "Resumo executivo do perfil (máx 30 palavras)",
+          "score_estimate": 85, (0-100)
+          "recommendation": "Prosseguir" ou "Atenção" ou "Reprovar",
+          "strengths": ["ponto forte 1", "ponto forte 2"],
+          "attention_points": ["ponto de atenção 1", "ponto de atenção 2"]
+        }
+      `;
+
+      const aiResponse = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: prompt,
+      });
+
+      const text = aiResponse.text || "{}";
+      const match = text.match(/\{[\s\S]*\}/);
+      const analysisData = match ? match[0] : "{}";
+
+      db.prepare('UPDATE hr_tool_responses SET ai_analysis_json = ?, status = \'Concluído\' WHERE id = ?')
+        .run(analysisData, responseId);
+
+      res.json({ success: true, analysis: JSON.parse(analysisData) });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: 'AI Analysis failed' });
+    }
+  });
+
   app.get('/api/hr-tools/:id/responses', (req, res) => {
     try {
       const responses = db.prepare(`
@@ -1432,7 +1552,7 @@ async function startServer() {
 
   app.get('/api/public/hr-tools/:slug', (req, res) => {
     try {
-      const tool = db.prepare('SELECT * FROM hr_tools WHERE public_slug = ? AND status = "Ativo"').get(req.params.slug);
+      const tool = db.prepare("SELECT * FROM hr_tools WHERE public_slug = ? AND status = 'Ativo'").get(req.params.slug);
       if (!tool) return res.status(404).json({ error: 'Tool not found or inactive' });
 
       const questions = db.prepare('SELECT * FROM hr_tool_questions WHERE tool_id = ? ORDER BY position ASC').all((tool as any).id);
@@ -1630,53 +1750,51 @@ async function startServer() {
         WHERE b.id = ?
       `).get(batchId) as any;
 
-      const files = db.prepare('SELECT * FROM import_files WHERE batch_id = ? AND status = "uploaded"').all(batchId) as any[];
+      const files = db.prepare("SELECT * FROM import_files WHERE batch_id = ? AND status = 'uploaded'").all(batchId) as any[];
 
-      db.prepare('UPDATE import_batches SET status = "processing" WHERE id = ?').run(batchId);
+      db.prepare("UPDATE import_batches SET status = 'processing' WHERE id = ?").run(batchId);
 
       // Start processing in background (simulated since we return response)
-      // For this app, we'll process them and then respond when done or simulated sequential
-      
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
 
       for (const file of files) {
-        db.prepare('UPDATE import_files SET status = "processing", progress = 10, duplicate_status = "none", duplicate_candidate_id = NULL, error_message = NULL WHERE id = ?').run(file.id);
-
-        // Simulation code: we don't have the actual PDF content, so we use the filename to simulate text
-        const simulatedText = `Currículo de demonstração para o arquivo ${file.file_name}. Candidato com experiência em Logística e Operações.`;
-        
-        const prompt = `
-          Você é um especialista em recrutamento. Analise o texto do currículo e extraia os dados do candidato em JSON estruturado.
-          Se houver uma vaga vinculada, compare o currículo com a vaga.
-          
-          Currículo:
-          ${simulatedText}
-          
-          Vaga:
-          ${batch.job_title ? `${batch.job_title}: ${batch.job_description}` : 'Nenhuma vaga vinculada'}
-          
-          Retorne um JSON:
-          {
-            "name": string,
-            "email": string,
-            "phone": string,
-            "city": string,
-            "state": string,
-            "role": string,
-            "summary": string,
-            "experience_years": number,
-            "skills": string[],
-            "compatibility_score": number (0-100),
-            "recommendation": string,
-            "strengths": string[],
-            "attention_points": string[]
-          }
-        `;
-
         try {
+          db.prepare("UPDATE import_files SET status = 'processing', progress = 10, duplicate_status = 'none', duplicate_candidate_id = NULL, error_message = NULL WHERE id = ?").run(file.id);
+
+          const simulatedText = `Currículo de demonstração para o arquivo ${file.file_name}. Candidato com experiência em Logística e Operações.`;
+          
+          const prompt = `
+            Eu sou Aurora, especialista em talentos da Develoi. 
+            Sua tarefa é analisar o texto do currículo e extrair os dados do candidato em JSON estruturado com precisão cirúrgica.
+            Se houver uma vaga vinculada, compare o currículo com os requisitos da vaga.
+            
+            CURRÍCULO (Texto extraído):
+            ${simulatedText}
+            
+            VAGA ALVO (Se aplicável):
+            ${batch.job_title ? `${batch.job_title}: ${batch.job_description}` : 'Nenhuma vaga vinculada'}
+            
+            Retorne obrigatoriamente um objeto JSON com esta estrutura:
+            {
+              "name": string,
+              "email": string,
+              "phone": string,
+              "city": string,
+              "state": string,
+              "role": string (cargo atual ou pretendido),
+              "summary": string (resumo profissional conciso),
+              "experience_years": number,
+              "skills": string[],
+              "compatibility_score": number (0-100, baseado nos requisitos da vaga),
+              "recommendation": string (breve parecer da Aurora),
+              "strengths": string[] (lista de pontos fortes),
+              "attention_points": string[] (lista de pontos de atenção)
+            }
+          `;
+
           const aiResult = await ai.models.generateContent({
-            model: 'gemini-1.5-flash',
-            contents: [{ role: 'user', parts: [{ text: prompt }] }]
+            model: 'gemini-3-flash-preview',
+            contents: prompt
           });
           const textResponse = aiResult.text || "";
           
@@ -1739,12 +1857,12 @@ async function startServer() {
 
         } catch (err) {
           console.error(`Error processing file ${file.id}:`, err);
-          db.prepare('UPDATE import_files SET status = "error", error_message = ? WHERE id = ?').run(String(err), file.id);
+          db.prepare("UPDATE import_files SET status = 'error', error_message = ? WHERE id = ?").run(String(err), file.id);
           db.prepare('UPDATE import_batches SET error_files = error_files + 1 WHERE id = ?').run(batchId);
         }
       }
 
-      db.prepare('UPDATE import_batches SET status = "completed" WHERE id = ?').run(batchId);
+      db.prepare("UPDATE import_batches SET status = 'completed' WHERE id = ?").run(batchId);
       res.json({ success: true });
 
     } catch (error) {
@@ -1766,7 +1884,7 @@ async function startServer() {
         WHERE b.id = ?
       `).get(file.batch_id) as any;
 
-      db.prepare('UPDATE import_files SET status = "uploaded" WHERE id = ?').run(fileId);
+      db.prepare("UPDATE import_files SET status = 'uploaded' WHERE id = ?").run(fileId);
       
       // Reuse logic from /start but for just one file
       // In a real app we'd extract this to a service function
@@ -1775,7 +1893,7 @@ async function startServer() {
       // Background process (simulated)
       (async () => {
         const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
-        db.prepare('UPDATE import_files SET status = "processing", progress = 10, duplicate_status = "none", duplicate_candidate_id = NULL, error_message = NULL WHERE id = ?').run(fileId);
+        db.prepare("UPDATE import_files SET status = 'processing', progress = 10, duplicate_status = 'none', duplicate_candidate_id = NULL, error_message = NULL WHERE id = ?").run(fileId);
 
         const simulatedText = `Currículo de demonstração para o arquivo ${file.file_name}. Candidato com experiência em Logística e Operações.`;
         const prompt = `Extraia dados em JSON: ${simulatedText}. Vaga: ${batch.job_title || 'Nenhuma'}`;
@@ -1808,9 +1926,9 @@ async function startServer() {
             WHERE id = ?
           `).run(status, simulatedText, JSON.stringify(data), data.summary, duplicateStatus, duplicateCandidateId, data.compatibility_score, fileId);
 
-          db.prepare('UPDATE import_batches SET processed_files = (SELECT COUNT(*) FROM import_files WHERE batch_id = ? AND status IN ("completed", "duplicate", "error")), updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(file.batch_id, file.batch_id);
-        } catch (err) {
-          db.prepare('UPDATE import_files SET status = "error", error_message = ? WHERE id = ?').run(err.message, fileId);
+          db.prepare("UPDATE import_batches SET processed_files = (SELECT COUNT(*) FROM import_files WHERE batch_id = ? AND status IN ('completed', 'duplicate', 'error')), updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(file.batch_id, file.batch_id);
+        } catch (err: any) {
+          db.prepare("UPDATE import_files SET status = 'error', error_message = ? WHERE id = ?").run(err.message, fileId);
         }
       })();
 
@@ -1836,10 +1954,67 @@ async function startServer() {
     }
   });
 
+  app.patch('/api/imports/files/:id', (req, res) => {
+    const { id } = req.params;
+    const { parsed_data_json } = req.body;
+    try {
+      db.prepare('UPDATE import_files SET parsed_data_json = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(parsed_data_json, id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: 'Failed to update file data' });
+    }
+  });
+
+  // AI Job Suggestion for Imports
+  app.post('/api/ai/match-jobs', async (req, res) => {
+    const { candidateProfile, tenantId } = req.body;
+    try {
+      const activeJobs = db.prepare("SELECT id, title, description, city, state FROM jobs WHERE tenant_id = ? AND status = 'Aberta'").all(tenantId) as any[];
+      
+      if (activeJobs.length === 0) return res.json({ suggestions: [] });
+
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
+
+      const prompt = `
+        Olá, eu sou Aurora, a Inteligência Artificial especialista em talentos da Develoi.
+        Minha missão hoje é analisar o perfil do candidato abaixo e encontrar as melhores oportunidades entre nossas vagas abertas.
+        
+        PERFIL DO CANDIDATO:
+        ${JSON.stringify(candidateProfile)}
+
+        VAGAS DISPONÍVEIS:
+        ${JSON.stringify(activeJobs)}
+
+        Por favor, selecione as vagas com maior afinidade (mínimo de 60%) e justifique brevemente sua escolha.
+        Retorne APENAS o JSON no seguinte formato:
+        {
+          "suggestions": [
+            { "job_id": number, "match_reason": "breve justificativa (máx 15 palavras)", "score": number (0-100) }
+          ]
+        }
+      `;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: prompt,
+      });
+
+      const text = response.text || "{}";
+      const match = text.match(/\{[\s\S]*\}/);
+      const data = match ? JSON.parse(match[0]) : { suggestions: [] };
+
+      res.json(data);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: 'AI matching failed' });
+    }
+  });
+
   app.post('/api/imports/:id/commit', (req, res) => {
     const batchId = req.params.id;
     try {
-      const files = db.prepare('SELECT * FROM import_files WHERE batch_id = ? AND status IN ("completed", "duplicate")').all(batchId) as any[];
+      const files = db.prepare("SELECT * FROM import_files WHERE batch_id = ? AND status IN ('completed', 'duplicate')").all(batchId) as any[];
       const batch = db.prepare('SELECT * FROM import_batches WHERE id = ?').get(batchId) as any;
 
       db.transaction(() => {
@@ -1868,6 +2043,15 @@ async function startServer() {
               `).run(candId, batch.job_id, file.compatibility_score, file.compatibility_classification);
             }
 
+            // AUTO-TOOLING INTEGRATION: Send tool if selected
+            const autoToolId = req.body.autoToolId;
+            if (autoToolId && autoToolId !== 'none') {
+              db.prepare(`
+                INSERT INTO hr_tool_responses (tool_id, candidate_id, tenant_id, status)
+                VALUES (?, ?, ?, 'Pendente')
+              `).run(autoToolId, candId, file.tenant_id);
+            }
+
             db.prepare('UPDATE import_files SET candidate_id = ?, status = "committed" WHERE id = ?').run(candId, file.id);
             db.prepare('UPDATE import_batches SET created_candidates = created_candidates + 1 WHERE id = ?').run(batchId);
           } 
@@ -1889,6 +2073,188 @@ async function startServer() {
     } catch (error) {
       console.error(error);
       res.status(500).json({ error: 'Commit failed' });
+    }
+  });
+
+  // --- Tenants Management (SuperAdmin only) ---
+  app.get('/api/tenants', (req, res) => {
+    try {
+      const tenants = db.prepare('SELECT * FROM tenants ORDER BY created_at DESC').all();
+      res.json(tenants);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch tenants' });
+    }
+  });
+
+  app.post('/api/tenants/provision', (req, res) => {
+    const { name, document, responsible_name, email, password, phone } = req.body;
+    try {
+      const tenantId = name.toLowerCase().replace(/\s+/g, '-').substring(0, 15) + '-' + Math.random().toString(36).substr(2, 4);
+      
+      // 1. Create Tenant
+      db.prepare('INSERT INTO tenants (id, name, document) VALUES (?, ?, ?)').run(tenantId, name, document || '');
+
+      // 2. Create Master Unit for this Tenant
+      const unitId = 'master-' + tenantId;
+      db.prepare(`
+        INSERT INTO units (id, tenant_id, name, company_name, responsible_name, phone, email, is_master)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+      `).run(unitId, tenantId, `Matriz - ${name}`, name, responsible_name, phone, email);
+
+      // 3. Create First User (Admin of this Tenant)
+      const userId = 'admin-' + tenantId;
+      db.prepare(`
+        INSERT INTO users (id, tenant_id, unit_id, full_name, email, password, role, status)
+        VALUES (?, ?, ?, ?, ?, ?, 'admin', 'Ativo')
+      `).run(userId, tenantId, unitId, responsible_name, email, password);
+
+      res.json({ success: true, tenantId, userId });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: 'Failed to provision tenant' });
+    }
+  });
+
+  app.delete('/api/tenants/:id', (req, res) => {
+    try {
+      // Cascade delete is handled by database if configured, or manual here
+      db.prepare('DELETE FROM users WHERE tenant_id = ?').run(req.params.id);
+      db.prepare('DELETE FROM units WHERE tenant_id = ?').run(req.params.id);
+      db.prepare('DELETE FROM tenants WHERE id = ?').run(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to delete tenant' });
+    }
+  });
+
+  // --- Units Management ---
+  app.get('/api/units', (req, res) => {
+    try {
+      const units = db.prepare('SELECT * FROM units ORDER BY is_master DESC, name ASC').all();
+      res.json(units);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch units' });
+    }
+  });
+
+  app.post('/api/units', (req, res) => {
+    const unit = req.body;
+    try {
+      const id = unit.id || Math.random().toString(36).substr(2, 9);
+      db.prepare(`
+        INSERT INTO units (id, tenant_id, parent_id, name, company_name, responsible_name, phone, email, city, state, is_master)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        id, 
+        unit.tenant_id || 'develoi', 
+        unit.parent_id || null, 
+        unit.name, 
+        unit.company_name || null, 
+        unit.responsible_name || null, 
+        unit.phone || null, 
+        unit.email || null, 
+        unit.city || null, 
+        unit.state || null, 
+        unit.is_master || 0
+      );
+      res.json({ id, ...unit });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: 'Failed to create unit' });
+    }
+  });
+
+  app.put('/api/units/:id', (req, res) => {
+    const { id } = req.params;
+    const unit = req.body;
+    try {
+      db.prepare(`
+        UPDATE units SET 
+          name = ?, parent_id = ?, company_name = ?, responsible_name = ?, 
+          phone = ?, email = ?, city = ?, state = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `).run(
+        unit.name, unit.parent_id || null, unit.company_name || null, 
+        unit.responsible_name || null, unit.phone || null, unit.email || null, 
+        unit.city || null, unit.state || null, id
+      );
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to update unit' });
+    }
+  });
+
+  app.delete('/api/units/:id', (req, res) => {
+    try {
+      db.prepare('DELETE FROM units WHERE id = ?').run(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to delete unit' });
+    }
+  });
+
+  // --- Users Management ---
+  app.get('/api/users', (req, res) => {
+    const { unitId } = req.query;
+    try {
+      let query = 'SELECT u.*, un.name as unit_name FROM users u LEFT JOIN units un ON u.unit_id = un.id';
+      const params: any[] = [];
+      if (unitId && unitId !== 'master') {
+        query += ' WHERE u.unit_id = ?';
+        params.push(unitId);
+      }
+      const users = db.prepare(query).all(...params);
+      res.json(users);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch users' });
+    }
+  });
+
+  app.post('/api/users', (req, res) => {
+    const user = req.body;
+    try {
+      const id = 'user-' + Math.random().toString(36).substr(2, 9);
+      db.prepare(`
+        INSERT INTO users (id, tenant_id, unit_id, full_name, email, password, role, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        id, 
+        user.tenant_id || 'develoi', 
+        user.unit_id || null, 
+        user.full_name, 
+        user.email, 
+        user.password, 
+        user.role || 'user', 
+        user.status || 'Ativo'
+      );
+      res.json({ id, ...user });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: 'Failed to create user' });
+    }
+  });
+
+  app.put('/api/users/:id', (req, res) => {
+    const { id } = req.params;
+    const user = req.body;
+    try {
+      db.prepare(`
+        UPDATE users SET 
+          full_name = ?, email = ?, role = ?, status = ?, unit_id = ?
+        WHERE id = ?
+      `).run(user.full_name, user.email, user.role, user.status, user.unit_id, id);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to update user' });
+    }
+  });
+
+  app.delete('/api/users/:id', (req, res) => {
+    try {
+      db.prepare('DELETE FROM users WHERE id = ?').run(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to delete user' });
     }
   });
 

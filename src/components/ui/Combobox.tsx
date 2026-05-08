@@ -197,11 +197,11 @@ export const Combobox: React.FC<ComboboxProps> = ({
   /* ── Group header icon colours ── */
   const GROUP_STYLES: Record<string, string> = {
     "Serviços":  "text-fadel-navy bg-fadel-navy/5 border-fadel-navy/10",
-    "Pacotes":   "text-fadel-red bg-fadel-red/5 border-fadel-red/10",
+    "Pacotes":   "text-fadel-gold bg-fadel-gold/5 border-fadel-gold/10",
   };
   const GROUP_DOT: Record<string, string> = {
     "Serviços": "bg-fadel-navy",
-    "Pacotes":  "bg-fadel-red",
+    "Pacotes":  "bg-fadel-gold",
   };
 
   return (

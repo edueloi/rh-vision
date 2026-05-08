@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3';
 import { join } from 'path';
 
-const db = new Database('nexus_recruitment.db');
+const db = new Database('aurora_recruitment.db');
 
 // Enable foreign keys
 db.pragma('foreign_keys = ON');
@@ -20,14 +20,35 @@ export function initDb() {
     CREATE TABLE IF NOT EXISTS units (
       id TEXT PRIMARY KEY,
       tenant_id TEXT NOT NULL,
+      parent_id TEXT,
       name TEXT NOT NULL,
+      company_name TEXT,
+      responsible_name TEXT,
+      phone TEXT,
+      email TEXT,
       city TEXT,
       state TEXT,
       latitude REAL,
       longitude REAL,
+      is_master INTEGER DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (tenant_id) REFERENCES tenants(id)
+      FOREIGN KEY (tenant_id) REFERENCES tenants(id),
+      FOREIGN KEY (parent_id) REFERENCES units(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL,
+      unit_id TEXT,
+      full_name TEXT NOT NULL,
+      email TEXT UNIQUE NOT NULL,
+      password TEXT NOT NULL,
+      role TEXT DEFAULT 'user',
+      status TEXT DEFAULT 'Ativo',
+      last_login DATETIME,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (unit_id) REFERENCES units(id)
     );
 
     CREATE TABLE IF NOT EXISTS jobs (
@@ -133,7 +154,7 @@ export function initDb() {
       FOREIGN KEY (unit_id) REFERENCES units(id)
     );
 
-    -- New Nexus AI Tables
+    -- New Aurora AI Tables
     CREATE TABLE IF NOT EXISTS ai_search_sessions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       tenant_id TEXT NOT NULL,
@@ -465,17 +486,20 @@ export function initDb() {
       FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE SET NULL
     );
 
-    -- Insert Default Fadel Data
-    INSERT OR IGNORE INTO tenants (id, name, document) VALUES ('fadel', 'Fadel Transportes', '00.000.000/0001-00');
+    -- Insert Default Develoi Data
+    INSERT OR IGNORE INTO tenants (id, name, document) VALUES ('develoi', 'Develoi Recruitment', '00.000.000/0001-00');
     
-    INSERT OR IGNORE INTO units (id, tenant_id, name, city, state) VALUES ('master', 'fadel', 'Fadel - Central (Master)', 'Todas', 'N/A');
+    INSERT OR IGNORE INTO users (id, tenant_id, full_name, email, password, role) 
+    VALUES ('admin-root', 'develoi', 'Admin Master', 'admin', 'admin', 'admin');
+
+    INSERT OR IGNORE INTO units (id, tenant_id, name, city, state, is_master) VALUES ('master', 'develoi', 'Develoi - Central (Master)', 'Todas', 'N/A', 1);
     
     -- Insert default tools if they don't exist
     INSERT OR IGNORE INTO hr_tools (tenant_id, unit_id, name, type, description, public_slug) 
-    VALUES ('fadel', 'master', 'Avaliação DISC', 'DISC', 'Avaliação comportamental baseada na metodologia DISC.', 'disc-standard');
+    VALUES ('develoi', 'master', 'Avaliação DISC', 'DISC', 'Avaliação comportamental baseada na metodologia DISC.', 'disc-standard');
     
     INSERT OR IGNORE INTO hr_tools (tenant_id, unit_id, name, type, description, public_slug) 
-    VALUES ('fadel', 'master', 'Fit Cultural', 'culture-fit', 'Aferição de alinhamento com os valores da Fadel.', 'cultural-fit-master');
+    VALUES ('develoi', 'master', 'Fit Cultural', 'culture-fit', 'Aferição de alinhamento com os valores da Develoi.', 'cultural-fit-master');
 
     -- Insert default questions for DISC (simplified example)
     INSERT OR IGNORE INTO hr_tool_questions (tool_id, question_text, question_type, position)
@@ -493,14 +517,14 @@ export function initDb() {
     INSERT OR IGNORE INTO hr_tool_questions (tool_id, question_text, question_type, position)
     SELECT id, 'Você prefere ambientes estáveis ou em constante mudança?', 'text', 2 FROM hr_tools WHERE public_slug = 'cultural-fit-master';
 
-    INSERT OR IGNORE INTO units (id, tenant_id, name, city, state) VALUES ('tatui', 'fadel', 'Fadel - Tatuí', 'Tatuí', 'SP');
-    INSERT OR IGNORE INTO units (id, tenant_id, name, city, state) VALUES ('curitiba', 'fadel', 'Fadel - Curitiba', 'Curitiba', 'PR');
-    INSERT OR IGNORE INTO units (id, tenant_id, name, city, state) VALUES ('rio', 'fadel', 'Fadel - Rio de Janeiro', 'Rio de Janeiro', 'RJ');
-    INSERT OR IGNORE INTO units (id, tenant_id, name, city, state) VALUES ('bh', 'fadel', 'Fadel - Belo Horizonte', 'Belo Horizonte', 'MG');
+    INSERT OR IGNORE INTO units (id, tenant_id, name, city, state) VALUES ('tatui', 'develoi', 'Develoi - Tatuí', 'Tatuí', 'SP');
+    INSERT OR IGNORE INTO units (id, tenant_id, name, city, state) VALUES ('curitiba', 'develoi', 'Develoi - Curitiba', 'Curitiba', 'PR');
+    INSERT OR IGNORE INTO units (id, tenant_id, name, city, state) VALUES ('rio', 'develoi', 'Develoi - Rio de Janeiro', 'Rio de Janeiro', 'RJ');
+    INSERT OR IGNORE INTO units (id, tenant_id, name, city, state) VALUES ('bh', 'develoi', 'Develoi - Belo Horizonte', 'Belo Horizonte', 'MG');
 
     -- Insert Default Sample Job
     INSERT OR IGNORE INTO jobs (id, tenant_id, unit_id, title, department, city, state, work_model, contract_type, status, is_public, description) 
-    VALUES (1, 'fadel', 'tatui', 'Motorista Carreteiro', 'Logística', 'Tatuí', 'SP', 'Presencial', 'CLT', 'Aberta', 1, 'Vaga para transporte rodoviário de cargas pesadas.');
+    VALUES (1, 'develoi', 'tatui', 'Motorista Carreteiro', 'Logística', 'Tatuí', 'SP', 'Presencial', 'CLT', 'Aberta', 1, 'Vaga para transporte rodoviário de cargas pesadas.');
   `);
 }
 

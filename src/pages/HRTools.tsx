@@ -73,6 +73,8 @@ export default function HRTools() {
   const [activeMenu, setActiveMenu] = useState<number | null>(null);
   const [allResponses, setAllResponses] = useState<any[]>([]);
   const [isResponsesLoading, setIsResponsesLoading] = useState(false);
+  const [selectedResponse, setSelectedResponse] = useState<any>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [newTool, setNewTool] = useState({
     name: '',
     description: '',
@@ -92,7 +94,7 @@ export default function HRTools() {
   const fetchResponses = async () => {
     try {
       setIsResponsesLoading(true);
-      const res = await fetch(`/api/hr-tools/all/responses?tenantId=fadel&unitId=${currentUnit.id}`);
+      const res = await fetch(`/api/hr-tools/all/responses?tenantId=develoi&unitId=${currentUnit.id}`);
       const data = await res.json();
       if (Array.isArray(data)) {
         setAllResponses(data);
@@ -106,7 +108,7 @@ export default function HRTools() {
 
   const fetchDashboard = async () => {
     try {
-      const res = await fetch(`/api/hr-tools/dashboard?tenantId=fadel&unitId=${currentUnit.id}`);
+      const res = await fetch(`/api/hr-tools/dashboard?tenantId=develoi&unitId=${currentUnit.id}`);
       const data = await res.json();
       if (data && !data.error) {
         setDashboardData(data);
@@ -123,7 +125,7 @@ export default function HRTools() {
   const fetchTools = async () => {
     try {
       setIsLoading(true);
-      const res = await fetch(`/api/hr-tools?tenantId=fadel&unitId=${currentUnit.id}`);
+      const res = await fetch(`/api/hr-tools?tenantId=develoi&unitId=${currentUnit.id}`);
       const data = await res.json();
       if (Array.isArray(data)) {
         setTools(data);
@@ -155,7 +157,7 @@ export default function HRTools() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...newTool,
-          tenant_id: 'fadel',
+          tenant_id: 'develoi',
           unit_id: currentUnit.id
         })
       });
@@ -188,6 +190,40 @@ export default function HRTools() {
       toast.error("Erro ao remover.");
     }
   };
+  
+  const fetchResponseDetails = async (responseId: number) => {
+    try {
+      const res = await fetch(`/api/hr-tools/responses/${responseId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setSelectedResponse(data);
+      } else {
+        toast.error("Erro ao carregar detalhes da resposta.");
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("Erro de conexão.");
+    }
+  };
+
+  const runAiAnalysis = async (responseId: number) => {
+    try {
+      setIsAnalyzing(true);
+      const res = await fetch(`/api/hr-tools/responses/${responseId}/analyze`, { method: 'POST' });
+      if (res.ok) {
+        toast.success("Análise de IA concluída!");
+        fetchResponses();
+        fetchResponseDetails(responseId);
+      } else {
+        toast.error("IA falhou ao analisar os dados.");
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("Erro ao processar IA.");
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
 
   const addQuestion = () => {
     setNewTool({
@@ -213,35 +249,36 @@ export default function HRTools() {
   };
 
   const renderDashboard = () => {
-    // Calculando métricas caso o dashboardData esteja incompleto
+    const indicators = dashboardData?.indicators || {};
+    
     const stats = [
       { 
         label: 'Ferramentas Ativas', 
-        value: tools.length.toString(), 
+        value: (indicators.activeForms || tools.length).toString(), 
         icon: Brain, 
         color: 'text-zinc-900', 
         bg: 'bg-zinc-50' 
       },
       { 
         label: 'Respostas Recebidas', 
-        value: allResponses.length.toString(), 
+        value: (indicators.received || allResponses.length).toString(), 
         icon: Users, 
-        color: 'text-fadel-red', 
-        bg: 'bg-fadel-red/5' 
+        color: 'text-develoi-gold', 
+        bg: 'bg-develoi-gold/5' 
       },
       { 
         label: 'Taxa de Conclusão', 
-        value: tools.length > 0 ? '82%' : '--', 
+        value: indicators.completionRate ? `${indicators.completionRate}%` : '--', 
         icon: BarChart3, 
-        color: 'text-fadel-navy', 
-        bg: 'bg-fadel-navy/5' 
+        color: 'text-develoi-navy', 
+        bg: 'bg-develoi-navy/5' 
       },
       { 
-        label: 'Tempo Médio', 
-        value: '12m', 
+        label: 'Candidatos com DISC', 
+        value: (indicators.discCount || 0).toString(), 
         icon: Target, 
-        color: 'text-fadel-blue', 
-        bg: 'bg-fadel-blue/5' 
+        color: 'text-develoi-blue', 
+        bg: 'bg-develoi-blue/5' 
       },
     ];
 
@@ -261,9 +298,9 @@ export default function HRTools() {
                 <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center mb-4 transition-all group-hover:scale-110", stat.bg, stat.color)}>
                   <stat.icon size={24} />
                 </div>
-                <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1">{stat.label}</p>
+                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1">{stat.label}</p>
                 <div className="flex items-baseline gap-2">
-                  <p className="text-3xl font-black text-zinc-900 tracking-tighter">{stat.value}</p>
+                  <p className="text-3xl font-bold text-zinc-900 tracking-tighter">{stat.value}</p>
                 </div>
               </motion.div>
             ))}
@@ -271,7 +308,7 @@ export default function HRTools() {
           
           <div className="py-20 text-center bg-zinc-50 rounded-[40px] border border-dashed border-zinc-200">
              <RefreshCw size={40} className="mx-auto text-zinc-300 animate-spin mb-4" />
-             <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Carregando métricas e análises...</p>
+             <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Carregando métricas e análises...</p>
           </div>
         </div>
       );
@@ -305,7 +342,7 @@ export default function HRTools() {
           <div className="lg:col-span-8 bg-white border border-zinc-200 rounded-[32px] p-8 shadow-sm">
             <div className="flex items-center justify-between mb-8">
               <div>
-                <h3 className="text-sm font-black text-zinc-900 uppercase tracking-widest mb-1">Distribuição DISC</h3>
+                <h3 className="text-sm font-bold text-zinc-900 uppercase tracking-widest mb-1">Distribuição DISC</h3>
                 <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Perfís predominantes no banco de talentos</p>
               </div>
               <PieChartIcon className="text-zinc-300" size={20} />
@@ -334,7 +371,7 @@ export default function HRTools() {
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="h-full flex items-center justify-center text-zinc-300 text-[10px] font-black uppercase tracking-widest border-2 border-dashed border-zinc-100 rounded-3xl">
+                <div className="h-full flex items-center justify-center text-zinc-300 text-[10px] font-bold uppercase tracking-widest border-2 border-dashed border-zinc-100 rounded-3xl">
                   Sem dados DISC disponíveis
                 </div>
               )}
@@ -342,21 +379,21 @@ export default function HRTools() {
           </div>
 
           <div className="lg:col-span-4 space-y-6">
-            <div className="bg-fadel-navy text-white rounded-[32px] p-8 relative overflow-hidden shadow-2xl">
-               <div className="absolute top-0 right-0 w-48 h-48 bg-fadel-blue/10 rounded-full blur-3xl opacity-50 -mr-20 -mt-20" />
+            <div className="bg-develoi-navy text-white rounded-[32px] p-8 relative overflow-hidden shadow-2xl">
+               <div className="absolute top-0 right-0 w-48 h-48 bg-develoi-gold/10 rounded-full blur-3xl opacity-50 -mr-20 -mt-20" />
                <div className="relative z-10">
-                 <h3 className="text-xs font-black uppercase tracking-[0.2em] mb-4 text-fadel-blue">Insights Nexus AI</h3>
+                 <h3 className="text-xs font-bold uppercase tracking-[0.2em] mb-4 text-develoi-gold">Insights Aurora AI</h3>
                  <p className="text-sm font-bold leading-relaxed mb-6 italic opacity-90">
-                   "Candidatos com perfil <span className="text-fadel-blue">Estabilidade (S)</span> possuem maior retenção em unidades Fadel com alto volume de entregas."
+                   "Candidatos com perfil <span className="text-develoi-gold">Estabilidade (S)</span> possuem maior retenção em unidades Develoi com alto volume de entregas."
                  </p>
-                 <button className="w-full py-4 bg-white text-fadel-navy rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-fadel-red hover:text-white transition-all flex items-center justify-center gap-2 shadow-lg">
+                 <button className="w-full py-4 bg-white text-develoi-navy rounded-2xl text-[10px] font-bold uppercase tracking-widest hover:bg-develoi-gold hover:text-white transition-all flex items-center justify-center gap-2 shadow-lg">
                    <Sparkles size={14} /> Análise Comportamental
                  </button>
                </div>
             </div>
 
             <div className="bg-white border border-zinc-200 rounded-[32px] p-6 shadow-sm">
-                <h4 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-4">Uso de Ferramentas</h4>
+                <h4 className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-4">Uso de Ferramentas</h4>
                 <div className="space-y-3">
                   {(dashboardData.charts.usage?.length || 0) > 0 ? (
                     dashboardData.charts.usage.slice(0, 3).map((tool: any, i: number) => (
@@ -374,7 +411,7 @@ export default function HRTools() {
                       </div>
                     ))
                   ) : (
-                    <div className="py-10 text-center text-zinc-200 text-[10px] font-black uppercase tracking-widest italic">Nenhum uso registrado</div>
+                    <div className="py-10 text-center text-zinc-200 text-[10px] font-bold uppercase tracking-widest italic">Nenhum uso registrado</div>
                   )}
                 </div>
             </div>
@@ -395,7 +432,7 @@ export default function HRTools() {
           className="bg-white border border-zinc-200 rounded-[32px] p-8 flex flex-col hover:shadow-xl hover:shadow-zinc-200/40 hover:-translate-y-1 transition-all group relative"
         >
           <div className="absolute inset-0 rounded-[32px] overflow-hidden pointer-events-none">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-zinc-50 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-fadel-navy/5 transition-colors" />
+            <div className="absolute top-0 right-0 w-32 h-32 bg-zinc-50 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-develoi-navy/5 transition-colors" />
           </div>
           
           <div className="flex justify-between items-start mb-6 relative z-10">
@@ -414,7 +451,7 @@ export default function HRTools() {
           </div>
 
           <div className="flex-1 relative z-10">
-            <h3 className="text-base font-black text-zinc-900 mb-2">{tool.name}</h3>
+            <h3 className="text-base font-bold text-zinc-900 mb-2">{tool.name}</h3>
             <p className="text-xs font-bold text-zinc-500 leading-relaxed line-clamp-3 mb-6">
               {tool.description}
             </p>
@@ -423,12 +460,12 @@ export default function HRTools() {
           <div className="mt-auto space-y-4 relative z-10">
              <div className="flex items-center gap-6 pt-4 border-t border-zinc-50">
                 <div className="flex flex-col">
-                   <span className="text-sm font-black text-zinc-900">45</span>
-                   <span className="text-[8px] font-black text-zinc-400 uppercase tracking-widest">Respostas</span>
+                   <span className="text-sm font-bold text-zinc-900">45</span>
+                   <span className="text-[8px] font-bold text-zinc-400 uppercase tracking-widest">Respostas</span>
                 </div>
                 <div className="flex flex-col">
-                   <span className="text-sm font-black text-zinc-900">82%</span>
-                   <span className="text-[8px] font-black text-zinc-400 uppercase tracking-widest">Taxa</span>
+                   <span className="text-sm font-bold text-zinc-900">82%</span>
+                   <span className="text-[8px] font-bold text-zinc-400 uppercase tracking-widest">Taxa</span>
                 </div>
              </div>
 
@@ -463,7 +500,7 @@ export default function HRTools() {
                         >
                           <button 
                             className="w-full px-5 py-3 text-left text-[10px] font-black uppercase tracking-widest text-zinc-600 hover:bg-zinc-50 flex items-center gap-3 transition-all"
-                            onClick={() => { toast.info("Visualização em desenvolvimento"); setActiveMenu(null); }}
+                            onClick={() => { window.open(`/public/tools/${tool.public_slug}`, '_blank'); setActiveMenu(null); }}
                           >
                             <Eye size={14} className="text-zinc-400" /> Pré-visualizar
                           </button>
@@ -501,12 +538,141 @@ export default function HRTools() {
           <Plus size={32} />
         </div>
         <div className="text-center">
-          <h4 className="text-sm font-black text-zinc-900 uppercase tracking-widest">Nova Ferramenta</h4>
+          <h4 className="text-sm font-bold text-zinc-900 uppercase tracking-widest">Nova Ferramenta</h4>
           <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mt-1">Criar formulário personalizado</p>
         </div>
       </motion.button>
     </div>
   );
+
+  const ResponseDetailModal = () => {
+    if (!selectedResponse) return null;
+    const aiAnalysis = selectedResponse.ai_analysis_json ? JSON.parse(selectedResponse.ai_analysis_json) : null;
+
+    return (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-300">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          className="bg-white rounded-[40px] w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl"
+        >
+          <div className="p-8 border-b border-zinc-100 flex justify-between items-center bg-zinc-50/50">
+             <div className="flex items-center gap-4">
+                <div className="w-14 h-14 bg-zinc-900 text-white rounded-2xl flex items-center justify-center font-black text-xl">
+                  {selectedResponse.candidate_name?.substring(0, 2).toUpperCase() || 'AN'}
+                </div>
+                <div>
+                   <h2 className="text-2xl font-black text-zinc-900 tracking-tight">{selectedResponse.candidate_name || 'Anônimo'}</h2>
+                   <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest mt-1 flex items-center gap-2">
+                     {selectedResponse.candidate_email} 
+                     <span className="w-1 h-1 bg-zinc-200 rounded-full" />
+                     {selectedResponse.tool_name}
+                   </p>
+                </div>
+             </div>
+             <button onClick={() => setSelectedResponse(null)} className="p-3 bg-white border border-zinc-200 rounded-2xl text-zinc-400 hover:text-develoi-navy transition-all">
+                <Plus size={20} className="rotate-45" />
+             </button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-8 custom-scrollbar space-y-8">
+            <div className="grid lg:grid-cols-12 gap-8">
+               <div className="lg:col-span-8 space-y-8">
+                  <div>
+                    <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 mb-6">RESPOSTAS DO QUESTIONÁRIO</h4>
+                    <div className="space-y-6">
+                       {selectedResponse.answers?.map((ans: any, i: number) => (
+                          <div key={i} className="p-6 bg-zinc-50 border border-zinc-100 rounded-3xl hover:border-zinc-200 transition-all">
+                             <p className="text-[10px] font-black text-develoi-gold uppercase tracking-widest mb-2">Pergunta {i + 1}</p>
+                             <p className="text-xs font-bold text-zinc-900 mb-4">{ans.question_text}</p>
+                             <div className="p-4 bg-white rounded-2xl border border-zinc-100 italic text-sm text-zinc-600 leading-relaxed shadow-sm">
+                                "{ans.answer_text}"
+                             </div>
+                          </div>
+                       ))}
+                    </div>
+                  </div>
+               </div>
+
+               <div className="lg:col-span-4 space-y-6">
+                  {aiAnalysis ? (
+                    <>
+                      <div className="bg-develoi-navy text-white rounded-[32px] p-8 relative overflow-hidden shadow-xl">
+                         <div className="absolute top-0 right-0 w-32 h-32 bg-develoi-gold/10 rounded-full blur-3xl opacity-50 -mr-16 -mt-16" />
+                         <div className="relative z-10">
+                            <div className="flex items-center gap-2 mb-4">
+                               <Sparkles size={16} className="text-develoi-gold" />
+                               <span className="text-[9px] font-black text-develoi-gold uppercase tracking-[0.2em]">ANÁLISE DA AURORA AI</span>
+                            </div>
+                            <div className="flex items-center gap-3 mb-6">
+                               <div className="text-4xl font-black text-develoi-gold tracking-tight">{aiAnalysis.score_estimate}%</div>
+                               <div className="h-8 w-px bg-white/10" />
+                               <div className="text-[10px] font-bold uppercase tracking-widest leading-tight opacity-70">Afinidade com<br/>o Perfil</div>
+                            </div>
+                            <p className="text-xs font-bold leading-relaxed mb-6 opacity-90 italic">
+                               "{aiAnalysis.summary}"
+                            </p>
+                            <div className="p-4 bg-white/5 rounded-2xl border border-white/10">
+                               <span className="text-[8px] font-black uppercase tracking-widest opacity-50 mb-2 block">Recomendação</span>
+                               <span className={cn(
+                                 "text-[10px] font-black uppercase tracking-widest",
+                                 aiAnalysis.recommendation === 'Prosseguir' ? "text-emerald-400" : "text-amber-400"
+                               )}>{aiAnalysis.recommendation}</span>
+                            </div>
+                         </div>
+                      </div>
+
+                      <div className="bg-white border border-zinc-200 rounded-[32px] p-6 space-y-4">
+                         <h5 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">PONTOS FORTES</h5>
+                         <div className="space-y-2">
+                            {aiAnalysis.strengths?.map((s: string, i: number) => (
+                               <div key={i} className="flex items-center gap-2 text-[10px] font-bold text-zinc-600">
+                                  <div className="w-1 h-1 bg-emerald-500 rounded-full" /> {s}
+                               </div>
+                            ))}
+                         </div>
+                      </div>
+
+                      <div className="bg-white border border-zinc-200 rounded-[32px] p-6 space-y-4">
+                         <h5 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">ATENÇÃO</h5>
+                         <div className="space-y-2">
+                            {aiAnalysis.attention_points?.map((a: string, i: number) => (
+                               <div key={i} className="flex items-center gap-2 text-[10px] font-bold text-zinc-600">
+                                  <div className="w-1 h-1 bg-amber-500 rounded-full" /> {a}
+                               </div>
+                            ))}
+                         </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="bg-zinc-50 border border-zinc-200 rounded-[32px] p-8 text-center space-y-4">
+                       <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center text-zinc-300 mx-auto shadow-sm">
+                          <Wand2 size={24} />
+                       </div>
+                       <div>
+                          <h4 className="text-sm font-black text-zinc-900 uppercase">Parecer Pendente</h4>
+                          <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest mt-1">A IA ainda não analisou estes dados</p>
+                       </div>
+                       <button 
+                         onClick={() => runAiAnalysis(selectedResponse.id)}
+                         disabled={isAnalyzing}
+                         className="w-full py-4 bg-zinc-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-zinc-800 transition-all flex items-center justify-center gap-2 shadow-xl shadow-zinc-900/10 disabled:opacity-50"
+                       >
+                         {isAnalyzing ? (
+                           <RefreshCw size={14} className="animate-spin" />
+                         ) : (
+                           <> <Sparkles size={14} /> Gerar Análise IA </>
+                         )}
+                       </button>
+                    </div>
+                  )}
+               </div>
+            </div>
+          </div>
+        </motion.div>
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-8 pb-20">
@@ -517,7 +683,7 @@ export default function HRTools() {
             <div className="p-2 bg-zinc-900 text-white rounded-xl">
               <ClipboardCheck size={24} />
             </div>
-            <h1 className="text-3xl font-black text-zinc-900 tracking-tighter">Ferramentas RH</h1>
+            <h1 className="text-3xl font-bold text-zinc-900 tracking-tighter">Ferramentas RH</h1>
           </div>
           <p className="text-sm font-bold text-zinc-500 max-w-xl">
             Avaliações, formulários inteligentes e análises comportamentais para apoiar suas decisões de contratação.
@@ -567,7 +733,7 @@ export default function HRTools() {
             {renderDashboard()}
             
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-black text-zinc-900 tracking-tighter">Ferramentas Disponíveis</h2>
+              <h2 className="text-xl font-bold text-zinc-900 tracking-tighter">Ferramentas Disponíveis</h2>
               <div className="flex items-center gap-2">
                  <button className="p-2 text-zinc-400 hover:text-zinc-900"><Filter size={18} /></button>
                  <button className="p-2 text-zinc-400 hover:text-zinc-900"><Search size={18} /></button>
@@ -595,7 +761,7 @@ export default function HRTools() {
             <div className="bg-white border border-zinc-200 rounded-[32px] overflow-hidden shadow-sm">
               <div className="p-8 border-b border-zinc-100 bg-zinc-50/50 flex justify-between items-center">
                  <div>
-                    <h3 className="text-sm font-black text-zinc-900 uppercase tracking-widest">Últimas Interações</h3>
+                    <h3 className="text-sm font-bold text-zinc-900 uppercase tracking-widest">Últimas Interações</h3>
                     <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Acompanhe as respostas e gere pareceres com IA</p>
                  </div>
                  <div className="flex items-center gap-4">
@@ -610,12 +776,12 @@ export default function HRTools() {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-zinc-100 text-left">
-                       <th className="px-8 py-5 text-[9px] font-black text-zinc-400 uppercase tracking-[0.2em]">Candidato</th>
-                       <th className="px-8 py-5 text-[9px] font-black text-zinc-400 uppercase tracking-[0.2em]">Ferramenta</th>
-                       <th className="px-8 py-5 text-[9px] font-black text-zinc-400 uppercase tracking-[0.2em]">Status</th>
-                       <th className="px-8 py-5 text-[9px] font-black text-zinc-400 uppercase tracking-[0.2em]">Data</th>
-                       <th className="px-8 py-5 text-[9px] font-black text-zinc-400 uppercase tracking-[0.2em]">Resultado</th>
-                       <th className="px-8 py-5 text-[9px] font-black text-zinc-400 uppercase tracking-[0.2em]">Ações</th>
+                       <th className="px-8 py-5 text-[9px] font-bold text-zinc-400 uppercase tracking-[0.2em]">Candidato</th>
+                       <th className="px-8 py-5 text-[9px] font-bold text-zinc-400 uppercase tracking-[0.2em]">Ferramenta</th>
+                       <th className="px-8 py-5 text-[9px] font-bold text-zinc-400 uppercase tracking-[0.2em]">Status</th>
+                       <th className="px-8 py-5 text-[9px] font-bold text-zinc-400 uppercase tracking-[0.2em]">Data</th>
+                       <th className="px-8 py-5 text-[9px] font-bold text-zinc-400 uppercase tracking-[0.2em]">Resultado</th>
+                       <th className="px-8 py-5 text-[9px] font-bold text-zinc-400 uppercase tracking-[0.2em]">Ações</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -674,13 +840,18 @@ export default function HRTools() {
                           </td>
                           <td className="px-8 py-4">
                              <div className="flex items-center gap-2">
-                               <button className="p-2 text-zinc-400 hover:text-zinc-900 transition-colors"><Eye size={16} /></button>
                                <button 
-                                onClick={() => toast.info("IA está analisando os dados comportamentais...")}
-                                className="p-2 text-zinc-400 hover:text-amber-500 transition-colors"
-                              >
-                                <Wand2 size={16} />
-                              </button>
+                                 onClick={() => fetchResponseDetails(item.id)}
+                                 className="p-2 text-zinc-400 hover:text-zinc-900 transition-colors"
+                               >
+                                 <Eye size={16} />
+                               </button>
+                               <button 
+                                 onClick={() => runAiAnalysis(item.id)}
+                                 className="p-2 text-zinc-400 hover:text-amber-500 transition-colors"
+                               >
+                                 <Wand2 size={16} />
+                               </button>
                              </div>
                           </td>
                         </tr>
@@ -711,7 +882,7 @@ export default function HRTools() {
             >
               <div className="space-y-6">
                 {[
-                  { label: 'Peso Cultura Fadel', value: 80, desc: 'Importância dos valores organizacionais' },
+                  { label: 'Peso Cultura Develoi', value: 80, desc: 'Importância dos valores organizacionais' },
                   { label: 'Rigor Técnico', value: 65, desc: 'Nível de exigência para competências técnicas' },
                   { label: 'Tolerância comportamental', value: 40, desc: 'Flexibilidade em traços de personalidade' },
                   { label: 'Match de Experiência', value: 90, desc: 'Importância do tempo de casa/segmento' }
@@ -769,7 +940,7 @@ export default function HRTools() {
                        <Zap size={24} />
                     </div>
                     <div>
-                       <h3 className="text-sm font-black text-amber-950 uppercase tracking-widest mb-1">Nexus Pro Intelligence</h3>
+                       <h3 className="text-sm font-black text-amber-950 uppercase tracking-widest mb-1">Aurora Pro Intelligence</h3>
                        <p className="text-xs text-amber-800/70 font-bold leading-relaxed">
                           Habilite automações avançadas de triagem e integração com WhatsApp para aumentar a taxa de conversão em 40%.
                        </p>
@@ -783,6 +954,8 @@ export default function HRTools() {
           </motion.div>
         )}
       </AnimatePresence>
+      
+      <ResponseDetailModal />
 
       {/* Create Tool Modal */}
       {showCreateModal && (
@@ -797,18 +970,18 @@ export default function HRTools() {
                   <h2 className="text-2xl font-black text-zinc-900 tracking-tight">Nova Ferramenta</h2>
                   <p className="text-xs text-zinc-500 font-bold uppercase tracking-widest mt-1">Configure campos e critérios</p>
                </div>
-               <button onClick={() => setShowCreateModal(false)} className="p-3 bg-white border border-zinc-200 rounded-2xl text-zinc-400 hover:text-fadel-navy hover:border-fadel-navy transition-all">
+               <button onClick={() => setShowCreateModal(false)} className="p-3 bg-white border border-zinc-200 rounded-2xl text-zinc-400 hover:text-develoi-navy hover:border-develoi-navy transition-all">
                   <Plus size={20} className="rotate-45" />
                </button>
             </div>
             
             <form onSubmit={handleCreateTool} className="flex-1 overflow-y-auto p-8 space-y-8 custom-scrollbar">
-              <div className="p-6 bg-fadel-navy/5 border border-fadel-navy/10 rounded-3xl space-y-4">
+              <div className="p-6 bg-develoi-navy/5 border border-develoi-navy/10 rounded-3xl space-y-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-fadel-navy rounded-xl flex items-center justify-center text-white">
+                  <div className="w-8 h-8 bg-develoi-navy rounded-xl flex items-center justify-center text-white">
                     <Zap size={16} />
                   </div>
-                  <h4 className="text-[10px] font-black text-fadel-navy uppercase tracking-widest">Modelos Rápidos</h4>
+                  <h4 className="text-[10px] font-black text-develoi-navy uppercase tracking-widest">Modelos Rápidos</h4>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <button 
@@ -823,7 +996,7 @@ export default function HRTools() {
                         { question_text: 'Como você prefere se comunicar com a equipe?', question_type: 'select', is_required: true }
                       ]
                     })}
-                    className="p-4 bg-white border border-zinc-200 rounded-2xl text-[9px] font-black text-zinc-600 uppercase tracking-widest hover:border-fadel-navy transition-all text-center"
+                    className="p-4 bg-white border border-zinc-200 rounded-2xl text-[9px] font-black text-zinc-600 uppercase tracking-widest hover:border-develoi-navy transition-all text-center"
                   >
                     Perfil DISC
                   </button>
@@ -839,7 +1012,7 @@ export default function HRTools() {
                         { question_text: 'De 0 a 10, quanto você domina Y?', question_type: 'number', is_required: true }
                       ]
                     })}
-                    className="p-4 bg-white border border-zinc-200 rounded-2xl text-[9px] font-black text-zinc-600 uppercase tracking-widest hover:border-fadel-navy transition-all text-center"
+                    className="p-4 bg-white border border-zinc-200 rounded-2xl text-[9px] font-black text-zinc-600 uppercase tracking-widest hover:border-develoi-navy transition-all text-center"
                   >
                     Teste Técnico
                   </button>

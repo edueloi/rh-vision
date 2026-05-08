@@ -105,7 +105,7 @@ export default function PublicToolResponse() {
       <div className="min-h-screen bg-zinc-50 flex items-center justify-center p-6">
         <div className="bg-white p-8 rounded-[32px] border border-zinc-200 shadow-xl max-w-md text-center">
            <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-           <h1 className="text-xl font-black text-zinc-900 mb-2">Ops! Alguma coisa deu errado</h1>
+           <h1 className="text-xl font-bold text-zinc-900 mb-2">Ops! Alguma coisa deu errado</h1>
            <p className="text-zinc-500 font-bold text-sm mb-6 uppercase tracking-widest">{error}</p>
         </div>
       </div>
@@ -119,7 +119,7 @@ export default function PublicToolResponse() {
         <div className="w-10 h-10 bg-zinc-900 rounded-xl flex items-center justify-center text-white">
           <ClipboardCheck size={24} />
         </div>
-        <span className="text-xl font-black text-zinc-900 tracking-tighter">Nexus AI <span className="text-blue-600">Recruitment</span></span>
+                    <span className="text-xl font-bold text-zinc-900 tracking-tighter">Aurora AI <span className="text-blue-600">Recruitment</span></span>
       </div>
 
       <div className="w-full max-w-xl mx-auto">
@@ -132,12 +132,12 @@ export default function PublicToolResponse() {
               exit={{ opacity: 0, y: -20 }}
               className="bg-white rounded-[40px] p-8 md:p-12 shadow-2xl shadow-zinc-200 border border-zinc-100"
             >
-              <h2 className="text-2xl font-black text-zinc-900 mb-2 tracking-tight">{tool?.name}</h2>
+              <h2 className="text-2xl font-bold text-zinc-900 mb-2 tracking-tight">{tool?.name}</h2>
               <p className="text-zinc-500 text-sm font-bold mb-8 uppercase tracking-widest opacity-70">Preencha seus dados para começar a avaliação</p>
 
               <form onSubmit={handleInfoSubmit} className="space-y-6">
                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Nome Completo</label>
+                    <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Nome Completo</label>
                     <div className="relative">
                        <User className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
                        <input 
@@ -152,7 +152,7 @@ export default function PublicToolResponse() {
                  </div>
 
                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">E-mail Corporativo</label>
+                    <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest ml-1">E-mail Corporativo</label>
                     <div className="relative">
                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
                        <input 
@@ -167,7 +167,7 @@ export default function PublicToolResponse() {
                  </div>
 
                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Telefone / WhatsApp</label>
+                    <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Telefone / WhatsApp</label>
                     <div className="relative">
                        <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
                        <input 
@@ -182,7 +182,7 @@ export default function PublicToolResponse() {
 
                  <button 
                    type="submit"
-                   className="w-full py-5 bg-zinc-900 text-white rounded-[24px] text-xs font-black uppercase tracking-widest hover:bg-zinc-800 transition-all flex items-center justify-center gap-2 group"
+                   className="w-full py-5 bg-zinc-900 text-white rounded-[24px] text-xs font-bold uppercase tracking-widest hover:bg-zinc-800 transition-all flex items-center justify-center gap-2 group"
                  >
                    Iniciar Avaliação
                    <ChevronRight size={18} className="transition-transform group-hover:translate-x-1" />
@@ -201,7 +201,7 @@ export default function PublicToolResponse() {
             >
               <div className="flex items-center justify-between mb-8">
                  <div className="flex flex-col">
-                    <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Questão {currentQuestionIdx + 1} de {tool.questions.length}</span>
+                    <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Questão {currentQuestionIdx + 1} de {tool.questions.length}</span>
                     <div className="w-32 h-1.5 bg-zinc-100 rounded-full mt-2 overflow-hidden">
                        <div 
                          className="h-full bg-zinc-900 transition-all duration-300" 
@@ -218,7 +218,7 @@ export default function PublicToolResponse() {
               </div>
 
               <div className="flex-1 flex flex-col justify-center mb-8">
-                <h3 className="text-xl font-black text-zinc-900 mb-6 leading-tight">
+                <h3 className="text-xl font-bold text-zinc-900 mb-6 leading-tight">
                   {tool.questions[currentQuestionIdx].question_text}
                 </h3>
 
@@ -317,21 +317,21 @@ export default function PublicToolResponse() {
               <div className="w-20 h-20 bg-green-50 text-green-500 rounded-full flex items-center justify-center mx-auto mb-8">
                  <CheckCircle2 size={40} />
               </div>
-              <h2 className="text-2xl font-black text-zinc-900 mb-4 tracking-tight">Avaliação Concluída!</h2>
-              <p className="text-zinc-500 text-sm font-bold uppercase tracking-widest opacity-70 mb-12">
+              <h2 className="text-2xl font-bold text-zinc-900 mb-4 tracking-tight">Avaliação Concluída!</h2>
+              <p className="text-zinc-500 text-sm font-semibold uppercase tracking-widest opacity-70 mb-12">
                 Obrigado por participar, {candidateInfo.full_name.split(' ')[0]}. Seus dados foram enviados com sucesso para nosso RH.
               </p>
               
               <div className="p-6 bg-zinc-50 rounded-3xl mb-8">
-                 <h4 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1 text-left">Próximos Passos</h4>
-                 <p className="text-xs font-bold text-zinc-600 text-left leading-relaxed">
-                   Nossa equipe analisará seu perfil e entrará em contato caso seu bafit esteja alinhado com o que buscamos para o time Fadel.
+                 <h4 className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1 text-left">Próximos Passos</h4>
+                 <p className="text-xs font-semibold text-zinc-600 text-left leading-relaxed">
+                   Nossa equipe analisará seu perfil e entrará em contato caso seu perfil esteja alinhado com o que buscamos para o time Develoi.
                  </p>
               </div>
 
               <button 
-                 onClick={() => window.location.href = tool.company_url || 'https://fadeltransportes.com.br'}
-                 className="w-full py-5 border-2 border-zinc-200 text-zinc-900 rounded-[24px] text-xs font-black uppercase tracking-widest hover:border-zinc-900 transition-all"
+                 onClick={() => window.location.href = tool.company_url || 'https://develoi.com.br'}
+                 className="w-full py-5 border-2 border-zinc-200 text-zinc-900 rounded-[24px] text-xs font-bold uppercase tracking-widest hover:border-zinc-900 transition-all"
               >
                 Visitar nosso site
               </button>
@@ -342,7 +342,7 @@ export default function PublicToolResponse() {
 
       {/* Footer */}
       <div className="mt-20 text-center opacity-40">
-         <p className="text-[9px] font-black text-zinc-400 uppercase tracking-[0.3em]">Ambiente Seguro & Protegido por Nexus AI</p>
+         <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-[0.3em]">Ambiente Seguro & Protegido por Aurora AI</p>
       </div>
     </div>
   );

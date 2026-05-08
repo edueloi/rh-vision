@@ -46,7 +46,7 @@ export default function Jobs() {
     try {
       const params = new URLSearchParams({
         unitId: currentUnit.id,
-        tenantId: 'fadel',
+        tenantId: 'develoi',
         search: filters.search,
         status: filters.status,
       });
@@ -142,7 +142,7 @@ export default function Jobs() {
       {/* Header com Ação */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h2 className="text-xl font-black text-zinc-900 tracking-tight">Gestão de Vagas</h2>
+          <h2 className="text-xl font-bold text-zinc-900 tracking-tight">Gestão de Vagas</h2>
           <p className="text-xs text-zinc-400 font-bold uppercase tracking-widest mt-1">
             {currentUnit.name} • {jobs.length} Vagas Encontradas
           </p>
@@ -164,7 +164,7 @@ export default function Jobs() {
 
           <button 
             onClick={() => { setView('create'); setSelectedJob(null); setImportInitialData(null); }}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 bg-fadel-navy hover:bg-black text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-lg shadow-fadel-navy/10"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 bg-develoi-navy hover:bg-black text-white rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all active:scale-95 shadow-lg shadow-develoi-navy/10"
           >
             <Plus size={16} /> Nova Vaga
           </button>
@@ -185,7 +185,7 @@ export default function Jobs() {
                 placeholder="Título ou cidade..." 
                 value={filters.search}
                 onChange={(e) => setFilters(f => ({ ...f, search: e.target.value }))}
-                className="pl-9 pr-4 py-2 bg-zinc-100 border-none rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-amber-400/20 w-48 transition-all"
+                className="pl-9 pr-4 py-2 bg-zinc-100 border-none rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-develoi-gold/20 w-48 transition-all"
               />
             </div>
             <select 
@@ -204,7 +204,7 @@ export default function Jobs() {
       >
         {loading ? (
           <div className="p-20 flex flex-col items-center justify-center gap-4">
-            <div className="w-10 h-10 border-4 border-fadel-navy border-t-transparent rounded-full animate-spin"></div>
+            <div className="w-10 h-10 border-4 border-develoi-navy border-t-transparent rounded-full animate-spin"></div>
             <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Carregando Vagas...</p>
           </div>
         ) : jobs.length === 0 ? (
@@ -218,165 +218,126 @@ export default function Jobs() {
             </div>
             <button 
               onClick={() => setView('create')}
-              className="px-6 py-2.5 bg-fadel-navy text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-lg shadow-fadel-navy/10"
+              className="px-6 py-2.5 bg-develoi-navy text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-lg shadow-develoi-navy/10"
             >
               Começar Agora
             </button>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full border-separate border-spacing-0">
-              <thead>
-                <tr className="bg-zinc-50/50">
-                  <th className="px-6 py-4 text-left text-[9px] font-black text-zinc-400 uppercase tracking-widest border-b border-zinc-100">Oportunidade</th>
-                  <th className="px-6 py-4 text-left text-[9px] font-black text-zinc-400 uppercase tracking-widest border-b border-zinc-100">Status</th>
-                  <th className="px-6 py-4 text-center text-[9px] font-black text-zinc-400 uppercase tracking-widest border-b border-zinc-100">Candidatos</th>
-                  <th className="px-6 py-4 text-right text-[9px] font-black text-zinc-400 uppercase tracking-widest border-b border-zinc-100">Ações</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-50">
-                {jobs.map((job) => (
-                  <tr key={job.id} className="group hover:bg-zinc-50/30 transition-colors">
-                    <td className="px-6 py-5">
-                      <div className="flex items-start gap-4">
-                        <div className={cn(
-                          "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border-2",
-                          job.is_public ? "bg-fadel-red/5 border-fadel-red/10 text-fadel-red" : "bg-zinc-50 border-zinc-100 text-zinc-300"
-                        )}>
-                          {job.is_public ? <Globe size={20} /> : <Briefcase size={20} />}
-                        </div>
-                        <div className="flex flex-col min-w-0">
-                          <span className="text-sm font-black text-zinc-900 group-hover:text-fadel-red transition-colors truncate">{job.title}</span>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">{job.department || "Geral"}</span>
-                            <span className="w-1 h-1 bg-zinc-200 rounded-full"></span>
-                            <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">{job.city}/{job.state}</span>
-                          </div>
-                          <div className="flex items-center gap-3 mt-2">
-                             <div className="flex items-center gap-1 text-[9px] font-black text-zinc-400 uppercase tracking-widest">
-                               <Calendar size={12} /> {new Date(job.created_at).toLocaleDateString('pt-BR')}
-                             </div>
-                             {job.is_public && (
-                               <div className="flex items-center gap-1 text-[9px] font-black text-emerald-500 uppercase tracking-widest">
-                                 <Globe size={11} /> Público
-                               </div>
-                             )}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-5">
-                      <div className="flex flex-col gap-1">
-                        <Badge color={
-                          job.status === 'Aberta' ? 'success' :
-                          job.status === 'Pausada' ? 'warning' :
-                          job.status === 'Encerrada' ? 'danger' : 'default'
-                        } size="sm">
-                          {job.status}
-                        </Badge>
-                        <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest px-1">
-                          {job.work_model} • {job.contract_type}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-5 text-center">
-                      <div className="flex flex-col items-center">
-                        <span className="text-sm font-black text-zinc-900 leading-none">0</span>
-                        <span className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mt-1">Total</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-5 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
+          <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+            {jobs.map((job) => (
+              <motion.div 
+                layout
+                key={job.id} 
+                className="group relative bg-white border border-zinc-100 rounded-[32px] p-6 hover:shadow-2xl hover:shadow-zinc-200/50 transition-all duration-500 overflow-hidden"
+              >
+                {/* Background Decor */}
+                <div className="absolute top-0 right-0 w-32 h-32 bg-develoi-navy/5 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-develoi-gold/10 transition-colors duration-500" />
+                
+                <div className="relative z-10">
+                  <div className="flex justify-between items-start mb-6">
+                    <div className={cn(
+                      "w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 border-2 transition-all duration-500",
+                      job.is_public 
+                        ? "bg-develoi-gold/5 border-develoi-gold/10 text-develoi-gold group-hover:bg-develoi-gold group-hover:text-white" 
+                        : "bg-zinc-50 border-zinc-100 text-zinc-300 group-hover:border-develoi-navy group-hover:text-develoi-navy"
+                    )}>
+                      {job.is_public ? <Globe size={24} /> : <Briefcase size={24} />}
+                    </div>
+                    
+                    <div className="flex gap-2">
+                       <Badge color={
+                        job.status === 'Aberta' ? 'success' :
+                        job.status === 'Pausada' ? 'warning' :
+                        job.status === 'Encerrada' ? 'danger' : 'default'
+                      } size="sm">
+                        {job.status}
+                      </Badge>
+                      
+                      <div className="relative">
                         <button 
-                          onClick={(e) => { e.stopPropagation(); setSelectedJob(job); setShowDetails(true); }}
-                          title="Ver Detalhes"
-                          className="p-2.5 bg-white border border-zinc-200 rounded-xl text-zinc-500 hover:text-fadel-red hover:border-fadel-red/40 transition-all shadow-sm active:scale-95"
-                        >
-                          <Eye size={16} />
-                        </button>
-                         <button 
-                          onClick={(e) => { e.stopPropagation(); setSelectedJob(job); setView('edit'); }}
-                          title="Editar"
-                          className="p-2.5 bg-white border border-zinc-200 rounded-xl text-zinc-500 hover:text-zinc-900 hover:border-zinc-900 transition-all shadow-sm active:scale-95"
-                        >
-                          <Edit size={16} />
-                        </button>
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); togglePublication(job); }}
-                          title={job.is_public ? "Remover do Portal" : "Publicar no Portal"}
+                          onClick={(e) => { e.stopPropagation(); setActiveMenu(activeMenu === job.id ? null : job.id); }}
                           className={cn(
-                            "p-2.5 border rounded-xl transition-all shadow-sm active:scale-95",
-                            job.is_public 
-                              ? "bg-fadel-red border-fadel-red/20 text-white hover:bg-red-700" 
-                              : "bg-white border-zinc-200 text-zinc-500 hover:text-fadel-red hover:border-fadel-red/40"
+                            "w-8 h-8 flex items-center justify-center rounded-xl bg-zinc-50 text-zinc-400 hover:bg-zinc-100 transition-all",
+                            activeMenu === job.id && "bg-develoi-navy text-white"
                           )}
                         >
-                          <Globe size={16} />
+                          <MoreHorizontal size={16} />
                         </button>
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); setShowDeleteModal(job.id); }}
-                          title="Excluir"
-                          className="p-2.5 bg-white border border-zinc-200 rounded-xl text-zinc-500 hover:text-red-600 hover:border-red-400 transition-all shadow-sm active:scale-95"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                        <div className="relative">
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); setActiveMenu(activeMenu === job.id ? null : job.id); }}
-                            className={cn(
-                              "p-2.5 bg-white border border-zinc-200 rounded-xl text-zinc-500 hover:text-zinc-900 transition-all shadow-sm active:scale-95",
-                              activeMenu === job.id && "bg-zinc-900 text-white border-zinc-900"
-                            )}
-                          >
-                            <MoreHorizontal size={16} />
-                          </button>
-
-                          <AnimatePresence>
-                            {activeMenu === job.id && (
-                              <>
-                                <div className="fixed inset-0 z-40" onClick={() => setActiveMenu(null)} />
-                                <motion.div 
-                                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                                  className="absolute right-0 top-full mt-2 w-56 bg-white border border-zinc-100 rounded-3xl shadow-2xl shadow-zinc-900/20 z-[100] overflow-hidden py-3"
-                                >
-                                  <button 
-                                    onClick={() => { handleDuplicate(job); setActiveMenu(null); }}
-                                    className="w-full px-5 py-3 text-left text-[10px] font-black uppercase tracking-widest text-zinc-600 hover:bg-zinc-50 flex items-center gap-3 transition-all"
-                                  >
-                                    <Layers size={14} className="text-zinc-400" /> Duplicar Vaga
-                                  </button>
-                                  <button 
-                                    onClick={() => { handleStatusChange(job, 'Pausada'); setActiveMenu(null); }}
-                                    className="w-full px-5 py-3 text-left text-[10px] font-black uppercase tracking-widest text-zinc-600 hover:bg-zinc-50 flex items-center gap-3 transition-all"
-                                  >
-                                    <RefreshCcw size={14} className="text-zinc-400" /> Pausar Vaga
-                                  </button>
-                                  <button 
-                                    onClick={() => { handleStatusChange(job, 'Encerrada'); setActiveMenu(null); }}
-                                    className="w-full px-5 py-3 text-left text-[10px] font-black uppercase tracking-widest text-zinc-600 hover:bg-zinc-50 flex items-center gap-3 transition-all"
-                                  >
-                                    <Trash2 size={14} className="text-zinc-400" /> Encerrar Vaga
-                                  </button>
-                                  <div className="h-px bg-zinc-100 my-1 mx-3" />
-                                  <button 
-                                    onClick={() => { toast.success("Link compartilhado"); setActiveMenu(null); }}
-                                    className="w-full px-5 py-3 text-left text-[10px] font-black uppercase tracking-widest text-amber-600 hover:bg-amber-50 flex items-center gap-3 transition-all"
-                                  >
-                                    <Share2 size={14} /> Copiar Link Público
-                                  </button>
-                                </motion.div>
-                              </>
-                            )}
-                          </AnimatePresence>
-                        </div>
+                        
+                        <AnimatePresence>
+                          {activeMenu === job.id && (
+                            <>
+                              <div className="fixed inset-0 z-40" onClick={() => setActiveMenu(null)} />
+                              <motion.div 
+                                initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                                className="absolute right-0 top-full mt-2 w-56 bg-white border border-zinc-100 rounded-3xl shadow-2xl shadow-zinc-900/20 z-[100] overflow-hidden py-2"
+                              >
+                                <button onClick={() => { handleDuplicate(job); setActiveMenu(null); }} className="w-full px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-widest text-zinc-600 hover:bg-zinc-50 flex items-center gap-3">
+                                  <Layers size={14} className="text-zinc-400" /> Duplicar
+                                </button>
+                                <button onClick={() => { togglePublication(job); setActiveMenu(null); }} className="w-full px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-widest text-zinc-600 hover:bg-zinc-50 flex items-center gap-3">
+                                  <Globe size={14} className="text-zinc-400" /> {job.is_public ? 'Remover do Portal' : 'Publicar'}
+                                </button>
+                                <div className="h-px bg-zinc-100 my-1 mx-2" />
+                                <button onClick={() => { setShowDeleteModal(job.id); setActiveMenu(null); }} className="w-full px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-widest text-red-500 hover:bg-red-50 flex items-center gap-3">
+                                  <Trash2 size={14} /> Excluir
+                                </button>
+                              </motion.div>
+                            </>
+                          )}
+                        </AnimatePresence>
                       </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    </div>
+                  </div>
+
+                  <div className="mb-6">
+                    <h3 className="text-base font-black text-zinc-900 group-hover:text-develoi-gold transition-colors line-clamp-1 mb-1">
+                      {job.title}
+                    </h3>
+                    <div className="flex items-center gap-2 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
+                      <span>{job.department || "Geral"}</span>
+                      <span className="w-1 h-1 bg-zinc-200 rounded-full"></span>
+                      <span>{job.city}/{job.state}</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 mb-6">
+                    <div className="bg-zinc-50 rounded-2xl p-3 border border-zinc-100/50">
+                      <p className="text-[8px] font-black text-zinc-400 uppercase tracking-[0.2em] mb-1">Candidatos</p>
+                      <div className="flex items-center gap-2">
+                        <Users size={14} className="text-develoi-navy" />
+                        <span className="text-sm font-black text-zinc-900">0</span>
+                      </div>
+                    </div>
+                    <div className="bg-zinc-50 rounded-2xl p-3 border border-zinc-100/50">
+                      <p className="text-[8px] font-black text-zinc-400 uppercase tracking-[0.2em] mb-1">Criada em</p>
+                      <div className="flex items-center gap-2">
+                        <Calendar size={14} className="text-develoi-navy" />
+                        <span className="text-sm font-black text-zinc-900">{new Date(job.created_at).toLocaleDateString('pt-BR')}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={() => { setSelectedJob(job); setShowDetails(true); }}
+                      className="flex-1 py-3 bg-zinc-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-develoi-gold transition-all active:scale-95 shadow-lg shadow-zinc-900/10"
+                    >
+                      Gerenciar
+                    </button>
+                    <button 
+                      onClick={() => { setSelectedJob(job); setView('edit'); }}
+                      className="p-3 bg-zinc-100 text-zinc-500 rounded-2xl hover:bg-zinc-200 transition-all active:scale-95"
+                    >
+                      <Edit size={16} />
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
           </div>
         )}
         <Pagination 

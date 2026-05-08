@@ -98,7 +98,7 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
          method: 'POST',
          headers: { 'Content-Type': 'application/json' },
          body: JSON.stringify({
-           tenant_id: 'fadel',
+           tenant_id: 'develoi',
            unit_id: currentUnit.id === 'master' ? 'tatui' : currentUnit.id,
            file_name: file.name,
            file_type: file.type,
@@ -133,7 +133,7 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
        <div className={cn(
          "flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest",
          level === 'Alta' ? "bg-emerald-50 text-emerald-600" :
-         level === 'Média' ? "bg-fadel-red/5 text-fadel-red" :
+         level === 'Média' ? "bg-develoi-gold/5 text-develoi-gold" :
          "bg-red-50 text-red-600 border border-red-100"
        )}>
           {level === 'Alta' ? <CheckCircle2 size={10} /> : level === 'Média' ? <Info size={10} /> : <AlertCircle size={10} />}
@@ -164,7 +164,7 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
         body: JSON.stringify({
           ...formData,
           is_public: isPublic ? 1 : (formData.is_public ? 1 : 0),
-          tenant_id: 'fadel',
+          tenant_id: 'develoi',
           unit_id: currentUnit.id === 'master' ? 'tatui' : currentUnit.id // Default to tatui if master creating
         })
       });
@@ -192,7 +192,7 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
             <ArrowLeft size={20} />
           </button>
           <div>
-            <h2 className="text-xl font-black text-zinc-900 tracking-tight">
+            <h2 className="text-xl font-bold text-zinc-900 tracking-tight">
               {job ? "Editar Vaga" : "Cadastrar Nova Vaga"}
             </h2>
             <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest mt-1">
@@ -206,7 +206,7 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
             <button 
               onClick={() => setImportMode(true)}
               disabled={loading}
-              className="px-5 py-2.5 bg-zinc-100 hover:bg-fadel-navy hover:text-white text-zinc-600 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all md:flex items-center gap-2 hidden"
+              className="px-5 py-2.5 bg-zinc-100 hover:bg-develoi-navy hover:text-white text-zinc-600 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all md:flex items-center gap-2 hidden"
             >
               <RefreshCcw size={14} /> Reprocessar
             </button>
@@ -214,14 +214,14 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
           <button 
             onClick={() => handleSave(false)}
             disabled={loading}
-            className="px-5 py-2.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-600 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all"
+            className="px-5 py-2.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-600 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all"
           >
             Salvar Rascunho
           </button>
           <button 
             onClick={() => handleSave(true)}
             disabled={loading}
-            className="px-5 py-2.5 bg-fadel-navy hover:bg-black text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-fadel-navy/20"
+            className="px-5 py-2.5 bg-develoi-navy hover:bg-black text-white rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all shadow-lg shadow-develoi-navy/20"
           >
             {loading ? "Salvando..." : "Salvar e Publicar"}
           </button>
@@ -255,7 +255,7 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
         <div className="max-w-4xl mx-auto py-12">
            <PanelCard title="Importar vaga por arquivo" icon={FileUp}>
               <div className="p-8 text-center space-y-6">
-                 <div className="w-20 h-20 bg-zinc-50 border-2 border-dashed border-zinc-200 rounded-3xl mx-auto flex items-center justify-center text-zinc-300 group-hover:border-fadel-navy group-hover:text-fadel-navy transition-all">
+                 <div className="w-20 h-20 bg-zinc-50 border-2 border-dashed border-zinc-200 rounded-3xl mx-auto flex items-center justify-center text-zinc-300 group-hover:border-develoi-navy group-hover:text-develoi-navy transition-all">
                     {isAnalyzing ? (
                        <div className="w-10 h-10 border-4 border-amber-400 border-t-transparent rounded-full animate-spin"></div>
                     ) : (
@@ -264,7 +264,7 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
                  </div>
                  
                  <div className="space-y-2">
-                    <h3 className="text-lg font-black text-zinc-900">Arraste a descrição da vaga</h3>
+                    <h3 className="text-lg font-bold text-zinc-900">Arraste a descrição da vaga</h3>
                     <p className="text-xs text-zinc-400 font-bold uppercase tracking-widest max-w-sm mx-auto">
                        Envie arquivos em PDF, Word, Texto ou Planilha (XLSX) para que a IA estruture as informações automaticamente.
                     </p>
@@ -272,7 +272,7 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
 
                  <div className="pt-4">
                     <label className={cn(
-                       "inline-flex items-center gap-2 px-8 py-3 bg-zinc-900 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest cursor-pointer hover:bg-zinc-800 transition-all shadow-xl shadow-zinc-900/10 active:scale-95",
+                       "inline-flex items-center gap-2 px-8 py-3 bg-zinc-900 text-white rounded-2xl text-[11px] font-bold uppercase tracking-widest cursor-pointer hover:bg-zinc-800 transition-all shadow-xl shadow-zinc-900/10 active:scale-95",
                        isAnalyzing && "opacity-50 pointer-events-none"
                     )}>
                        <input type="file" className="hidden" accept=".pdf,.doc,.docx,.txt,.xls,.xlsx" onChange={handleFileUpload} />
@@ -282,7 +282,7 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
 
                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-w-md mx-auto pt-8 opacity-40">
                     {['PDF', 'DOC', 'DOCX', 'TXT', 'XLS', 'XLSX'].map(ext => (
-                       <div key={ext} className="px-3 py-2 border border-zinc-200 rounded-xl text-[9px] font-black text-zinc-400">.{ext}</div>
+                       <div key={ext} className="px-3 py-2 border border-zinc-200 rounded-xl text-[9px] font-bold text-zinc-400">.{ext}</div>
                     ))}
                  </div>
               </div>
@@ -301,7 +301,7 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
                       <FileText size={16} />
                     </div>
                     <div className="min-w-0">
-                      <p className="text-[9px] font-black text-zinc-900 uppercase tracking-tighter truncate">Doc Importado</p>
+                      <p className="text-[9px] font-bold text-zinc-900 uppercase tracking-tighter truncate">Doc Importado</p>
                       <p className="text-[8px] text-zinc-400 font-bold uppercase tracking-widest">Via Gemini IA</p>
                     </div>
                   </div>
@@ -310,14 +310,14 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
                       toast.info("Texto extraído exibido no console (simulação)");
                       console.log(formData.description); // Using description as extracted text for now or whatever is available
                     }}
-                    className="w-full py-2 bg-white border border-zinc-200 rounded-xl text-[8px] font-black text-zinc-500 uppercase tracking-widest hover:bg-zinc-100 transition-all"
+                    className="w-full py-2 bg-white border border-zinc-200 rounded-xl text-[8px] font-bold text-zinc-500 uppercase tracking-widest hover:bg-zinc-100 transition-all"
                   >
                     Ver Texto Bruto
                   </button>
                 </div>
 
                 <div className="p-4 bg-zinc-900 text-white rounded-2xl space-y-2">
-                  <div className="flex items-center gap-2 text-[8px] font-black uppercase tracking-widest text-fadel-red">
+                  <div className="flex items-center gap-2 text-[8px] font-bold uppercase tracking-widest text-develoi-gold">
                     <Sparkles size={12} /> Resumo da IA
                   </div>
                   <p className="text-[11px] font-bold opacity-80 leading-relaxed italic">
@@ -337,7 +337,7 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
                     className={cn(
                       "w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all text-left group",
                       active 
-                        ? "bg-fadel-navy text-white font-black shadow-lg shadow-fadel-navy/20" 
+                        ? "bg-develoi-navy text-white font-bold shadow-lg shadow-develoi-navy/20" 
                         : "text-zinc-500 hover:bg-zinc-50 font-bold"
                     )}
                   >
@@ -357,7 +357,7 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
               <div className="grid md:grid-cols-2 gap-6">
                 <div className="space-y-1.5 md:col-span-2">
                   <div className="flex items-center justify-between">
-                    <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Título da Vaga *</label>
+                    <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Título da Vaga *</label>
                     {renderConfidenceBadge('title')}
                   </div>
                   <input 
@@ -372,7 +372,7 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Departamento</label>
+                  <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Departamento</label>
                   <input 
                     type="text" 
                     value={formData.department}
@@ -382,7 +382,7 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Nível de Senioridade</label>
+                  <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Nível de Senioridade</label>
                   <select 
                     value={formData.seniority_level}
                     onChange={(e) => handleChange('seniority_level', e.target.value)}
@@ -399,7 +399,7 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
                   </select>
                 </div>
                 <div className="space-y-1.5 md:col-span-2">
-                  <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Descrição Breve (Resumo)</label>
+                  <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Descrição Breve (Resumo)</label>
                   <textarea 
                     value={formData.description}
                     onChange={(e) => handleChange('description', e.target.value)}
@@ -415,7 +415,7 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
             <PanelCard title="Responsabilidades e Requisitos" icon={FileText}>
               <div className="space-y-8">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Responsabilidades</label>
+                  <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Responsabilidades</label>
                   <RichTextEditor 
                     value={formData.responsibilities || ""} 
                     onChange={(v) => handleChange('responsibilities', v)} 
@@ -424,7 +424,7 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
                 </div>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1 text-fadel-red">Requisitos Técnicos (Base para IA)</label>
+                    <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest ml-1 text-develoi-gold">Requisitos Técnicos (Base para IA)</label>
                     {renderConfidenceBadge('requirements')}
                   </div>
                   <div className={cn(
@@ -440,7 +440,7 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
                 </div>
                 <div className="grid md:grid-cols-2 gap-6">
                    <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Escolaridade Mínima</label>
+                    <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Escolaridade Mínima</label>
                     <select 
                       value={formData.education_level}
                       onChange={(e) => handleChange('education_level', e.target.value)}
@@ -456,7 +456,7 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
                     </select>
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Anos de Experiência Mínima</label>
+                    <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Anos de Experiência Mínima</label>
                     <input 
                       type="number" 
                       value={formData.min_experience_years}
@@ -466,7 +466,7 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1 text-red-500">Critérios Eliminatórios</label>
+                  <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest ml-1 text-red-500">Critérios Eliminatórios</label>
                   <textarea 
                     value={formData.eliminatory_criteria}
                     onChange={(e) => handleChange('eliminatory_criteria', e.target.value)}
@@ -483,7 +483,7 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
               <div className="grid md:grid-cols-2 gap-6">
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Cidade *</label>
+                    <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Cidade *</label>
                     {renderConfidenceBadge('city')}
                   </div>
                   <input 
@@ -498,7 +498,7 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Estado *</label>
+                  <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Estado *</label>
                   <input 
                     type="text" 
                     value={formData.state}
@@ -509,7 +509,7 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Modelo de Trabalho</label>
+                  <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Modelo de Trabalho</label>
                   <select 
                     value={formData.work_model}
                     onChange={(e) => handleChange('work_model', e.target.value)}
@@ -521,7 +521,7 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
                   </select>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Tipo de Contrato</label>
+                  <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Tipo de Contrato</label>
                   <select 
                     value={formData.contract_type}
                     onChange={(e) => handleChange('contract_type', e.target.value)}
@@ -537,7 +537,7 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
                 </div>
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Salário Mínimo</label>
+                    <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Salário Mínimo</label>
                     {renderConfidenceBadge('salary')}
                   </div>
                   <input 
@@ -551,7 +551,7 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Salário Máximo</label>
+                  <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Salário Máximo</label>
                   <input 
                     type="number" 
                     value={formData.salary_max}
@@ -566,9 +566,9 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
           {activeSection === 'ia' && (
             <PanelCard title="Critérios de Compatibilidade IA" icon={Sparkles}>
               <div className="space-y-6">
-                <div className="p-4 bg-fadel-navy/5 border border-fadel-navy/10 rounded-2xl flex gap-3">
-                  <Info size={20} className="text-fadel-navy shrink-0 mt-0.5" />
-                  <p className="text-[10px] font-bold text-fadel-navy leading-relaxed uppercase tracking-widest">
+                <div className="p-4 bg-develoi-navy/5 border border-develoi-navy/10 rounded-2xl flex gap-3">
+                  <Info size={20} className="text-develoi-navy shrink-0 mt-0.5" />
+                  <p className="text-[10px] font-bold text-develoi-navy leading-relaxed uppercase tracking-widest">
                     Estes pesos definem como o Gemini AI irá priorizar os candidatos. O total não precisa somar 100, os valores são relativos.
                   </p>
                 </div>
@@ -584,16 +584,16 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
                   ].map(w => (
                     <div key={w.id} className="space-y-1.5 p-3 rounded-2xl border border-zinc-100 bg-white shadow-sm overflow-hidden relative">
                       <div className="flex items-center justify-between gap-2">
-                        <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest truncate">{w.label}</label>
+                        <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest truncate">{w.label}</label>
                         {confidence && (
-                           <Sparkles size={10} className="text-fadel-red" />
+                           <Sparkles size={10} className="text-fadel-gold" />
                         )}
                       </div>
                       <input 
                         type="number" 
                         value={formData[w.id as keyof Job] as number}
                         onChange={(e) => handleChange(w.id as keyof Job, parseInt(e.target.value))}
-                        className="w-full bg-transparent border-none p-0 text-sm font-black outline-none focus:ring-0" 
+                        className="w-full bg-transparent border-none p-0 text-sm font-bold outline-none focus:ring-0" 
                       />
                       {confidence && (
                          <div className="absolute top-0 right-0 w-1 h-full bg-fadel-navy"></div>
@@ -604,7 +604,7 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
 
                 <div className="grid sm:grid-cols-2 gap-6 pt-6 border-t border-zinc-100">
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Margem de Corte (%)</label>
+                    <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Margem de Corte (%)</label>
                     <input 
                       type="number" 
                       value={formData.compatibility_threshold}
@@ -613,7 +613,7 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Sugestão Máxima de Ranking</label>
+                    <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Sugestão Máxima de Ranking</label>
                     <input 
                       type="number" 
                       value={formData.max_compatible_candidates}
@@ -630,7 +630,7 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
             <PanelCard title="Dados Internos do RH" icon={ShieldCheck}>
               <div className="space-y-6">
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Observações Privadas</label>
+                  <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Observações Privadas</label>
                   <textarea 
                     value={formData.internal_notes}
                     onChange={(e) => handleChange('internal_notes', e.target.value)}
@@ -639,7 +639,7 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Tags / Palavras-chave</label>
+                  <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Tags / Palavras-chave</label>
                   <input 
                     type="text" 
                     value={formData.tags}
@@ -655,14 +655,14 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
           <div className="flex justify-end gap-3 pt-6">
             <button 
               onClick={onBack}
-              className="px-6 py-3 text-[11px] font-black uppercase tracking-widest text-zinc-400 hover:text-zinc-600 transition-colors"
+              className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-zinc-400 hover:text-zinc-600 transition-colors"
             >
               Cancelar Alterações
             </button>
             <button 
               onClick={() => handleSave(false)}
               disabled={loading}
-              className="px-8 py-3 bg-zinc-900 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-zinc-800 transition-all shadow-xl shadow-zinc-900/10 active:scale-[0.98]"
+              className="px-8 py-3 bg-zinc-900 text-white rounded-2xl text-[11px] font-bold uppercase tracking-widest hover:bg-zinc-800 transition-all shadow-xl shadow-zinc-900/10 active:scale-[0.98]"
             >
               {loading ? "Processando..." : (job ? "Salvar Vaga" : "Salvar Agora")}
             </button>

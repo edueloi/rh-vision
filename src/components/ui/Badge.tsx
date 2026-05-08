@@ -26,7 +26,8 @@ type BadgeColor =
   | "info"
   | "purple"
   | "orange"
-  | "teal";
+  | "teal"
+  | "gold";
 
 interface BadgeProps {
   children: React.ReactNode;
@@ -40,26 +41,28 @@ interface BadgeProps {
 
 const colorMap: Record<BadgeColor, string> = {
   default:  "bg-zinc-100  text-zinc-700  border border-zinc-200",
-  primary:  "bg-fadel-navy/5 text-fadel-navy border border-fadel-navy/10",
+  primary:  "bg-develoi-navy/5 text-develoi-navy border border-develoi-navy/10",
   success:  "bg-emerald-50 text-emerald-700 border border-emerald-200",
-  warning:  "bg-fadel-red/5 text-fadel-red border border-fadel-red/10",
+  warning:  "bg-develoi-gold/5 text-develoi-gold border border-develoi-gold/10",
   danger:   "bg-red-50    text-red-700   border border-red-200",
   info:     "bg-blue-50   text-blue-700  border border-blue-200",
   purple:   "bg-violet-50 text-violet-700 border border-violet-200",
   orange:   "bg-orange-50 text-orange-700 border border-orange-200",
   teal:     "bg-teal-50   text-teal-700  border border-teal-200",
+  gold:     "bg-develoi-gold/5 text-develoi-gold border border-develoi-gold/10",
 };
 
 const dotColorMap: Record<BadgeColor, string> = {
   default:  "bg-zinc-400",
-  primary:  "bg-fadel-navy",
+  primary:  "bg-develoi-navy",
   success:  "bg-emerald-500",
-  warning:  "bg-fadel-red",
+  warning:  "bg-develoi-gold",
   danger:   "bg-red-500",
   info:     "bg-blue-500",
   purple:   "bg-violet-500",
   orange:   "bg-orange-500",
   teal:     "bg-teal-500",
+  gold:     "bg-develoi-gold",
 };
 
 export function Badge({

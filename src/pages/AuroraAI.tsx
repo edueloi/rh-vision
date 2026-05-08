@@ -57,7 +57,7 @@ interface MatchResult {
   risk_reason: string;
 }
 
-export default function NexusAI() {
+export default function AuroraAI() {
   const { currentUnit } = useUnit();
   const toast = useToast();
   const [activeView, setActiveView] = useState<'chat' | 'match' | 'history'>('chat');
@@ -65,7 +65,7 @@ export default function NexusAI() {
     { 
       id: '1', 
       role: 'assistant', 
-      content: 'Olá! Eu sou o Nexus AI. Como posso ajudar com seu recrutamento hoje? Posso encontrar candidatos, comparar currículos ou analisar perfis comportamentais.',
+      content: 'Olá! Eu sou a Aurora AI. Como posso ajudar com seu recrutamento hoje? Posso encontrar candidatos, comparar currículos ou analisar perfis comportamentais.',
       timestamp: new Date().toISOString()
     }
   ]);
@@ -113,7 +113,7 @@ export default function NexusAI() {
 
   const fetchJobs = async () => {
     try {
-      const res = await fetch(`/api/jobs?tenantId=fadel&unitId=${currentUnit.id}&status=Aberta`);
+      const res = await fetch(`/api/jobs?tenantId=develoi&unitId=${currentUnit.id}&status=Aberta`);
       const data = await res.json();
       setJobs(data);
     } catch (error) {
@@ -124,7 +124,7 @@ export default function NexusAI() {
   const fetchSessions = async () => {
     setIsLoadingSessions(true);
     try {
-      const res = await fetch(`/api/nexus-ai/sessions?tenantId=fadel&unitId=${currentUnit.id}`);
+      const res = await fetch(`/api/aurora-ai/sessions?tenantId=develoi&unitId=${currentUnit.id}`);
       const data = await res.json();
       setSessions(data);
     } catch (error) {
@@ -136,7 +136,7 @@ export default function NexusAI() {
 
   const fetchSettings = async () => {
     try {
-      const res = await fetch(`/api/nexus-ai/settings?tenantId=fadel&unitId=${currentUnit.id}`);
+      const res = await fetch(`/api/aurora-ai/settings?tenantId=develoi&unitId=${currentUnit.id}`);
       const data = await res.json();
       setSettings(data);
       if (data) {
@@ -152,7 +152,7 @@ export default function NexusAI() {
 
   const saveSettings = async (newSettings: any) => {
     try {
-      const res = await fetch('/api/nexus-ai/settings', {
+      const res = await fetch('/api/aurora-ai/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -200,7 +200,7 @@ export default function NexusAI() {
     setIsTyping(true);
 
     try {
-      const res = await fetch('/api/nexus-ai/chat', {
+      const res = await fetch('/api/aurora-ai/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -235,7 +235,7 @@ export default function NexusAI() {
     setMatchResults([]);
     
     try {
-      const res = await fetch('/api/nexus-ai/match-job', {
+      const res = await fetch('/api/aurora-ai/match-job', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -268,53 +268,53 @@ export default function NexusAI() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
           <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-zinc-900 text-white rounded-xl">
-              <Brain size={24} />
+            <div className="p-2 bg-develoi-navy text-white rounded-xl shadow-lg shadow-develoi-navy/20">
+              <Brain size={18} />
             </div>
-            <h1 className="text-3xl font-black text-zinc-900 tracking-tighter">Nexus AI</h1>
-            <div className="px-3 py-1 bg-fadel-blue/10 text-fadel-blue text-[10px] font-black uppercase tracking-widest rounded-full">
+            <h1 className="text-xl font-bold text-develoi-navy tracking-tight">Aurora AI</h1>
+            <div className="px-2.5 py-0.5 bg-develoi-gold/10 text-develoi-gold text-[7px] font-bold uppercase tracking-[0.25em] rounded-full border border-develoi-gold/20">
               Intelligent Core
             </div>
           </div>
-          <p className="text-sm font-bold text-zinc-500 max-w-xl">
-            Assistente inteligente para compatibilidade de vagas, análise comportamental e busca estratégica de talentos.
+          <p className="text-[10px] font-medium text-zinc-500 max-w-xl uppercase tracking-wider">
+            Assistente inteligente para compatibilidade de vagas e análise comportamental estratégica.
           </p>
         </div>
 
-        <div className="flex items-center gap-2 bg-white p-1 rounded-2xl border border-zinc-200 shadow-sm">
+        <div className="flex items-center gap-1 bg-zinc-100 p-1 rounded-2xl border border-zinc-200/50 shadow-sm overflow-x-auto no-scrollbar max-w-full">
           <button 
             onClick={() => setActiveView('chat')}
             className={cn(
-              "px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
-              activeView === 'chat' ? "bg-zinc-900 text-white" : "text-zinc-500 hover:text-zinc-900"
+              "px-4 py-2 rounded-xl text-[9px] font-bold uppercase tracking-wider transition-all duration-200 whitespace-nowrap",
+              activeView === 'chat' ? "bg-develoi-navy text-white shadow-lg shadow-develoi-navy/20" : "text-zinc-500 hover:text-develoi-navy hover:bg-white/50"
             )}
           >
             <div className="flex items-center gap-2">
-              <MessageSquare size={14} />
+              <MessageSquare size={12} />
               Conversa
             </div>
           </button>
           <button 
             onClick={() => setActiveView('match')}
             className={cn(
-              "px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
-              activeView === 'match' ? "bg-zinc-900 text-white" : "text-zinc-500 hover:text-zinc-900"
+              "px-4 py-2 rounded-xl text-[9px] font-bold uppercase tracking-wider transition-all duration-200 whitespace-nowrap",
+              activeView === 'match' ? "bg-develoi-navy text-white shadow-lg shadow-develoi-navy/20" : "text-zinc-500 hover:text-develoi-navy hover:bg-white/50"
             )}
           >
             <div className="flex items-center gap-2">
-              <Target size={14} />
-              Match de Vaga
+              <Target size={12} />
+              Match
             </div>
           </button>
           <button 
             onClick={() => setActiveView('history')}
             className={cn(
-              "px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
-              activeView === 'history' ? "bg-zinc-900 text-white" : "text-zinc-500 hover:text-zinc-900"
+              "px-4 py-2 rounded-xl text-[9px] font-bold uppercase tracking-wider transition-all duration-200 whitespace-nowrap",
+              activeView === 'history' ? "bg-develoi-navy text-white shadow-lg shadow-develoi-navy/20" : "text-zinc-500 hover:text-develoi-navy hover:bg-white/50"
             )}
           >
             <div className="flex items-center gap-2">
-              <History size={14} />
+              <History size={12} />
               Histórico
             </div>
           </button>
@@ -326,16 +326,16 @@ export default function NexusAI() {
         <div className="lg:col-span-8 space-y-8">
           {activeView === 'chat' && (
             <div className="bg-white rounded-3xl border border-zinc-200 shadow-xl shadow-zinc-200/20 flex flex-col h-[600px] overflow-hidden">
-              <div className="p-6 border-b border-zinc-100 flex items-center justify-between bg-zinc-50/50">
+              <div className="p-6 border-b border-zinc-100 flex items-center justify-between bg-zinc-50/20">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-zinc-900 text-white rounded-xl flex items-center justify-center">
-                    <Bot size={18} />
+                  <div className="w-8 h-8 bg-develoi-navy text-white rounded-xl flex items-center justify-center">
+                    <Sparkles size={16} />
                   </div>
                   <div>
-                    <h3 className="text-xs font-black text-zinc-900 uppercase tracking-widest">Nexus AI Chat</h3>
+                    <h3 className="text-[10px] font-bold text-develoi-navy uppercase tracking-widest">Aurora Intelligence</h3>
                     <div className="flex items-center gap-1.5 mt-0.5">
                       <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
-                      <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">Online e Pronto</span>
+                      <span className="text-[8px] font-bold text-green-600 uppercase tracking-widest">Operacional</span>
                     </div>
                   </div>
                 </div>
@@ -360,15 +360,15 @@ export default function NexusAI() {
                   >
                     <div className={cn(
                       "w-8 h-8 rounded-xl flex items-center justify-center shrink-0 shadow-sm",
-                      msg.role === 'assistant' ? "bg-fadel-navy text-white" : "bg-fadel-red text-white"
+                      msg.role === 'assistant' ? "bg-develoi-navy text-develoi-blue" : "bg-develoi-gold text-white"
                     )}>
-                      {msg.role === 'assistant' ? <Bot size={16} /> : <User size={16} />}
+                      {msg.role === 'assistant' ? <Sparkles size={16} /> : <User size={16} />}
                     </div>
                     <div className={cn(
-                      "max-w-[80%] p-4 rounded-2xl text-sm leading-relaxed",
+                      "max-w-[90%] sm:max-w-[80%] p-3 rounded-2xl text-[11px] sm:text-xs leading-relaxed",
                       msg.role === 'assistant' 
-                        ? "bg-zinc-100 text-zinc-800 rounded-tl-none font-medium" 
-                        : "bg-fadel-red text-white rounded-tr-none font-bold shadow-lg shadow-fadel-red/20"
+                        ? "bg-zinc-100/60 text-zinc-800 rounded-tl-none font-medium border border-zinc-200/50" 
+                        : "bg-develoi-navy text-white rounded-tr-none font-semibold shadow-lg shadow-develoi-navy/10"
                     )}>
                       {msg.content}
                       <p className={cn(
@@ -403,8 +403,8 @@ export default function NexusAI() {
                     value={inputMessage}
                     onChange={(e) => setInputMessage(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-                    placeholder="Pergunte ao Nexus AI..."
-                    className="w-full pl-6 pr-16 py-4 bg-zinc-100 border-2 border-transparent rounded-2xl text-xs font-bold outline-none focus:bg-white focus:border-zinc-900 transition-all placeholder:text-zinc-400"
+                    placeholder="Como Aurora pode ajudar você hoje?..."
+                    className="w-full pl-6 pr-16 py-4 bg-zinc-100/80 border-2 border-transparent rounded-2xl text-xs font-bold outline-none focus:bg-white focus:border-develoi-navy transition-all placeholder:text-zinc-400"
                   />
                   <button 
                     onClick={handleSendMessage}
@@ -430,20 +430,20 @@ export default function NexusAI() {
                         </div>
                       ))}
                     </div>
-                    <p className="text-[10px] font-black uppercase tracking-widest">
+                    <p className="text-[10px] font-bold uppercase tracking-widest">
                       {comparingCandidates.length} Candidato{comparingCandidates.length > 1 ? 's' : ''} selecionado{comparingCandidates.length > 1 ? 's' : ''}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
                     <button 
                       onClick={() => setComparingCandidates([])}
-                      className="px-4 py-2 hover:bg-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
+                      className="px-4 py-2 hover:bg-white/10 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all"
                     >
                       Limpar
                     </button>
                     <button 
                       onClick={() => setShowComparison(true)}
-                      className="px-6 py-2 bg-fadel-red text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-fadel-red/80 transition-all flex items-center gap-2"
+                      className="px-6 py-2 bg-develoi-gold text-white rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-develoi-gold/80 transition-all flex items-center gap-2"
                     >
                       Comparar Agora
                       <Zap size={14} />
@@ -456,8 +456,8 @@ export default function NexusAI() {
                 <div className="bg-white rounded-3xl border border-zinc-200 shadow-xl overflow-hidden animate-in fade-in zoom-in duration-300">
                   <div className="p-8 border-b border-zinc-100 flex items-center justify-between">
                     <div>
-                      <h2 className="text-2xl font-black text-zinc-900 tracking-tighter">Comparativo Inteligente</h2>
-                      <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Análise Nexus AI Lado a Lado</p>
+                      <h2 className="text-2xl font-bold text-zinc-900 tracking-tighter">Comparativo Inteligente</h2>
+                      <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Análise Aurora AI Lado a Lado</p>
                     </div>
                     <button 
                       onClick={() => setShowComparison(false)}
@@ -479,8 +479,8 @@ export default function NexusAI() {
                                   <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${c.candidate_id}`} alt="avatar" />
                                 </div>
                                 <div>
-                                  <h4 className="text-sm font-black text-zinc-900">{c.full_name}</h4>
-                                  <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">{c.compatibility_score}% Match</p>
+                                  <h4 className="text-sm font-bold text-zinc-900">{c.full_name}</h4>
+                                  <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">{c.compatibility_score}% Match</p>
                                 </div>
                               </div>
                             </th>
@@ -489,23 +489,23 @@ export default function NexusAI() {
                       </thead>
                       <tbody className="text-sm">
                         <tr>
-                          <td className="p-4 font-black text-zinc-400 uppercase text-[9px] tracking-widest bg-zinc-50 rounded-l-2xl">Classificação</td>
+                          <td className="p-4 font-bold text-zinc-400 uppercase text-[9px] tracking-widest bg-zinc-50 rounded-l-2xl">Classificação</td>
                           {comparingCandidates.map(c => (
                             <td key={c.candidate_id} className="p-6 text-center border-x border-zinc-50 font-bold">{c.classification}</td>
                           ))}
                         </tr>
                         <tr>
-                          <td className="p-4 font-black text-zinc-400 uppercase text-[9px] tracking-widest">DISC</td>
+                          <td className="p-4 font-bold text-zinc-400 uppercase text-[9px] tracking-widest">DISC</td>
                           {comparingCandidates.map(c => (
                             <td key={c.candidate_id} className="p-6 text-center border-x border-zinc-50">
-                              <span className="px-3 py-1 bg-zinc-900 text-white rounded-lg text-xs font-black">
+                              <span className="px-3 py-1 bg-zinc-900 text-white rounded-lg text-xs font-bold">
                                 {c.disc_profile || 'N/A'}
                               </span>
                             </td>
                           ))}
                         </tr>
                         <tr>
-                          <td className="p-4 font-black text-zinc-400 uppercase text-[9px] tracking-widest bg-zinc-50">Localização</td>
+                          <td className="p-4 font-bold text-zinc-400 uppercase text-[9px] tracking-widest bg-zinc-50">Localização</td>
                           {comparingCandidates.map(c => (
                             <td key={c.candidate_id} className="p-6 text-center border-x border-zinc-50 bg-zinc-50/30">
                               <p className="font-bold">{c.city}/{c.state}</p>
@@ -514,7 +514,7 @@ export default function NexusAI() {
                           ))}
                         </tr>
                         <tr>
-                          <td className="p-4 font-black text-zinc-400 uppercase text-[9px] tracking-widest">Pontos Fortes</td>
+                          <td className="p-4 font-bold text-zinc-400 uppercase text-[9px] tracking-widest">Pontos Fortes</td>
                           {comparingCandidates.map(c => (
                             <td key={c.candidate_id} className="p-6 border-x border-zinc-50 align-top">
                               <div className="flex flex-col gap-2">
@@ -529,7 +529,7 @@ export default function NexusAI() {
                           ))}
                         </tr>
                         <tr>
-                          <td className="p-4 font-black text-zinc-400 uppercase text-[9px] tracking-widest bg-zinc-50">Principais Riscos</td>
+                          <td className="p-4 font-bold text-zinc-400 uppercase text-[9px] tracking-widest bg-zinc-50">Principais Riscos</td>
                           {comparingCandidates.map(c => (
                             <td key={c.candidate_id} className="p-6 border-x border-zinc-50 bg-zinc-50/30 align-top">
                               <p className="text-[10px] font-bold text-red-700 p-3 bg-red-50 rounded-xl border border-red-100 italic">
@@ -552,7 +552,7 @@ export default function NexusAI() {
                 <div className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest px-1">Vaga Alvo</label>
+                      <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest px-1">Vaga Alvo</label>
                       <select 
                         value={selectedJobId}
                         onChange={(e) => setSelectedJobId(e.target.value)}
@@ -565,14 +565,14 @@ export default function NexusAI() {
                       </select>
                     </div>
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest px-1">Modo de Precisão</label>
+                      <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest px-1">Modo de Precisão</label>
                       <div className="flex p-1 bg-zinc-100 rounded-2xl">
                         {['Flexível', 'Equilibrada', 'Rigorosa'].map(mode => (
                           <button
                             key={mode}
                             onClick={() => setPrecisionMode(mode)}
                             className={cn(
-                              "flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                              "flex-1 py-3 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all",
                               precisionMode === mode ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-500 hover:text-zinc-700"
                             )}
                           >
@@ -585,7 +585,7 @@ export default function NexusAI() {
 
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest px-1">Margem Mín (%)</label>
+                      <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest px-1">Margem Mín (%)</label>
                       <input 
                         type="number"
                         value={minScore}
@@ -594,7 +594,7 @@ export default function NexusAI() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest px-1">Qtd Máxima</label>
+                      <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest px-1">Qtd Máxima</label>
                       <input 
                         type="number"
                         value={maxResults}
@@ -603,7 +603,7 @@ export default function NexusAI() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest px-1">Raio Dist (km)</label>
+                      <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest px-1">Raio Dist (km)</label>
                       <input 
                         type="number"
                         value={radius}
@@ -612,7 +612,7 @@ export default function NexusAI() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest px-1">Localização</label>
+                      <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest px-1">Localização</label>
                       <select 
                         value={locationRule}
                         onChange={(e) => setLocationRule(e.target.value)}
@@ -637,7 +637,7 @@ export default function NexusAI() {
                         />
                         <div className="w-10 h-6 bg-zinc-200 rounded-full peer peer-checked:bg-amber-400 transition-all after:content-[''] after:absolute after:top-1 after:left-1 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-4 shadow-inner" />
                       </div>
-                      <span className="text-[10px] font-black text-zinc-600 uppercase tracking-widest group-hover:text-zinc-900 transition-colors">Somente com Currículo</span>
+                      <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest group-hover:text-zinc-900 transition-colors">Somente com Currículo</span>
                     </label>
 
                     <label className="flex items-center gap-3 cursor-pointer group">
@@ -650,24 +650,24 @@ export default function NexusAI() {
                         />
                         <div className="w-10 h-6 bg-zinc-200 rounded-full peer peer-checked:bg-amber-400 transition-all after:content-[''] after:absolute after:top-1 after:left-1 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-4 shadow-inner" />
                       </div>
-                      <span className="text-[10px] font-black text-zinc-600 uppercase tracking-widest group-hover:text-zinc-900 transition-colors">Somente com DISC</span>
+                      <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest group-hover:text-zinc-900 transition-colors">Somente com DISC</span>
                     </label>
                   </div>
 
                   <button 
                     onClick={executeMatch}
                     disabled={!selectedJobId || isMatching}
-                    className="w-full py-5 bg-zinc-900 text-white rounded-3xl font-black uppercase tracking-[0.2em] text-xs hover:bg-zinc-800 transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:grayscale disabled:cursor-not-allowed shadow-xl shadow-zinc-900/10"
+                    className="w-full py-5 bg-zinc-900 text-white rounded-3xl font-bold uppercase tracking-[0.2em] text-xs hover:bg-zinc-800 transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:grayscale disabled:cursor-not-allowed shadow-xl shadow-zinc-900/10"
                   >
                     {isMatching ? (
                       <>
-                        <Zap size={18} className="animate-pulse text-fadel-blue" />
-                        Nexus AI analisando...
+                        <Zap size={18} className="animate-pulse text-develoi-blue" />
+                        Aurora AI analisando...
                       </>
                     ) : (
                       <>
-                        <Zap size={18} className="text-fadel-blue" />
-                        {!selectedJobId ? 'Selecione uma Vaga para Iniciar' : 'Rodar Análise de Match'}
+                        <Zap size={18} className="text-develoi-blue" />
+                        {!selectedJobId ? 'Selecione uma Vaga para Iniciar' : 'Rodar Análise Aurora'}
                       </>
                     )}
                   </button>
@@ -678,19 +678,19 @@ export default function NexusAI() {
                 <motion.div 
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="bg-fadel-navy text-white rounded-3xl p-8 relative overflow-hidden"
+                  className="bg-develoi-navy text-white rounded-3xl p-8 relative overflow-hidden"
                 >
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-fadel-red/20 rounded-full -mr-16 -mt-16 blur-3xl" />
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-develoi-gold/10 rounded-full -mr-16 -mt-16 blur-3xl" />
                   <div className="flex items-center gap-4 mb-4">
-                    <div className="p-3 bg-fadel-red text-white rounded-2xl shadow-lg shadow-fadel-red/20">
+                    <div className="p-3 bg-develoi-gold text-white rounded-2xl shadow-lg shadow-develoi-gold/20">
                       <BarChart3 size={24} />
                     </div>
                     <div>
-                      <h3 className="text-xs font-black text-white uppercase tracking-[0.2em]">Resumo Executivo Nexus AI</h3>
+                      <h3 className="text-xs font-bold text-white uppercase tracking-[0.2em]">Resumo Executivo Aurora AI</h3>
                       <p className="text-[10px] font-bold text-white/60 uppercase tracking-widest">IA Insights</p>
                     </div>
                   </div>
-                  <p className="text-sm font-bold text-white leading-relaxed italic border-l-4 border-fadel-red pl-6 py-2">
+                  <p className="text-sm font-bold text-white leading-relaxed italic border-l-4 border-develoi-gold pl-6 py-2">
                     "{matchSummary}"
                   </p>
                 </motion.div>
@@ -699,10 +699,10 @@ export default function NexusAI() {
               {matchResults.length > 0 && (
                 <div className="space-y-6">
                   <div className="flex items-center justify-between">
-                    <h2 className="text-xl font-black text-zinc-900 tracking-tighter">Ranking de Compatibilidade</h2>
+                    <h2 className="text-xl font-bold text-zinc-900 tracking-tighter">Ranking de Compatibilidade</h2>
                     <div className="flex items-center gap-2">
-                       <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Ordenar por:</span>
-                        <select className="bg-transparent text-[10px] font-black text-zinc-900 uppercase tracking-widest outline-none cursor-pointer">
+                       <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Ordenar por:</span>
+                        <select className="bg-transparent text-[10px] font-bold text-zinc-900 uppercase tracking-widest outline-none cursor-pointer">
                           <option>Score</option>
                           <option>Distância</option>
                         </select>
@@ -721,16 +721,16 @@ export default function NexusAI() {
                          <div className={cn(
                             "absolute top-0 right-0 w-1 pt-12 h-full",
                             result.compatibility_score >= 90 ? "bg-green-500" :
-                            result.compatibility_score >= 70 ? "bg-amber-400" : "bg-zinc-300"
+                            result.compatibility_score >= 70 ? "bg-develoi-gold" : "bg-zinc-300"
                          )} />
 
                         <div className="flex flex-col md:flex-row md:items-center gap-6">
                           {/* Rank & Photo */}
                           <div className="flex items-center gap-4 shrink-0">
-                            <span className="text-2xl font-black text-zinc-200 group-hover:text-fadel-red transition-colors w-8">
+                            <span className="text-2xl font-bold text-zinc-200 group-hover:text-develoi-gold transition-colors w-8">
                               #{idx + 1}
                             </span>
-                            <div className="w-16 h-16 rounded-2xl bg-zinc-100 flex items-center justify-center font-black text-zinc-400 overflow-hidden border-2 border-zinc-50 shadow-sm">
+                            <div className="w-16 h-16 rounded-2xl bg-zinc-100 flex items-center justify-center font-bold text-zinc-400 overflow-hidden border-2 border-zinc-50 shadow-sm">
                               <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${result.candidate_id}`} alt="candidate" />
                             </div>
                           </div>
@@ -738,12 +738,12 @@ export default function NexusAI() {
                           {/* Info */}
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1">
-                               <h4 className="text-base font-black text-zinc-900 truncate">{result.full_name}</h4>
+                               <h4 className="text-base font-bold text-zinc-900 truncate">{result.full_name}</h4>
                                {result.compatibility_score >= 90 && (
-                                 <Sparkles size={14} className="text-fadel-red shrink-0" />
+                                 <Sparkles size={14} className="text-develoi-gold shrink-0" />
                                )}
                             </div>
-                            <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-3">{result.desired_position}</p>
+                            <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-3">{result.desired_position}</p>
                             
                             <div className="flex flex-wrap gap-4">
                               <div className="flex items-center gap-1.5 text-[10px] font-bold text-zinc-500">
@@ -751,9 +751,9 @@ export default function NexusAI() {
                                 {result.city}/{result.state} • {result.distance_km}km
                               </div>
                               <div className={cn(
-                                "flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest",
+                                "flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest",
                                 result.compatibility_score >= 90 ? "text-green-600" :
-                                result.compatibility_score >= 70 ? "text-amber-600" : "text-zinc-600"
+                                result.compatibility_score >= 70 ? "text-develoi-gold" : "text-zinc-600"
                               )}>
                                 <CheckCircle2 size={12} />
                                 {result.classification}
@@ -774,24 +774,24 @@ export default function NexusAI() {
                                 className={cn(
                                   "w-10 h-10 rounded-xl flex items-center justify-center transition-all border",
                                   comparingCandidates.find(c => c.candidate_id === result.candidate_id)
-                                    ? "bg-fadel-red text-white border-fadel-red animate-pulse"
+                                    ? "bg-develoi-gold text-white border-develoi-gold animate-pulse"
                                     : "bg-white text-zinc-400 border-zinc-200 hover:border-zinc-900 hover:text-zinc-900 shadow-sm"
                                 )}
                                 title="Adicionar para comparar"
                               >
                                 {comparingCandidates.find(c => c.candidate_id === result.candidate_id) ? <Target size={18} /> : <Search size={18} />}
                               </button>
-                              <span className="text-[8px] font-black uppercase text-zinc-400">Comparar</span>
+                              <span className="text-[8px] font-bold uppercase text-zinc-400">Comparar</span>
                             </div>
                             <div className="text-center shrink-0">
                               <p className={cn(
-                                "text-3xl font-black leading-none mb-1",
+                                "text-3xl font-bold leading-none mb-1",
                                 result.compatibility_score >= 90 ? "text-green-600" :
-                                result.compatibility_score >= 70 ? "text-amber-500" : "text-zinc-400"
+                                result.compatibility_score >= 70 ? "text-develoi-gold" : "text-zinc-400"
                               )}>
                                 {result.compatibility_score}%
                               </p>
-                              <p className="text-[8px] font-black text-zinc-400 uppercase tracking-widest">Score IA</p>
+                              <p className="text-[8px] font-bold text-zinc-400 uppercase tracking-widest">Score IA</p>
                             </div>
                             <button className="p-4 bg-zinc-900 text-white rounded-2xl hover:bg-zinc-800 transition-all shadow-lg shadow-zinc-900/10">
                               <ArrowRight size={18} />
@@ -803,7 +803,7 @@ export default function NexusAI() {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 pt-6 border-t border-zinc-50">
                           <div className="space-y-3">
                             <h5 className="text-[9px] font-black text-zinc-400 uppercase tracking-widest flex items-center gap-2">
-                               <Sparkles size={10} className="text-amber-500" />
+                               <Sparkles size={10} className="text-develoi-gold" />
                                Pontos Fortes
                             </h5>
                             <div className="flex flex-wrap gap-2">
@@ -831,7 +831,7 @@ export default function NexusAI() {
 
                         <div className="mt-4 p-4 bg-zinc-50/50 rounded-2xl">
                            <p className="text-[11px] font-bold text-zinc-600 leading-relaxed italic">
-                             <span className="font-black text-zinc-900 not-italic mr-2 uppercase text-[9px]">Recomendação:</span>
+                             <span className="font-bold text-zinc-900 not-italic mr-2 uppercase text-[9px]">Recomendação:</span>
                              {result.recommendation_reason}
                            </p>
                         </div>
@@ -848,8 +848,8 @@ export default function NexusAI() {
           {activeView === 'history' && (
             <div className="space-y-6">
                <div className="flex items-center justify-between">
-                <h2 className="text-xl font-black text-zinc-900 tracking-tighter">Últimas Consultas Nexus AI</h2>
-                <button className="text-[10px] font-black text-zinc-400 uppercase tracking-widest hover:text-zinc-900 flex items-center gap-2 transition-colors">
+                <h2 className="text-xl font-bold text-zinc-900 tracking-tighter">Últimas Consultas Aurora AI</h2>
+                <button className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest hover:text-zinc-900 flex items-center gap-2 transition-colors">
                   Limpar Histórico
                   <X size={12} />
                 </button>
@@ -858,7 +858,7 @@ export default function NexusAI() {
               {isLoadingSessions ? (
                 <div className="flex flex-col items-center justify-center py-20 space-y-4">
                   <div className="w-12 h-12 border-4 border-zinc-200 border-t-zinc-900 rounded-full animate-spin" />
-                  <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Carregando Histórico...</p>
+                  <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Carregando Histórico...</p>
                 </div>
               ) : sessions.length === 0 ? (
                 <div className="p-12 border-2 border-dashed border-zinc-200 rounded-[32px] text-center">
@@ -872,8 +872,8 @@ export default function NexusAI() {
                         {session.search_type === 'match-job' ? <Target size={20} /> : <MessageSquare size={20} />}
                       </div>
                       <div>
-                        <h4 className="text-sm font-black text-zinc-900">
-                          {session.search_type === 'match-job' ? 'Match de Vaga' : 'Conversa com Nexus AI'}
+                        <h4 className="text-sm font-bold text-zinc-900">
+                          {session.search_type === 'match-job' ? 'Match de Vaga' : 'Conversa com Aurora AI'}
                         </h4>
                         <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mt-1">
                           {new Date(session.created_at).toLocaleDateString()} • {new Date(session.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • Precisão: {session.precision_mode}
@@ -891,28 +891,28 @@ export default function NexusAI() {
         {/* Right Column: Quick Tools & Tools */}
         <div className="lg:col-span-4 space-y-8">
            {/* AI Status Card */}
-           <div className="bg-fadel-navy rounded-[32px] p-8 text-white relative overflow-hidden shadow-2xl shadow-fadel-navy/20">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-fadel-red/20 rounded-full blur-3xl -mr-16 -mt-16" />
+           <div className="bg-develoi-navy rounded-[32px] p-8 text-white relative overflow-hidden shadow-2xl shadow-develoi-navy/20">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-develoi-gold/20 rounded-full blur-3xl -mr-16 -mt-16" />
             <div className="relative z-10">
               <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 bg-fadel-red text-white rounded-xl">
+                <div className="p-2 bg-develoi-gold text-white rounded-xl">
                   <Cpu size={18} />
                 </div>
                 <div>
-                  <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-fadel-blue">System Status</h4>
-                  <p className="text-xs font-bold font-mono text-white">NEXUS_V2_ACTIVE</p>
+                  <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] text-develoi-blue">System Status</h4>
+                  <p className="text-xs font-bold font-mono text-white">AURORA_V2_ACTIVE</p>
                 </div>
               </div>
               <div className="space-y-4 mb-8">
                 <div className="flex justify-between items-end">
-                   <p className="text-[10px] font-black uppercase tracking-widest opacity-60 text-white">IA Precision</p>
+                   <p className="text-[10px] font-bold uppercase tracking-widest opacity-60 text-white">IA Precision</p>
                    <p className="text-xs font-bold text-white">98.4%</p>
                 </div>
                 <div className="h-1 bg-white/10 rounded-full overflow-hidden">
-                  <div className="h-full bg-fadel-red w-[98%]" />
+                  <div className="h-full bg-develoi-gold w-[98%]" />
                 </div>
                 <div className="flex justify-between items-end">
-                   <p className="text-[10px] font-black uppercase tracking-widest opacity-60 text-white">Banco Local</p>
+                   <p className="text-[10px] font-bold uppercase tracking-widest opacity-60 text-white">Banco Local</p>
                    <p className="text-xs font-bold text-white">1.2k Perfis</p>
                 </div>
                 <div className="h-1 bg-white/10 rounded-full overflow-hidden">
@@ -921,7 +921,7 @@ export default function NexusAI() {
               </div>
               <button 
                 onClick={() => toast.success("Algoritmo otimizado com sucesso!")}
-                className="w-full py-4 bg-white text-fadel-navy rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-fadel-red hover:text-white transition-all shadow-lg active:scale-95"
+                className="w-full py-4 bg-white text-develoi-navy rounded-2xl text-[10px] font-bold uppercase tracking-[0.2em] hover:bg-develoi-gold hover:text-white transition-all shadow-lg active:scale-95"
               >
                 Otimizar Algoritmo
               </button>
@@ -929,7 +929,7 @@ export default function NexusAI() {
           </div>
 
           <div className="space-y-4">
-            <h3 className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] px-2 mb-4">Ferramentas Rápidas</h3>
+            <h3 className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em] px-2 mb-4">Ferramentas Rápidas</h3>
             
             <button 
               onClick={() => {
@@ -945,7 +945,7 @@ export default function NexusAI() {
                    <Briefcase size={20} />
                  </div>
                  <div className="text-left">
-                   <h4 className="text-xs font-black text-zinc-900 uppercase tracking-widest">Consultoria de Vaga</h4>
+                   <h4 className="text-xs font-bold text-zinc-900 uppercase tracking-widest">Consultoria de Vaga</h4>
                    <p className="text-[9px] font-bold text-zinc-400 mt-0.5">Melhorar descrição e requisitos</p>
                  </div>
                </div>
@@ -965,7 +965,7 @@ export default function NexusAI() {
                    <Target size={20} />
                  </div>
                  <div className="text-left">
-                   <h4 className="text-xs font-black text-zinc-900 uppercase tracking-widest">Comparar Candidatos</h4>
+                   <h4 className="text-xs font-bold text-zinc-900 uppercase tracking-widest">Comparar Candidatos</h4>
                    <p className="text-[9px] font-bold text-zinc-400 mt-0.5">Lado a lado entre perfis</p>
                  </div>
                </div>
@@ -980,13 +980,13 @@ export default function NexusAI() {
               }}
               className="w-full bg-white border border-zinc-200 p-6 rounded-3xl flex items-center justify-between hover:shadow-xl hover:shadow-zinc-200/40 hover:-translate-y-1 transition-all group overflow-hidden relative"
             >
-               <div className="absolute top-0 right-0 w-24 h-24 bg-amber-50 rounded-full blur-2xl -mr-12 -mt-12 opacity-0 group-hover:opacity-100 transition-opacity" />
+               <div className="absolute top-0 right-0 w-24 h-24 bg-develoi-gold/5 rounded-full blur-2xl -mr-12 -mt-12 opacity-0 group-hover:opacity-100 transition-opacity" />
                <div className="flex items-center gap-4 relative z-10">
                  <div className="w-10 h-10 bg-zinc-50 text-zinc-900 rounded-2xl flex items-center justify-center group-hover:bg-zinc-900 group-hover:text-white transition-all">
                    <Zap size={20} />
                  </div>
                  <div className="text-left">
-                   <h4 className="text-xs font-black text-zinc-900 uppercase tracking-widest">Analisar DISC</h4>
+                   <h4 className="text-xs font-bold text-zinc-900 uppercase tracking-widest">Analisar DISC</h4>
                    <p className="text-[9px] font-bold text-zinc-400 mt-0.5">Encontrar perfil ideal</p>
                  </div>
                </div>
@@ -1005,7 +1005,7 @@ export default function NexusAI() {
                    <SettingsIcon size={20} />
                  </div>
                  <div className="text-left">
-                   <h4 className="text-xs font-black text-zinc-900 uppercase tracking-widest">Configurações Nexus</h4>
+                   <h4 className="text-xs font-bold text-zinc-900 uppercase tracking-widest">Configurações Aurora</h4>
                    <p className="text-[9px] font-bold text-zinc-400 mt-0.5">Pesos e critérios globais</p>
                  </div>
                </div>
@@ -1014,7 +1014,7 @@ export default function NexusAI() {
           </div>
 
           <div className="bg-zinc-50 rounded-3xl p-6 border border-zinc-100">
-             <h4 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-4">Dicas do Nexus</h4>
+             <h4 className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-4">Dicas da Aurora</h4>
              <ul className="space-y-4">
                <li className="flex gap-3">
                  <div className="w-1 h-1 bg-amber-500 rounded-full mt-1.5 shrink-0" />
@@ -1056,7 +1056,7 @@ export default function NexusAI() {
                     <SettingsIcon size={24} />
                   </div>
                   <div>
-                    <h3 className="text-lg font-black text-zinc-900 tracking-tighter">Configurações do Nexus AI</h3>
+                    <h3 className="text-lg font-black text-zinc-900 tracking-tighter">Configurações Aurora AI</h3>
                     <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Ajuste os algoritmos de match para sua unidade</p>
                   </div>
                 </div>
@@ -1071,10 +1071,10 @@ export default function NexusAI() {
               <div className="p-10 max-h-[70vh] overflow-y-auto space-y-10">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   <div className="space-y-4">
-                     <h4 className="text-[10px] font-black text-zinc-900 uppercase tracking-[0.2em] mb-4">Padronização de Match</h4>
+                     <h4 className="text-[10px] font-bold text-zinc-900 uppercase tracking-[0.2em] mb-4">Padronização de Match</h4>
                      <div className="space-y-6">
                         <div className="space-y-2">
-                           <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Precisão Padrão</label>
+                           <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Precisão Padrão</label>
                            <select 
                              className="w-full p-4 bg-zinc-100 border border-transparent rounded-2xl text-xs font-bold focus:bg-white focus:border-zinc-200 outline-none"
                              value={settings?.default_precision_mode || 'Equilibrada'}
@@ -1086,7 +1086,7 @@ export default function NexusAI() {
                            </select>
                         </div>
                         <div className="space-y-2">
-                           <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Raio de Distância (km)</label>
+                           <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Raio de Distância (km)</label>
                            <input 
                              type="number" 
                              step="5" 
@@ -1099,7 +1099,7 @@ export default function NexusAI() {
                   </div>
 
                   <div className="space-y-4">
-                     <h4 className="text-[10px] font-black text-zinc-900 uppercase tracking-[0.2em] mb-4">Pesos dos Algoritmos (%)</h4>
+                     <h4 className="text-[10px] font-bold text-zinc-900 uppercase tracking-[0.2em] mb-4">Pesos dos Algoritmos (%)</h4>
                      <div className="space-y-4">
                         {[
                           { label: 'Localização', key: 'weight_location', val: settings?.weight_location ?? 10 },
@@ -1113,7 +1113,7 @@ export default function NexusAI() {
                             const next = current >= 40 ? 0 : current + 5;
                             setSettings({ ...settings, [w.key]: next });
                           }}>
-                            <div className="flex justify-between text-[10px] font-black uppercase tracking-widest">
+                            <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest">
                                <span className="text-zinc-500 group-hover:text-zinc-900 transition-colors">{w.label}</span>
                                <span className="text-zinc-900">{w.val}%</span>
                             </div>
@@ -1126,9 +1126,9 @@ export default function NexusAI() {
                   </div>
                 </div>
 
-                <div className="bg-amber-50 p-6 rounded-3xl border border-amber-100 flex items-start gap-4">
-                   <AlertCircle className="text-amber-500 shrink-0 mt-1" size={18} />
-                   <p className="text-[11px] font-bold text-amber-900 leading-relaxed italic">
+                <div className="bg-develoi-gold/5 p-6 rounded-3xl border border-develoi-gold/10 flex items-start gap-4">
+                   <AlertCircle className="text-develoi-gold shrink-0 mt-1" size={18} />
+                   <p className="text-[11px] font-bold text-develoi-gold leading-relaxed italic">
                      "As mudanças nos pesos impactam diretamente o score gerado pela IA. Recomendamos cautela ao alterar pesos comportamentais para vagas operacionais."
                    </p>
                 </div>
@@ -1137,13 +1137,13 @@ export default function NexusAI() {
               <div className="p-8 border-t border-zinc-100 bg-zinc-50/50 flex items-center justify-end gap-4">
                 <button 
                   onClick={() => setShowSettings(false)}
-                  className="px-8 py-4 text-xs font-black text-zinc-500 uppercase tracking-widest hover:text-zinc-900"
+                  className="px-8 py-4 text-xs font-bold text-zinc-500 uppercase tracking-widest hover:text-zinc-900"
                 >
                   Cancelar
                 </button>
                 <button 
                   onClick={() => saveSettings(settings)}
-                  className="px-10 py-4 bg-zinc-900 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-xl shadow-zinc-900/10 active:scale-95 transition-all"
+                  className="px-10 py-4 bg-zinc-900 text-white rounded-2xl text-xs font-bold uppercase tracking-widest shadow-xl shadow-zinc-900/10 active:scale-95 transition-all"
                 >
                   Salvar Alterações
                 </button>

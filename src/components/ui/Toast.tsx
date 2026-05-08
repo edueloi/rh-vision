@@ -47,11 +47,11 @@ const toastConfig = {
   },
   warning: {
     icon: <AlertTriangle className="w-4 h-4" strokeWidth={2.5} />,
-    accent: 'bg-fadel-red',
-    iconBg:   'bg-fadel-red/5 border-fadel-red/20 text-fadel-red',
+    accent: 'bg-develoi-gold',
+    iconBg:   'bg-develoi-gold/5 border-develoi-gold/20 text-develoi-gold',
     title:    'Atenção',
-    titleColor: 'text-fadel-red',
-    bar: 'bg-fadel-red',
+    titleColor: 'text-develoi-gold',
+    bar: 'bg-develoi-gold',
   },
   info: {
     icon: <Info className="w-4 h-4" strokeWidth={2.5} />,

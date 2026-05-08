@@ -3,35 +3,63 @@ import { useState, useEffect } from "react";
 export type Unit = {
   id: string;
   name: string;
-  location: string;
+  city?: string;
+  state?: string;
+  location?: string;
+  parent_id?: string;
+  company_name?: string;
+  responsible_name?: string;
+  phone?: string;
+  email?: string;
+  is_master?: number;
 };
 
-export const FADEL_UNITS: Unit[] = [
-  { id: "master", name: "Fadel - Central (Master)", location: "Todas" },
-  { id: "tatui", name: "Fadel - Tatuí", location: "Tatuí, SP" },
-  { id: "curitiba", name: "Fadel - Curitiba", location: "Curitiba, PR" },
-  { id: "rio", name: "Fadel - Rio de Janeiro", location: "Rio de Janeiro, RJ" },
-  { id: "bh", name: "Fadel - Belo Horizonte", location: "Belo Horizonte, MG" },
-];
-
 export function useUnit() {
-  const [currentUnit, setCurrentUnit] = useState<Unit>(() => {
-    const saved = localStorage.getItem("fadel_selected_unit");
-    return saved ? JSON.parse(saved) : FADEL_UNITS[0];
-  });
+  const [units, setUnits] = useState<Unit[]>([]);
+  const [currentUnit, setCurrentUnit] = useState<Unit>({ id: "master", name: "Develoi - Central (Master)", location: "Todas" });
+
+  useEffect(() => {
+    fetchUnits();
+  }, []);
+
+  const fetchUnits = async () => {
+    try {
+      const res = await fetch('/api/units');
+      if (res.ok) {
+        const data = await res.json();
+        const formatted = data.map((u: any) => ({
+          ...u,
+          location: u.city ? `${u.city}, ${u.state}` : 'Todas'
+        }));
+        setUnits(formatted);
+        
+        const saved = localStorage.getItem("develoi_selected_unit");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          const found = formatted.find((u: any) => u.id === parsed.id);
+          if (found) setCurrentUnit(found);
+        } else if (formatted.length > 0) {
+          const master = formatted.find((u: any) => u.is_master === 1) || formatted[0];
+          setCurrentUnit(master);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to fetch units");
+    }
+  };
 
   const changeUnit = (unit: Unit) => {
     setCurrentUnit(unit);
-    localStorage.setItem("fadel_selected_unit", JSON.stringify(unit));
-    // Em um app real, aqui recarregaríamos os dados do backend filtrados por unidade
+    localStorage.setItem("develoi_selected_unit", JSON.stringify(unit));
   };
 
-  const isMaster = currentUnit.id === "master";
+  const isMaster = currentUnit.id === "master" || currentUnit.is_master === 1;
 
   return {
     currentUnit,
     changeUnit,
     isMaster,
-    units: FADEL_UNITS
+    units,
+    refreshUnits: fetchUnits
   };
 }

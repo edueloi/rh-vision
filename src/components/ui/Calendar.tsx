@@ -114,11 +114,11 @@ export const Calendar: React.FC<CalendarProps> = ({
           } else if (mode === 'block' && isBlocked) {
             className += 'border border-zinc-900 bg-zinc-900 text-white shadow-sm hover:bg-zinc-800 cursor-pointer';
           } else if (mode === 'select' && isSelected) {
-            className += 'border border-fadel-navy bg-fadel-navy text-white shadow-sm hover:bg-black cursor-pointer';
+            className += 'border border-develoi-navy bg-develoi-navy text-white shadow-sm hover:bg-black cursor-pointer';
           } else if (isToday) {
-            className += 'border border-fadel-navy/20 bg-fadel-navy/5 text-fadel-navy hover:bg-fadel-navy/10 cursor-pointer';
+            className += 'border border-develoi-navy/20 bg-develoi-navy/5 text-develoi-navy hover:bg-develoi-navy/10 cursor-pointer';
           } else {
-            className += 'border border-transparent bg-white text-zinc-600 hover:border-fadel-navy/10 hover:bg-fadel-navy/5 hover:text-fadel-navy cursor-pointer';
+            className += 'border border-transparent bg-white text-zinc-600 hover:border-develoi-navy/10 hover:bg-develoi-navy/5 hover:text-develoi-navy cursor-pointer';
           }
 
           return (

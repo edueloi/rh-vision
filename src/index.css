@@ -10,8 +10,8 @@
   --surface: #FFFFFF;
   --text: #0F172A;
   --muted: #64748B;
-  --accent: #0a1c3e;
-  --accent-red: #cc1f26;
+  --accent: #07152B;
+  --accent-red: #C5A04D;
   --accent-light: #6cb4e4;
   --accent-soft: #EFF6FF;
   --emerald: #10B981;
@@ -22,9 +22,48 @@
 
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --color-fadel-navy: #0a1c3e;
-  --color-fadel-red: #cc1f26;
-  --color-fadel-blue: #6cb4e4;
+  --color-develoi-navy: #07152B;
+  --color-develoi-gold: #C5A04D;
+  --color-develoi-red: #C5A04D;
+  --color-develoi-blue: #6cb4e4;
+}
+
+@layer base {
+  body {
+    @apply text-zinc-900 antialiased bg-[#F8FAFC];
+    font-size: 14px;
+  }
+}
+
+.font-black {
+  font-weight: 800;
+}
+
+/* Global Scrollbar Styles */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #07152B; /* develoi-navy */
+  border-radius: 10px;
+  border: 3px solid #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #1e293b;
+}
+
+/* Firefox support */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #07152B #f1f1f1;
 }
 
 .custom-scrollbar::-webkit-scrollbar {
@@ -36,12 +75,13 @@
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #E2E8F0;
+  background: #07152B;
   border-radius: 10px;
+  border: 1px solid transparent;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #CBD5E1;
+  background: #1e293b;
 }
 
 body {

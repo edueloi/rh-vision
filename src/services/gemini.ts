@@ -258,16 +258,16 @@ export async function parseResumeData(resumeText: string) {
   }
 }
 
-export async function nexusAiChat(
+export async function auroraAiChat(
   messages: { role: string; content: string }[],
   context: any
 ) {
   const prompt = `
-    Você é o Nexus AI, o assistente inteligente de recrutamento e seleção oficial do Nexus AI Recruitment OS.
+    Você é a Aurora AI, a assistente inteligente de recrutamento e seleção oficial da Develoi.
     Sua missão é ajudar o RH a tomar decisões melhores e mais rápidas usando inteligência artificial.
     
     DIRETRIZES:
-    - Seja profissional, consultivo, empático e focado em dados.
+    - Seja profissional, consultiva, empática e focada em dados.
     - Nunca invente informações sobre candidatos, vagas ou resultados.
     - Se não houver dados, diga "Não encontrei informações suficientes".
     - Você pode sugerir ações como: "Deseja que eu compare este candidato com a vaga X?" ou "Posso gerar perguntas de entrevista para este perfil".
@@ -279,9 +279,9 @@ export async function nexusAiChat(
     Sua Unidade: ${context.unitName}
     
     HISTÓRICO DA CONVERSA:
-    ${messages.map(m => `${m.role === 'user' ? 'Usuário' : 'Nexus AI'}: ${m.content}`).join('\n')}
+    ${messages.map(m => `${m.role === 'user' ? 'Usuário' : 'Aurora AI'}: ${m.content}`).join('\n')}
     
-    Nexus AI:
+    Aurora AI:
   `;
 
   try {
@@ -301,7 +301,7 @@ export async function summarizeShortlist(
   results: any[]
 ) {
   const prompt = `
-    Como um Consultor de RH Sênior, analise a lista de candidatos pré-selecionados para a vaga "${job.title}".
+    Como uma Consultora de RH Sênior, analise a lista de candidatos pré-selecionados para a vaga "${job.title}".
     
     DADOS DA VAGA:
     ${job.description}
@@ -311,7 +311,7 @@ export async function summarizeShortlist(
     RESULTADOS DA ANÁLISE (Top ${results.length}):
     ${results.map((r, i) => `${i+1}. ${r.full_name} (${r.city}) - Score: ${r.compatibility_score}% - Motivo: ${r.recommendation_reason}`).join('\n')}
     
-    GERE UM RESUMO EXECUTIVO (SHORTLIST ANALYSIS) CONTENDO:
+    GERE UM RESUMO EXECUTIVO (AURORA SHORTLIST ANALYSIS) CONTENDO:
     1. Quantos candidatos foram analisados e quantos atingiram o fit ideal.
     2. Visão geral da aderência (especialmente técnica e geográfica).
     3. Destaque dos 3 principais candidatos e por que eles são os melhores.

@@ -24,10 +24,10 @@ export const Switch = React.forwardRef<HTMLButtonElement, SwitchProps>(
           }
         }}
         className={cn(
-          "relative inline-flex shrink-0 items-center rounded-full border transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fadel-navy/20 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60",
+          "relative inline-flex shrink-0 items-center rounded-full border transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-develoi-navy/20 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60",
           size === "sm" ? "h-4 w-7" : "h-6 w-11",
           checked
-            ? "border-fadel-navy bg-fadel-navy shadow-sm shadow-fadel-navy/20"
+            ? "border-develoi-navy bg-develoi-navy shadow-sm shadow-develoi-navy/20"
             : "border-zinc-200 bg-zinc-200",
           className
         )}

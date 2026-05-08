@@ -13,23 +13,28 @@ import { cn } from "@/src/lib/utils";
 // Variantes de cor de ícone: default (navy) | success | info | danger | purple | warning
 // ─────────────────────────────────────────────────────────────────────────────
 
-type StatCardColor = "default" | "success" | "info" | "danger" | "purple" | "warning" | "navy" | "red";
+type StatCardColor = "default" | "success" | "info" | "danger" | "purple" | "warning" | "navy" | "red" | "gold";
 
 const colorMap: Record<StatCardColor, { wrap: string; icon: string; glow: string }> = {
   default: {
-    wrap: "bg-fadel-navy/5 border-fadel-navy/10 group-hover:bg-fadel-navy group-hover:border-fadel-navy",
-    icon: "text-fadel-navy group-hover:text-white",
-    glow: "bg-fadel-navy/5",
+    wrap: "bg-develoi-navy/5 border-develoi-navy/10 group-hover:bg-develoi-navy group-hover:border-develoi-navy",
+    icon: "text-develoi-navy group-hover:text-white",
+    glow: "bg-develoi-navy/5",
   },
   navy: {
-    wrap: "bg-fadel-navy/5 border-fadel-navy/10 group-hover:bg-fadel-navy group-hover:border-fadel-navy",
-    icon: "text-fadel-navy group-hover:text-white",
-    glow: "bg-fadel-navy/5",
+    wrap: "bg-develoi-navy/5 border-develoi-navy/10 group-hover:bg-develoi-navy group-hover:border-develoi-navy",
+    icon: "text-develoi-navy group-hover:text-white",
+    glow: "bg-develoi-navy/5",
+  },
+  gold: {
+    wrap: "bg-develoi-gold/5 border-develoi-gold/10 group-hover:bg-develoi-gold group-hover:border-develoi-gold",
+    icon: "text-develoi-gold group-hover:text-white",
+    glow: "bg-develoi-gold/5",
   },
   red: {
-    wrap: "bg-fadel-red/5 border-fadel-red/10 group-hover:bg-fadel-red group-hover:border-fadel-red",
-    icon: "text-fadel-red group-hover:text-white",
-    glow: "bg-fadel-red/5",
+    wrap: "bg-red-50 border-red-100 group-hover:bg-red-500 group-hover:border-red-500",
+    icon: "text-red-600 group-hover:text-white",
+    glow: "bg-red-500/5",
   },
   success: {
     wrap: "bg-emerald-50 border-emerald-100 group-hover:bg-emerald-500 group-hover:border-emerald-500",
@@ -59,6 +64,7 @@ const colorMap: Record<StatCardColor, { wrap: string; icon: string; glow: string
 };
 
 interface StatCardProps {
+  key?: any;
   title: string;
   value: string | number;
   icon: React.ElementType;
@@ -144,7 +150,7 @@ export function StatCard({
         <p className="text-[9px] sm:text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-0.5 sm:mb-1 truncate">
           {title}
         </p>
-        <h3 className="text-xl sm:text-2xl font-black text-zinc-900 tracking-tight leading-none">
+        <h3 className="text-xl sm:text-2xl font-bold text-zinc-900 tracking-tight leading-none">
           {value}
         </h3>
         {description && (

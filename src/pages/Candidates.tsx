@@ -41,7 +41,7 @@ export default function Candidates() {
     setLoading(true);
     try {
       const params = new URLSearchParams({
-        tenantId: 'fadel',
+        tenantId: 'develoi',
         unitId: currentUnit.id,
         search: filters.search,
         status: filters.status,
@@ -98,7 +98,7 @@ export default function Candidates() {
       )}>
         <div className="flex justify-between items-center">
           <div>
-            <h2 className="text-xl font-black text-zinc-900 tracking-tight">Banco de Talentos</h2>
+            <h2 className="text-xl font-bold text-zinc-900 tracking-tight">Banco de Talentos</h2>
             <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest mt-1">
               {candidates.length} Currículos Encontrados
             </p>
@@ -112,7 +112,7 @@ export default function Candidates() {
             </button>
             <button 
               onClick={() => setView('create')}
-              className="flex items-center gap-2 px-6 py-2.5 bg-fadel-navy hover:bg-black text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-lg shadow-fadel-navy/10"
+              className="flex items-center gap-2 px-6 py-2.5 bg-develoi-navy hover:bg-black text-white rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all active:scale-95 shadow-lg shadow-develoi-navy/10"
             >
               <Plus size={16} /> Novo Talento
             </button>
@@ -153,7 +153,7 @@ export default function Candidates() {
           {loading ? (
             <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center p-20">
               <div className="w-10 h-10 border-4 border-zinc-900 border-t-transparent rounded-full animate-spin"></div>
-              <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Buscando na base...</p>
+              <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Buscando na base...</p>
             </div>
           ) : candidates.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center gap-6 text-center p-20">
@@ -161,7 +161,7 @@ export default function Candidates() {
                 <Users size={32} />
               </div>
               <div>
-                <p className="text-sm font-black text-zinc-900">Nenhum talento aqui</p>
+                <p className="text-sm font-bold text-zinc-900">Nenhum talento aqui</p>
                 <p className="text-xs text-zinc-400 font-bold mt-1">Experimente mudar os filtros ou adicione um novo candidato.</p>
               </div>
             </div>

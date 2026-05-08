@@ -54,18 +54,18 @@ export function PanelCard({
             {Icon && (
               <div
                 className={cn(
-                  "flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-fadel-navy/10 bg-fadel-navy/5",
+                  "flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-develoi-navy/10 bg-develoi-navy/5",
                   iconWrapClassName
                 )}
               >
-                <Icon size={20} className={cn("text-fadel-navy", iconClassName)} />
+                <Icon size={20} className={cn("text-develoi-navy", iconClassName)} />
               </div>
             )}
 
             {(title || description) && (
               <div className="min-w-0">
                 {title && (
-                  <h3 className="text-base font-black tracking-tight text-zinc-900">{title}</h3>
+                  <h3 className="text-base font-bold tracking-tight text-zinc-900">{title}</h3>
                 )}
                 {description && (
                   <p className="mt-1 text-sm leading-relaxed text-zinc-500">{description}</p>
