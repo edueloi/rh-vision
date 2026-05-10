@@ -276,33 +276,6 @@ export default function SuperAdmin() {
     });
   }, [searchQuery, statusFilter, tenants]);
 
-  const navigationSections = [
-    {
-      id: "superadmin-overview",
-      label: "Visão Geral",
-      helper: `${totals.activeTenants} clientes ativos`,
-      icon: BadgeCheck,
-    },
-    {
-      id: "superadmin-clientes",
-      label: "Clientes",
-      helper: `${filteredTenants.length} no pipeline`,
-      icon: Building2,
-    },
-    {
-      id: "superadmin-contratos",
-      label: "Contratos",
-      helper: selectedTenant ? formatDate(selectedTenant.expires_at) : "Selecione um cliente",
-      icon: CalendarClock,
-    },
-    {
-      id: "superadmin-acessos",
-      label: "Acessos",
-      helper: `${tenantAccesses.length} provisionados`,
-      icon: Users,
-    },
-  ];
-
   useEffect(() => {
     fetchTenants();
   }, []);
@@ -643,38 +616,6 @@ export default function SuperAdmin() {
                 Novo Acesso
               </Button>
             </div>
-          </div>
-        </PanelCard>
-
-        <PanelCard
-          className="sticky top-4 z-10 rounded-[32px] border-zinc-200/80 bg-white/95 shadow-sm"
-          contentClassName="p-3"
-        >
-          <div className="grid gap-3 lg:grid-cols-4">
-            {navigationSections.map((section) => {
-              const Icon = section.icon;
-
-              return (
-                <a
-                  key={section.id}
-                  href={`#${section.id}`}
-                  className="group flex items-center justify-between rounded-[24px] border border-zinc-200 bg-zinc-50/70 px-4 py-4 transition-all hover:border-develoi-navy/30 hover:bg-develoi-navy/5"
-                >
-                  <div className="min-w-0">
-                    <p className="text-[10px] font-black uppercase tracking-[0.22em] text-zinc-400">
-                      Menu interno
-                    </p>
-                    <p className="mt-1 text-base font-black text-zinc-900">{section.label}</p>
-                    <p className="mt-1 truncate text-xs font-semibold text-zinc-500">
-                      {section.helper}
-                    </p>
-                  </div>
-                  <div className="ml-4 rounded-2xl border border-zinc-200 bg-white p-3 text-zinc-700 transition-colors group-hover:border-develoi-navy/20 group-hover:text-develoi-navy">
-                    <Icon size={18} />
-                  </div>
-                </a>
-              );
-            })}
           </div>
         </PanelCard>
 

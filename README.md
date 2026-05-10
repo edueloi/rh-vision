@@ -1,20 +1,135 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# RH Vision
 
-# Run and deploy your AI Studio app
+Plataforma de recrutamento e gestão operacional com arquitetura multi-tenant, painel `Super Admin`, controle de contratos, gestão de vagas, candidatos, ferramentas de RH e rotas públicas.
 
-This contains everything you need to run your app locally.
+## Visão geral
 
-View your app in AI Studio: https://ai.studio/apps/f1294905-e4c5-4d01-abc2-1d4996316165
+- painel root para criar clientes, contratos e acessos
+- gestão de vagas com fluxo público e interno
+- cadastro e acompanhamento de candidatos
+- importação de currículos
+- controle de permissões por perfil e por módulo
+- base preparada para migração com Prisma + MySQL
 
-## Run Locally
+## Stack
 
-**Prerequisites:**  Node.js
+- React 19
+- TypeScript
+- Vite
+- Tailwind CSS 4
+- Express
+- SQLite no runtime atual
+- Prisma preparado para MySQL
 
+## Requisitos
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+- Node.js 22
+- npm
+- MySQL local opcional, caso você queira usar o fluxo Prisma
+
+## Instalação
+
+```bash
+npm install
+```
+
+## Ambiente
+
+Use o arquivo [`.env.example`](.env.example) como base.
+
+Variáveis principais:
+
+- `PORT`
+- `GEMINI_API_KEY`
+- `SQLITE_DB_PATH`
+- `DATABASE_URL`
+
+## Rodando em desenvolvimento
+
+Ative o Node 22 e suba o servidor:
+
+```powershell
+nvs use 22
+npm run dev
+```
+
+Aplicação local:
+
+- `http://localhost:3000`
+
+## Build
+
+```powershell
+nvs use 22
+npm run build
+```
+
+## Scripts
+
+```bash
+npm run dev
+npm run build
+npm run preview
+npm run lint
+npm run db:generate
+npm run db:migrate
+npm run db:deploy
+npm run db:baseline
+npm run db:status
+```
+
+## Banco de dados
+
+Hoje o runtime principal ainda usa SQLite via [`src/lib/db.ts`](src/lib/db.ts).
+
+O projeto também já está preparado para evolução com Prisma + MySQL:
+
+- schema em [`prisma/schema.prisma`](prisma/schema.prisma)
+- migração inicial em [`prisma/migrations/0001_init/migration.sql`](prisma/migrations/0001_init/migration.sql)
+- utilitário em [`scripts/migrate.js`](scripts/migrate.js)
+
+Guia detalhado:
+
+- [docs/database-setup.md](docs/database-setup.md)
+
+## Rotas principais
+
+- `/login`
+- `/welcome`
+- `/dashboard`
+- `/aurora-ai`
+- `/vagas`
+- `/candidatos`
+- `/importar-cvs`
+- `/ferramentas`
+- `/administracao`
+- `/super-admin`
+- `/portal`
+- `/public/tools/:slug`
+
+## Estrutura resumida
+
+```text
+src/
+  components/
+    ui/
+  lib/
+  pages/
+  services/
+prisma/
+docs/
+server.ts
+index.html
+```
+
+## Documentação interna
+
+- [docs/database-setup.md](docs/database-setup.md)
+- [docs/ui-screen-map.md](docs/ui-screen-map.md)
+
+## Status atual
+
+- layout operacional e shell root já separados
+- favicon e título do navegador personalizados
+- navegação do `Super Admin` pela sidebar root
+- build validado com Node 22

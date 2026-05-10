@@ -64,6 +64,13 @@ const APP_MENU_ITEMS: MenuItem[] = [
   { path: "/administracao", label: "Administração", icon: ShieldCheck, permissionKey: "administration" },
 ];
 
+const ROOT_SECTION_ITEMS = [
+  { href: "#superadmin-overview", label: "Visão Geral", icon: LayoutDashboard, helper: "Indicadores root" },
+  { href: "#superadmin-clientes", label: "Clientes", icon: Building2, helper: "Pipeline e tenants" },
+  { href: "#superadmin-contratos", label: "Contratos", icon: ShieldCheck, helper: "Planos e validade" },
+  { href: "#superadmin-acessos", label: "Acessos", icon: Users, helper: "Perfis e permissões" },
+];
+
 const LEGACY_TAB_TO_PATH: Record<string, string> = {
   superadmin: "/super-admin",
   dashboard: "/dashboard",
@@ -113,6 +120,7 @@ function AppContent() {
   const navigate = useNavigate();
 
   const isSuperAdmin = isRootAdmin(user);
+  const isRootShell = isSuperAdmin && location.pathname.startsWith("/super-admin");
   const permissions = useMemo(() => getPermissionsForUser(user), [user]);
   const legacyPortalMode = new URLSearchParams(location.search).get("mode") === "portal";
   const isPortalRoute = location.pathname === "/portal" || location.pathname.startsWith("/portal/");
@@ -128,6 +136,43 @@ function AppContent() {
     () => getActiveMenuItem(location.pathname, menuItems),
     [location.pathname, menuItems]
   );
+  const activeRootSection = useMemo(() => {
+    if (!isRootShell) {
+      return null;
+    }
+
+    const currentHash = location.hash || "#superadmin-overview";
+    return ROOT_SECTION_ITEMS.find((item) => item.href === currentHash) || ROOT_SECTION_ITEMS[0];
+  }, [isRootShell, location.hash]);
+  const activeLabel = activeItem?.label ?? (menuItems[0]?.label || "Painel");
+
+  useEffect(() => {
+    let nextTitle = "RH Vision | Aurora Recruitment Hub";
+
+    if (location.pathname === "/login") {
+      nextTitle = "RH Vision | Login";
+    } else if (location.pathname === "/welcome") {
+      nextTitle = "RH Vision | Boas-vindas";
+    } else if (isRootShell) {
+      nextTitle = `RH Vision | Super Admin${activeRootSection ? ` • ${activeRootSection.label}` : ""}`;
+    } else if (isPortalRoute) {
+      nextTitle = "RH Vision | Portal Público";
+    } else if (isToolRoute) {
+      nextTitle = "RH Vision | Ferramenta Pública";
+    } else if (activeLabel) {
+      nextTitle = `RH Vision | ${activeLabel}`;
+    }
+
+    document.title = nextTitle;
+  }, [
+    activeItem,
+    activeLabel,
+    activeRootSection,
+    isPortalRoute,
+    isRootShell,
+    isToolRoute,
+    location.pathname,
+  ]);
 
   useEffect(() => {
     const storedUser = localStorage.getItem("auth_user");
@@ -236,7 +281,6 @@ function AppContent() {
     return <Navigate to={defaultPath} replace />;
   }
 
-  const activeLabel = activeItem?.label ?? (menuItems[0]?.label || "Painel");
   const guard = (allowed: boolean, element: React.ReactNode) =>
     allowed ? element : <Navigate to={defaultPath} replace />;
 
@@ -251,32 +295,47 @@ function AppContent() {
 
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-[50] h-screen w-72 overflow-y-auto border-r border-zinc-200 bg-white transition-transform duration-300 lg:sticky lg:translate-x-0",
+          "fixed inset-y-0 left-0 z-[50] h-screen w-72 overflow-y-auto transition-transform duration-300 lg:sticky lg:translate-x-0",
+          isRootShell
+            ? "border-r border-[#102647] bg-[#071325] text-white"
+            : "border-r border-zinc-200 bg-white",
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
         <div className="flex h-full flex-col p-8">
           <div className="mb-10 flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-develoi-navy text-white shadow-lg shadow-develoi-navy/20">
+            <div
+              className={cn(
+                "flex h-10 w-10 items-center justify-center rounded-2xl text-white shadow-lg",
+                isRootShell
+                  ? "bg-white/10 shadow-black/20"
+                  : "bg-develoi-navy shadow-develoi-navy/20"
+              )}
+            >
               <Brain size={22} strokeWidth={3} className="text-develoi-gold" />
             </div>
             <div>
-              <h1 className="text-base font-bold uppercase leading-none tracking-tight text-develoi-navy">
-                Develoi
+              <h1
+                className={cn(
+                  "text-base font-bold uppercase leading-none tracking-tight",
+                  isRootShell ? "text-white" : "text-develoi-navy"
+                )}
+              >
+                {isRootShell ? "Aurora Root" : "Develoi"}
               </h1>
               <p className="mt-0.5 text-[9px] font-bold uppercase tracking-widest text-develoi-gold">
-                Recruitment Hub
+                {isRootShell ? "Control Grid" : "Recruitment Hub"}
               </p>
             </div>
             <button
               onClick={() => setSidebarOpen(false)}
-              className="ml-auto p-2 text-zinc-400 lg:hidden"
+              className={cn("ml-auto p-2 lg:hidden", isRootShell ? "text-white/60" : "text-zinc-400")}
             >
               <X size={20} />
             </button>
           </div>
 
-          {!isSuperAdmin && (
+          {!isRootShell && (
             <div className="mb-8">
               <p className="mb-2 px-1 text-[9px] font-bold uppercase tracking-widest text-zinc-400 opacity-70">
                 Unidade
@@ -320,47 +379,142 @@ function AppContent() {
             </div>
           )}
 
-          <nav className="flex-1 space-y-1.5">
-            {menuItems.map((item) => {
-              const Icon = item.icon;
-              const active =
-                location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
+          {isRootShell && (
+            <div className="mb-8 rounded-[28px] border border-white/10 bg-white/5 p-5">
+              <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-develoi-gold">
+                Root Layer
+              </p>
+              <h2 className="mt-3 text-xl font-black tracking-tight text-white">Super Admin Shell</h2>
+              <p className="mt-2 text-sm font-medium leading-relaxed text-white/65">
+                Ambiente exclusivo para contratos, clientes, acessos e permissões globais.
+              </p>
+            </div>
+          )}
 
-              return (
+          <nav className="flex-1 space-y-1.5">
+            {isRootShell ? (
+              <>
                 <button
-                  key={item.path}
                   onClick={() => {
-                    navigate(item.path);
+                    navigate("/super-admin");
                     setSidebarOpen(false);
                   }}
-                  className={cn(
-                    "group flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left transition-all duration-200",
-                    active
-                      ? "bg-develoi-navy font-bold text-white shadow-lg shadow-develoi-navy/10"
-                      : "font-medium text-zinc-500 hover:bg-zinc-50"
-                  )}
+                  className="group flex w-full items-center justify-between rounded-2xl bg-white px-4 py-3 text-left font-bold text-[#071325] shadow-lg shadow-black/10"
                 >
                   <div className="flex items-center gap-3">
-                    <Icon
-                      size={18}
-                      strokeWidth={active ? 2.5 : 2}
-                      className={cn(
-                        "transition-colors",
-                        active
-                          ? "text-white"
-                          : "text-zinc-400 group-hover:text-zinc-900 focus:text-develoi-gold"
-                      )}
-                    />
-                    <span className="text-[10px] uppercase tracking-wider">{item.label}</span>
+                    <ShieldCheck size={18} strokeWidth={2.5} className="text-develoi-gold" />
+                    <span className="text-[10px] uppercase tracking-[0.18em]">Central Root</span>
                   </div>
-                  {active && <ChevronRight size={14} strokeWidth={3} className="text-white/40" />}
+                  <ChevronRight size={14} strokeWidth={3} className="text-[#071325]/30" />
                 </button>
-              );
-            })}
+
+                <div className="pt-4">
+                  <p className="mb-3 px-1 text-[9px] font-bold uppercase tracking-[0.22em] text-white/35">
+                    Navegação
+                  </p>
+                  <div className="space-y-2">
+                    {ROOT_SECTION_ITEMS.map((item) => {
+                      const Icon = item.icon;
+                      const active = (location.hash || "#superadmin-overview") === item.href;
+
+                      return (
+                        <a
+                          key={item.href}
+                          href={item.href}
+                          onClick={() => setSidebarOpen(false)}
+                          className={cn(
+                            "group flex w-full items-center justify-between rounded-2xl border px-4 py-3 text-left transition-all duration-200",
+                            active
+                              ? "border-develoi-gold/30 bg-develoi-gold/12 text-white"
+                              : "border-white/6 bg-white/[0.03] text-white/72 hover:border-white/12 hover:bg-white/[0.05]"
+                          )}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div
+                              className={cn(
+                                "flex h-9 w-9 items-center justify-center rounded-xl border transition-colors",
+                                active
+                                  ? "border-develoi-gold/20 bg-develoi-gold/15 text-develoi-gold"
+                                  : "border-white/10 bg-white/[0.04] text-white/60"
+                              )}
+                            >
+                              <Icon size={16} strokeWidth={2.3} />
+                            </div>
+                            <div>
+                              <p className="text-[11px] font-black uppercase tracking-[0.16em]">
+                                {item.label}
+                              </p>
+                              <p className="mt-1 text-[11px] font-semibold text-white/45">
+                                {item.helper}
+                              </p>
+                            </div>
+                          </div>
+                          {active && <ChevronRight size={14} strokeWidth={3} className="text-develoi-gold/70" />}
+                        </a>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            ) : (
+              menuItems.map((item) => {
+                const Icon = item.icon;
+                const active =
+                  location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
+
+                return (
+                  <button
+                    key={item.path}
+                    onClick={() => {
+                      navigate(item.path);
+                      setSidebarOpen(false);
+                    }}
+                    className={cn(
+                      "group flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left transition-all duration-200",
+                      active
+                        ? "bg-develoi-navy font-bold text-white shadow-lg shadow-develoi-navy/10"
+                        : "font-medium text-zinc-500 hover:bg-zinc-50"
+                    )}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Icon
+                        size={18}
+                        strokeWidth={active ? 2.5 : 2}
+                        className={cn(
+                          "transition-colors",
+                          active
+                            ? "text-white"
+                            : "text-zinc-400 group-hover:text-zinc-900 focus:text-develoi-gold"
+                        )}
+                      />
+                      <span className="text-[10px] uppercase tracking-wider">{item.label}</span>
+                    </div>
+                    {active && <ChevronRight size={14} strokeWidth={3} className="text-white/40" />}
+                  </button>
+                );
+              })
+            )}
           </nav>
 
           <div className="mt-auto pt-8">
-            <div className="relative overflow-hidden rounded-3xl border border-white/5 bg-develoi-navy p-5 text-white">
+            {isRootShell ? (
+              <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.04] p-5 text-white">
+                <div className="absolute right-0 top-0 -mr-12 -mt-12 h-24 w-24 rounded-full bg-develoi-gold/10" />
+                <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-develoi-gold">
+                  Root Session
+                </p>
+                <p className="mb-4 text-xs font-medium leading-relaxed text-white/72">
+                  Shell dedicado para governança global da plataforma, sem misturar navegação operacional.
+                </p>
+                <button
+                  onClick={handleLogout}
+                  className="w-full rounded-xl border border-white/10 bg-white py-2 text-[10px] font-bold uppercase tracking-widest text-[#071325] transition-colors hover:border-develoi-gold hover:bg-develoi-gold hover:text-white"
+                >
+                  Encerrar Sessão
+                </button>
+              </div>
+            ) : (
+              <div className="relative overflow-hidden rounded-3xl border border-white/5 bg-develoi-navy p-5 text-white">
               <div className="absolute right-0 top-0 -mr-12 -mt-12 h-24 w-24 rounded-full bg-develoi-gold/10" />
               <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-develoi-gold">
                 Acesso Master
@@ -371,62 +525,131 @@ function AppContent() {
               <button className="w-full rounded-xl bg-white py-2 text-[10px] font-bold uppercase tracking-widest text-develoi-navy transition-colors hover:bg-develoi-gold hover:text-white">
                 Gerenciar Master
               </button>
-            </div>
+              </div>
+            )}
           </div>
         </div>
       </aside>
 
       <main className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-zinc-200 bg-white px-4 sm:px-10 lg:h-20">
+        <header
+          className={cn(
+            "sticky top-0 z-30 flex items-center justify-between",
+            isRootShell
+              ? "h-20 border-b border-[#102647] bg-[#071325]/95 px-4 text-white backdrop-blur sm:px-8"
+              : "h-16 border-b border-zinc-200 bg-white px-4 sm:px-10 lg:h-20"
+          )}
+        >
           <div className="flex items-center gap-3">
             <button
               onClick={() => setSidebarOpen(true)}
-              className="rounded-xl p-2 text-zinc-500 hover:bg-zinc-100 lg:hidden"
+              className={cn(
+                "rounded-xl p-2 lg:hidden",
+                isRootShell ? "text-white/70 hover:bg-white/5" : "text-zinc-500 hover:bg-zinc-100"
+              )}
             >
               <Menu size={20} />
             </button>
-            <div className="hidden items-center gap-2 text-[10px] font-medium uppercase tracking-widest text-zinc-500 sm:flex">
-              {!isSuperAdmin && (
-                <>
-                  <Building2 size={10} className="text-develoi-gold" />
-                  <span className="text-develoi-navy/60">{currentUnit.name}</span>
-                  <ChevronRight size={10} strokeWidth={2} className="text-zinc-300" />
-                </>
-              )}
-              <span className="font-bold text-develoi-navy">{activeLabel}</span>
-            </div>
+            {isRootShell ? (
+              <div className="hidden sm:block">
+                <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-develoi-gold/80">
+                  Root Operations
+                </p>
+                <div className="mt-1 flex items-center gap-2">
+                  <h2 className="text-lg font-black tracking-tight text-white">Super Admin Control</h2>
+                  <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-white/60">
+                    {activeRootSection?.label || "Master Control"}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="hidden items-center gap-2 text-[10px] font-medium uppercase tracking-widest text-zinc-500 sm:flex">
+                {!isSuperAdmin && (
+                  <>
+                    <Building2 size={10} className="text-develoi-gold" />
+                    <span className="text-develoi-navy/60">{currentUnit.name}</span>
+                    <ChevronRight size={10} strokeWidth={2} className="text-zinc-300" />
+                  </>
+                )}
+                <span className="font-bold text-develoi-navy">{activeLabel}</span>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-3 md:gap-6">
-            <div className="relative hidden lg:block">
-              <Search
-                size={14}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400"
-              />
-              <input
-                type="text"
-                placeholder="Pesquisar..."
-                className="w-48 rounded-xl border-none bg-zinc-100 py-2 pl-9 pr-4 text-xs font-bold outline-none transition-all focus:ring-2 focus:ring-develoi-gold/20"
-              />
-            </div>
+            {isRootShell ? (
+              <div className="hidden xl:flex items-center gap-2">
+                {ROOT_SECTION_ITEMS.map((item) => (
+                  <a
+                    key={item.href}
+                    href={item.href}
+                    className={cn(
+                      "rounded-full border px-3 py-2 text-[10px] font-bold uppercase tracking-[0.18em] transition-colors",
+                      (location.hash || "#superadmin-overview") === item.href
+                        ? "border-develoi-gold/30 bg-develoi-gold/12 text-develoi-gold"
+                        : "border-white/10 bg-white/5 text-white/62 hover:bg-white/8 hover:text-white"
+                    )}
+                  >
+                    {item.label}
+                  </a>
+                ))}
+              </div>
+            ) : (
+              <div className="relative hidden lg:block">
+                <Search
+                  size={14}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400"
+                />
+                <input
+                  type="text"
+                  placeholder="Pesquisar..."
+                  className="w-48 rounded-xl border-none bg-zinc-100 py-2 pl-9 pr-4 text-xs font-bold outline-none transition-all focus:ring-2 focus:ring-develoi-gold/20"
+                />
+              </div>
+            )}
 
             <div className="flex items-center gap-4">
-              <button className="relative p-2 text-zinc-400 transition-colors hover:text-zinc-900">
+              <button
+                className={cn(
+                  "relative p-2 transition-colors",
+                  isRootShell ? "text-white/55 hover:text-white" : "text-zinc-400 hover:text-zinc-900"
+                )}
+              >
                 <Bell size={20} />
                 <span className="absolute right-2 top-2 h-2 w-2 rounded-full border-2 border-white bg-develoi-gold" />
               </button>
-              <div className="flex items-center gap-3 border-l border-zinc-200 pl-4">
+              <div
+                className={cn(
+                  "flex items-center gap-3 pl-4",
+                  isRootShell ? "border-l border-white/10" : "border-l border-zinc-200"
+                )}
+              >
                 <div className="hidden text-right sm:block">
-                  <p className="text-[10px] font-bold leading-none text-zinc-900">
+                  <p
+                    className={cn(
+                      "text-[10px] font-bold leading-none",
+                      isRootShell ? "text-white" : "text-zinc-900"
+                    )}
+                  >
                     {user?.full_name || "Usuário"}
                   </p>
-                  <p className="mt-1 text-[8px] font-medium uppercase tracking-widest text-zinc-400">
+                  <p
+                    className={cn(
+                      "mt-1 text-[8px] font-medium uppercase tracking-widest",
+                      isRootShell ? "text-white/45" : "text-zinc-400"
+                    )}
+                  >
                     {isSuperAdmin ? "Root Admin" : user?.access_profile || user?.role || "Operação"}
                   </p>
                 </div>
                 <div
                   onClick={handleLogout}
-                  className="group relative flex h-10 w-10 cursor-pointer items-center justify-center overflow-hidden rounded-2xl border-2 border-white bg-zinc-100 text-xs font-black text-zinc-600 shadow-sm transition-all hover:border-red-100"
+                  className={cn(
+                    "group relative flex h-10 w-10 cursor-pointer items-center justify-center overflow-hidden rounded-2xl border-2 text-xs font-black shadow-sm transition-all",
+                    isRootShell
+                      ? "border-white/10 bg-white/10 text-white hover:border-red-200/40"
+                      : "border-white bg-zinc-100 text-zinc-600 hover:border-red-100"
+                  )}
                 >
                   <img
                     src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.full_name}`}

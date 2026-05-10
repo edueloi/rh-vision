@@ -2513,9 +2513,22 @@ async function startServer() {
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
       server: { middlewareMode: true, hmr: false },
-      appType: 'spa',
+      appType: 'custom',
     });
     app.use(vite.middlewares);
+    app.get('*', async (req, res, next) => {
+      if (req.path.startsWith('/api/')) {
+        return next();
+      }
+
+      try {
+        const template = await fs.promises.readFile(path.join(process.cwd(), 'index.html'), 'utf-8');
+        res.status(200).setHeader('Content-Type', 'text/html');
+        res.end(template);
+      } catch (error) {
+        next(error);
+      }
+    });
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
