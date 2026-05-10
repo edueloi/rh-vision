@@ -10,10 +10,16 @@ import {
   ArrowLeft 
 } from "lucide-react";
 import { PanelCard, Badge, useToast } from "@/src/components/ui";
+import { getTenantId } from "@/src/lib/auth";
 import { Job } from "@/src/types";
 import { motion, AnimatePresence } from "motion/react";
+import { useMatch, useNavigate } from "react-router-dom";
 
 export default function PublicPortal() {
+  const tenantId = getTenantId();
+  const navigate = useNavigate();
+  const detailMatch = useMatch("/portal/vagas/:jobId");
+  const routeJobId = Number(detailMatch?.params.jobId ?? 0) || null;
   const [jobs, setJobs] = useState<Job[]>([]);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [loading, setLoading] = useState(true);
@@ -21,12 +27,22 @@ export default function PublicPortal() {
   const toast = useToast();
 
   useEffect(() => {
-    fetch('/api/jobs?tenantId=develoi')
+    fetch(`/api/jobs?tenantId=${tenantId}`)
       .then(res => res.json())
       .then(data => setJobs(data.filter((j: any) => j.is_public)))
       .catch(() => toast.error("Erro ao carregar vagas."))
       .finally(() => setLoading(false));
-  }, [toast]);
+  }, [tenantId, toast]);
+
+  useEffect(() => {
+    if (!routeJobId) {
+      setSelectedJob(null);
+      return;
+    }
+
+    const matchedJob = jobs.find((job) => Number(job.id) === routeJobId) || null;
+    setSelectedJob(matchedJob);
+  }, [jobs, routeJobId]);
 
   const handleApply = (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,7 +50,7 @@ export default function PublicPortal() {
     toast.success("Candidatura enviada com sucesso!");
     setTimeout(() => {
       setApplied(false);
-      setSelectedJob(null);
+      navigate("/portal");
     }, 3000);
   };
 
@@ -90,7 +106,7 @@ export default function PublicPortal() {
                 {jobs.map(job => (
                   <button 
                     key={job.id}
-                    onClick={() => setSelectedJob(job)}
+                    onClick={() => navigate(`/portal/vagas/${job.id}`)}
                     className="group bg-white p-6 rounded-3xl border border-zinc-200 hover:border-amber-400 hover:shadow-xl hover:shadow-amber-400/5 transition-all text-left flex flex-col sm:flex-row sm:items-center justify-between gap-6"
                   >
                     <div className="flex items-start gap-5">
@@ -131,7 +147,7 @@ export default function PublicPortal() {
               className="space-y-10"
             >
               <button 
-                onClick={() => setSelectedJob(null)}
+                onClick={() => navigate("/portal")}
                 className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-zinc-400 hover:text-zinc-900 transition-colors"
               >
                 <ArrowLeft size={16} /> Voltar para lista

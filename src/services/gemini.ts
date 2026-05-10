@@ -97,7 +97,7 @@ export async function generateJobPromotionText(job: any, channel: string) {
     Descrição: ${job.description}
     Requisitos: ${job.technical_requirements}
     Benefícios: ${job.benefits}
-    Link para Candidatura: ${window.location.origin}/portal/${job.public_slug}
+    Link para Candidatura: ${window.location.origin}/portal/vagas/${job.id}
     
     Retorne um JSON com:
     - title: Um título atraente para a postagem.

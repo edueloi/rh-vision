@@ -45,6 +45,7 @@ import {
 } from 'recharts';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from "@/src/lib/utils";
+import { getTenantId } from "@/src/lib/auth";
 import { useUnit } from "@/src/lib/useUnit";
 
 const DISC_COLORS: Record<string, string> = {
@@ -63,6 +64,8 @@ const STATUS_COLORS: Record<string, string> = {
 
 export default function HRTools() {
   const { currentUnit } = useUnit();
+  const tenantId = getTenantId();
+  const queryUnitId = currentUnit.is_master ? "master" : currentUnit.id;
   const toast = useToast();
   const [activeTab, setActiveTab] = useState<'tools' | 'responses' | 'config'>('tools');
   const [dashboardData, setDashboardData] = useState<any>(null);
@@ -94,7 +97,7 @@ export default function HRTools() {
   const fetchResponses = async () => {
     try {
       setIsResponsesLoading(true);
-      const res = await fetch(`/api/hr-tools/all/responses?tenantId=develoi&unitId=${currentUnit.id}`);
+      const res = await fetch(`/api/hr-tools/all/responses?tenantId=${tenantId}&unitId=${queryUnitId}`);
       const data = await res.json();
       if (Array.isArray(data)) {
         setAllResponses(data);
@@ -108,7 +111,7 @@ export default function HRTools() {
 
   const fetchDashboard = async () => {
     try {
-      const res = await fetch(`/api/hr-tools/dashboard?tenantId=develoi&unitId=${currentUnit.id}`);
+      const res = await fetch(`/api/hr-tools/dashboard?tenantId=${tenantId}&unitId=${queryUnitId}`);
       const data = await res.json();
       if (data && !data.error) {
         setDashboardData(data);
@@ -125,7 +128,7 @@ export default function HRTools() {
   const fetchTools = async () => {
     try {
       setIsLoading(true);
-      const res = await fetch(`/api/hr-tools?tenantId=develoi&unitId=${currentUnit.id}`);
+      const res = await fetch(`/api/hr-tools?tenantId=${tenantId}&unitId=${queryUnitId}`);
       const data = await res.json();
       if (Array.isArray(data)) {
         setTools(data);
@@ -157,7 +160,7 @@ export default function HRTools() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...newTool,
-          tenant_id: 'develoi',
+          tenant_id: tenantId,
           unit_id: currentUnit.id
         })
       });

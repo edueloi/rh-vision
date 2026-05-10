@@ -17,22 +17,33 @@ import {
   Layers
 } from "lucide-react";
 import { PanelCard, Pagination, useToast, Badge } from "@/src/components/ui";
+import { getTenantId } from "@/src/lib/auth";
 import { Job } from "@/src/types";
 import { useUnit } from "@/src/lib/useUnit";
 import JobForm from "./JobForm";
 import JobDetails from "./JobDetails";
 import { motion, AnimatePresence } from "motion/react";
 import { cn } from "@/src/lib/utils";
+import { useMatch, useNavigate } from "react-router-dom";
 
 export default function Jobs() {
   const { currentUnit } = useUnit();
+  const tenantId = getTenantId();
+  const queryUnitId = currentUnit.is_master ? "master" : currentUnit.id;
   const toast = useToast();
-  const [view, setView] = useState<'list' | 'create' | 'edit'>('list');
-  const [showDetails, setShowDetails] = useState(false);
+  const navigate = useNavigate();
+  const createMatch = useMatch("/vagas/nova");
+  const importMatch = useMatch("/vagas/importar");
+  const editMatch = useMatch("/vagas/:jobId/editar");
+  const detailsMatch = useMatch("/vagas/:jobId");
+  const isCreateRoute = Boolean(createMatch || importMatch);
+  const isEditRoute = Boolean(editMatch);
+  const isDetailsRoute = Boolean(detailsMatch) && !isEditRoute;
+  const routeJobId = Number(editMatch?.params.jobId ?? detailsMatch?.params.jobId ?? 0) || null;
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
+  const [selectedJobLoading, setSelectedJobLoading] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState<number | null>(null);
   const [activeMenu, setActiveMenu] = useState<number | null>(null);
-  const [importInitialData, setImportInitialData] = useState<Partial<Job> | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
@@ -45,8 +56,8 @@ export default function Jobs() {
     setLoading(true);
     try {
       const params = new URLSearchParams({
-        unitId: currentUnit.id,
-        tenantId: 'develoi',
+        unitId: queryUnitId,
+        tenantId,
         search: filters.search,
         status: filters.status,
       });
@@ -58,11 +69,43 @@ export default function Jobs() {
     } finally {
       setLoading(false);
     }
-  }, [currentUnit, filters, toast]);
+  }, [filters, queryUnitId, tenantId, toast]);
 
   useEffect(() => {
     fetchJobs();
   }, [fetchJobs]);
+
+  const fetchJob = useCallback(
+    async (id: number) => {
+      setSelectedJobLoading(true);
+      try {
+        const res = await fetch(`/api/jobs/${id}`);
+        if (!res.ok) {
+          throw new Error("Job not found");
+        }
+
+        const data = await res.json();
+        setSelectedJob(data);
+      } catch {
+        toast.error("Erro ao carregar vaga.");
+        navigate("/vagas", { replace: true });
+      } finally {
+        setSelectedJobLoading(false);
+      }
+    },
+    [navigate, toast]
+  );
+
+  useEffect(() => {
+    if (routeJobId) {
+      fetchJob(routeJobId);
+      return;
+    }
+
+    if (!isCreateRoute) {
+      setSelectedJob(null);
+    }
+  }, [fetchJob, isCreateRoute, routeJobId]);
 
   const handleDelete = async (id: number) => {
     try {
@@ -126,13 +169,27 @@ export default function Jobs() {
     }
   };
 
-  if (view === 'create' || view === 'edit') {
+  if (isCreateRoute || isEditRoute) {
+    if (isEditRoute && (selectedJobLoading || !selectedJob || Number(selectedJob.id) !== routeJobId)) {
+      return (
+        <div className="flex flex-col items-center justify-center gap-4 py-24">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-develoi-navy border-t-transparent" />
+          <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
+            Carregando vaga...
+          </p>
+        </div>
+      );
+    }
+
     return (
       <JobForm 
-        job={selectedJob} 
-        initialData={importInitialData}
-        onBack={() => { setView('list'); setSelectedJob(null); setImportInitialData(null); }}
-        onSuccess={() => { setView('list'); setSelectedJob(null); setImportInitialData(null); fetchJobs(); }}
+        job={isEditRoute ? selectedJob : null}
+        initialData={importMatch ? ({ _importMode: true } as Partial<Job>) : null}
+        onBack={() => navigate(isEditRoute && routeJobId ? `/vagas/${routeJobId}` : "/vagas")}
+        onSuccess={() => {
+          navigate("/vagas");
+          fetchJobs();
+        }}
       />
     );
   }
@@ -156,14 +213,14 @@ export default function Jobs() {
           </button>
           
           <button 
-            onClick={() => { setView('create'); setSelectedJob(null); setImportInitialData({ _importMode: true } as any); }}
+            onClick={() => navigate("/vagas/importar")}
             className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 bg-white border border-zinc-200 hover:border-zinc-900 text-zinc-900 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-sm"
           >
             <Layers size={16} /> Importar Vaga
           </button>
 
           <button 
-            onClick={() => { setView('create'); setSelectedJob(null); setImportInitialData(null); }}
+            onClick={() => navigate("/vagas/nova")}
             className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 bg-develoi-navy hover:bg-black text-white rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all active:scale-95 shadow-lg shadow-develoi-navy/10"
           >
             <Plus size={16} /> Nova Vaga
@@ -217,7 +274,7 @@ export default function Jobs() {
               <p className="text-xs text-zinc-400 font-bold mt-1 max-w-[240px]">Tente ajustar os filtros ou cadastre uma nova oportunidade para começar.</p>
             </div>
             <button 
-              onClick={() => setView('create')}
+              onClick={() => navigate("/vagas/nova")}
               className="px-6 py-2.5 bg-develoi-navy text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-lg shadow-develoi-navy/10"
             >
               Começar Agora
@@ -323,13 +380,13 @@ export default function Jobs() {
 
                   <div className="flex items-center gap-2">
                     <button 
-                      onClick={() => { setSelectedJob(job); setShowDetails(true); }}
+                      onClick={() => navigate(`/vagas/${job.id}`)}
                       className="flex-1 py-3 bg-zinc-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-develoi-gold transition-all active:scale-95 shadow-lg shadow-zinc-900/10"
                     >
                       Gerenciar
                     </button>
                     <button 
-                      onClick={() => { setSelectedJob(job); setView('edit'); }}
+                      onClick={() => navigate(`/vagas/${job.id}/editar`)}
                       className="p-3 bg-zinc-100 text-zinc-500 rounded-2xl hover:bg-zinc-200 transition-all active:scale-95"
                     >
                       <Edit size={16} />
@@ -351,11 +408,11 @@ export default function Jobs() {
       </PanelCard>
 
       <AnimatePresence>
-        {showDetails && selectedJob && (
+        {isDetailsRoute && selectedJob && (
           <JobDetails 
             job={selectedJob} 
-            onClose={() => { setShowDetails(false); setSelectedJob(null); }} 
-            onEdit={() => { setShowDetails(false); setView('edit'); }}
+            onClose={() => navigate("/vagas")} 
+            onEdit={() => navigate(`/vagas/${selectedJob.id}/editar`)}
           />
         )}
       </AnimatePresence>

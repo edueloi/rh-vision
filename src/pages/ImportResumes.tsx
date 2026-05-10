@@ -66,6 +66,7 @@ import {
 } from 'recharts';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from "@/src/lib/utils";
+import { getTenantId } from "@/src/lib/auth";
 import { useUnit } from "@/src/lib/useUnit";
 import { Job } from "@/src/types";
 
@@ -100,6 +101,8 @@ interface ImportFile {
 
 export default function ImportResumes() {
   const { currentUnit } = useUnit();
+  const tenantId = getTenantId();
+  const queryUnitId = currentUnit.is_master ? "master" : currentUnit.id;
   const toast = useToast();
   const [view, setView] = useState<'dashboard' | 'new' | 'history' | 'details'>('dashboard');
   const [batches, setBatches] = useState<ImportBatch[]>([]);
@@ -162,7 +165,7 @@ export default function ImportResumes() {
 
   const fetchDashboard = async () => {
     try {
-      const res = await fetch(`/api/imports/dashboard?tenantId=develoi`);
+      const res = await fetch(`/api/imports/dashboard?tenantId=${tenantId}`);
       const data = await res.json();
       setStats(data.stats);
     } catch (error) {
@@ -173,7 +176,7 @@ export default function ImportResumes() {
   const fetchBatches = async () => {
     try {
       setIsLoading(true);
-      const res = await fetch(`/api/imports?tenantId=develoi`);
+      const res = await fetch(`/api/imports?tenantId=${tenantId}`);
       const data = await res.json();
       setBatches(data);
     } catch (error) {
@@ -185,7 +188,7 @@ export default function ImportResumes() {
 
   const fetchJobs = async () => {
     try {
-      const res = await fetch(`/api/jobs?tenantId=develoi&unitId=${currentUnit.id}`);
+      const res = await fetch(`/api/jobs?tenantId=${tenantId}&unitId=${queryUnitId}`);
       const data = await res.json();
       setAvailableJobs(data);
     } catch (error) {
@@ -195,7 +198,7 @@ export default function ImportResumes() {
 
   const fetchTools = async () => {
     try {
-      const res = await fetch(`/api/hr-tools?tenantId=develoi&unitId=${currentUnit.id}`);
+      const res = await fetch(`/api/hr-tools?tenantId=${tenantId}&unitId=${queryUnitId}`);
       const data = await res.json();
       setAvailableTools(data);
     } catch (error) {
@@ -213,7 +216,7 @@ export default function ImportResumes() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           candidateProfile: JSON.parse(file.parsed_data_json),
-          tenantId: 'develoi'
+          tenantId
         })
       });
       const data = await res.json();
@@ -262,7 +265,7 @@ export default function ImportResumes() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...newImport,
-          tenant_id: 'develoi',
+          tenant_id: tenantId,
           unit_id: currentUnit.id
         })
       });

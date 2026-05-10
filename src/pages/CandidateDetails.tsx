@@ -32,6 +32,7 @@ import {
   Eye
 } from "lucide-react";
 import { PanelCard, Badge, useToast } from "@/src/components/ui";
+import { getTenantId } from "@/src/lib/auth";
 import { Candidate, Job, CandidateJobMatch } from "@/src/types";
 import { motion, AnimatePresence } from "motion/react";
 import { cn } from "@/src/lib/utils";
@@ -47,6 +48,8 @@ interface CandidateDetailsProps {
 export default function CandidateDetails({ candidate, onClose, onEdit, onRefresh }: CandidateDetailsProps) {
   const toast = useToast();
   const { currentUnit } = useUnit();
+  const tenantId = getTenantId();
+  const queryUnitId = currentUnit.is_master ? "master" : currentUnit.id;
   const [activeTab, setActiveTab] = useState<'summary' | 'resume' | 'jobs' | 'ai' | 'disc' | 'history'>('summary');
   const [loading, setLoading] = useState(false);
   const [showLinkJob, setShowLinkJob] = useState(false);
@@ -82,7 +85,7 @@ export default function CandidateDetails({ candidate, onClose, onEdit, onRefresh
 
   const fetchAvailableJobs = async () => {
     try {
-      const res = await fetch(`/api/jobs?tenantId=develoi&status=Aberta`);
+      const res = await fetch(`/api/jobs?tenantId=${tenantId}&unitId=${queryUnitId}&status=Aberta`);
       const data = await res.json();
       setAvailableJobs(data);
     } catch (err) {
@@ -97,7 +100,7 @@ export default function CandidateDetails({ candidate, onClose, onEdit, onRefresh
       const res = await fetch(`/api/candidates/${candidate.id}/link-job`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ job_id: selectedJobId, tenant_id: 'develoi' })
+        body: JSON.stringify({ job_id: selectedJobId, tenant_id: tenantId })
       });
       if (!res.ok) {
         const error = await res.json();
@@ -119,7 +122,7 @@ export default function CandidateDetails({ candidate, onClose, onEdit, onRefresh
       const res = await fetch(`/api/candidates/${candidate.id}/analyze-job/${jobId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tenant_id: 'develoi' })
+        body: JSON.stringify({ tenant_id: tenantId })
       });
       if (!res.ok) throw new Error("Falha na análise IA.");
       toast.success("Análise IA concluída!");

@@ -1,7 +1,61 @@
 import Database from 'better-sqlite3';
 import { join } from 'path';
 
-const db = new Database('aurora_recruitment.db');
+const db = new Database(process.env.SQLITE_DB_PATH || 'aurora_recruitment.db');
+
+const ROOT_PERMISSIONS_JSON = JSON.stringify({
+  dashboard: true,
+  aurora_ai: true,
+  jobs: true,
+  candidates: true,
+  imports: true,
+  tools: true,
+  administration: true,
+  super_admin: true,
+});
+
+const ADMIN_PERMISSIONS_JSON = JSON.stringify({
+  dashboard: true,
+  aurora_ai: true,
+  jobs: true,
+  candidates: true,
+  imports: true,
+  tools: true,
+  administration: true,
+  super_admin: false,
+});
+
+const OPERATION_PERMISSIONS_JSON = JSON.stringify({
+  dashboard: true,
+  aurora_ai: true,
+  jobs: true,
+  candidates: true,
+  imports: true,
+  tools: true,
+  administration: false,
+  super_admin: false,
+});
+
+function addDays(dateValue: string | Date, days: number) {
+  const date = new Date(dateValue);
+  date.setDate(date.getDate() + days);
+  return date;
+}
+
+function toSqlDateTime(date: Date) {
+  return date.toISOString().slice(0, 19).replace("T", " ");
+}
+
+function tableHasColumn(table: string, column: string) {
+  const columns = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+  return columns.some((item) => item.name === column);
+}
+
+function addColumnIfMissing(table: string, column: string, definition: string) {
+  if (!tableHasColumn(table, column)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+  }
+}
 
 // Enable foreign keys
 db.pragma('foreign_keys = ON');
@@ -526,6 +580,94 @@ export function initDb() {
     INSERT OR IGNORE INTO jobs (id, tenant_id, unit_id, title, department, city, state, work_model, contract_type, status, is_public, description) 
     VALUES (1, 'develoi', 'tatui', 'Motorista Carreteiro', 'Logística', 'Tatuí', 'SP', 'Presencial', 'CLT', 'Aberta', 1, 'Vaga para transporte rodoviário de cargas pesadas.');
   `);
+
+  addColumnIfMissing("tenants", "status", "TEXT DEFAULT 'Ativo'");
+  addColumnIfMissing("tenants", "plan_label", "TEXT DEFAULT 'Trial 30 dias'");
+  addColumnIfMissing("tenants", "validity_days", "INTEGER DEFAULT 30");
+  addColumnIfMissing("tenants", "starts_at", "DATETIME");
+  addColumnIfMissing("tenants", "expires_at", "DATETIME");
+  addColumnIfMissing("tenants", "max_users", "INTEGER DEFAULT 3");
+  addColumnIfMissing("tenants", "access_profile", "TEXT DEFAULT 'admin-mestre'");
+  addColumnIfMissing("users", "access_profile", "TEXT DEFAULT 'rh-operacao'");
+  addColumnIfMissing("users", "permissions_json", "TEXT");
+
+  const tenants = db.prepare(`
+    SELECT id, created_at, starts_at, expires_at, validity_days, plan_label, status, max_users, access_profile
+    FROM tenants
+  `).all() as Array<{
+    id: string;
+    created_at?: string;
+    starts_at?: string | null;
+    expires_at?: string | null;
+    validity_days?: number | null;
+    plan_label?: string | null;
+    status?: string | null;
+    max_users?: number | null;
+    access_profile?: string | null;
+  }>;
+
+  const updateTenantDefaults = db.prepare(`
+    UPDATE tenants
+    SET
+      status = ?,
+      plan_label = ?,
+      validity_days = ?,
+      starts_at = ?,
+      expires_at = ?,
+      max_users = ?,
+      access_profile = ?,
+      updated_at = CURRENT_TIMESTAMP
+    WHERE id = ?
+  `);
+
+  for (const tenant of tenants) {
+    const validityDays = Number(tenant.validity_days || 30);
+    const startsAt = tenant.starts_at || tenant.created_at || toSqlDateTime(new Date());
+    const expiresAt = tenant.expires_at || toSqlDateTime(addDays(startsAt, validityDays));
+    const planLabel =
+      tenant.plan_label ||
+      (validityDays >= 365
+        ? "Anual"
+        : validityDays >= 180
+          ? "Semestral"
+          : validityDays >= 90
+            ? "Trimestral"
+            : "Trial 30 dias");
+
+    updateTenantDefaults.run(
+      tenant.status || "Ativo",
+      planLabel,
+      validityDays,
+      startsAt,
+      expiresAt,
+      Number(tenant.max_users || 3),
+      tenant.access_profile || "admin-mestre",
+      tenant.id
+    );
+  }
+
+  db.prepare(`
+    UPDATE users
+    SET access_profile = CASE
+      WHEN id = 'admin-root' THEN 'custom'
+      WHEN role = 'admin' THEN COALESCE(access_profile, 'admin-mestre')
+      ELSE COALESCE(access_profile, 'rh-operacao')
+    END
+  `).run();
+
+  db.prepare("UPDATE users SET permissions_json = ? WHERE id = 'admin-root'").run(
+    ROOT_PERMISSIONS_JSON
+  );
+  db.prepare(`
+    UPDATE users
+    SET permissions_json = COALESCE(permissions_json, ?)
+    WHERE role = 'admin' AND id <> 'admin-root'
+  `).run(ADMIN_PERMISSIONS_JSON);
+  db.prepare(`
+    UPDATE users
+    SET permissions_json = COALESCE(permissions_json, ?)
+    WHERE permissions_json IS NULL
+  `).run(OPERATION_PERMISSIONS_JSON);
 }
 
 export default db;

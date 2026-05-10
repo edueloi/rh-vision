@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { 
   ClipboardCheck, 
   User, 
@@ -14,8 +14,20 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { cn } from "@/src/lib/utils";
 
+function getPublicToolSlug() {
+  if (typeof window === "undefined") {
+    return "";
+  }
+
+  const marker = "/public/tools/";
+  const path = window.location.pathname;
+  const suffix = path.includes(marker) ? path.split(marker)[1] : "";
+
+  return suffix ? suffix.split("/")[0] : "";
+}
+
 export default function PublicToolResponse() {
-  const { slug } = useParams();
+  const slug = getPublicToolSlug();
   const [searchParams] = useSearchParams();
   const jobId = searchParams.get('jobId');
 
@@ -39,6 +51,12 @@ export default function PublicToolResponse() {
   }, [slug]);
 
   const fetchTool = async () => {
+    if (!slug) {
+      setError("Ferramenta não informada.");
+      setIsLoading(false);
+      return;
+    }
+
     try {
       setIsLoading(true);
       const res = await fetch(`/api/public/hr-tools/${slug}`);

@@ -16,19 +16,30 @@ import {
   MoreVertical
 } from "lucide-react";
 import { PanelCard, Pagination, useToast, Badge } from "@/src/components/ui";
+import { getTenantId } from "@/src/lib/auth";
 import { Candidate } from "@/src/types";
 import { useUnit } from "@/src/lib/useUnit";
 import CandidateDetails from "./CandidateDetails";
 import CandidateForm from "./CandidateForm";
 import { motion, AnimatePresence } from "motion/react";
 import { cn } from "@/src/lib/utils";
+import { useMatch, useNavigate } from "react-router-dom";
 
 export default function Candidates() {
   const { currentUnit } = useUnit();
+  const tenantId = getTenantId();
+  const queryUnitId = currentUnit.is_master ? "master" : currentUnit.id;
   const toast = useToast();
-  const [view, setView] = useState<'list' | 'create' | 'edit'>('list');
-  const [selectedCandidateId, setSelectedCandidateId] = useState<number | null>(null);
+  const navigate = useNavigate();
+  const createMatch = useMatch("/candidatos/novo");
+  const editMatch = useMatch("/candidatos/:candidateId/editar");
+  const detailsMatch = useMatch("/candidatos/:candidateId");
+  const isCreateRoute = Boolean(createMatch);
+  const isEditRoute = Boolean(editMatch);
+  const routeCandidateId = Number(editMatch?.params.candidateId ?? detailsMatch?.params.candidateId ?? 0) || null;
+  const selectedCandidateId = routeCandidateId;
   const [candidateDetails, setCandidateDetails] = useState<Candidate | null>(null);
+  const [candidateLoading, setCandidateLoading] = useState(false);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
@@ -41,8 +52,8 @@ export default function Candidates() {
     setLoading(true);
     try {
       const params = new URLSearchParams({
-        tenantId: 'develoi',
-        unitId: currentUnit.id,
+        tenantId,
+        unitId: queryUnitId,
         search: filters.search,
         status: filters.status,
         source: filters.source
@@ -55,17 +66,24 @@ export default function Candidates() {
     } finally {
       setLoading(false);
     }
-  }, [currentUnit, filters, toast]);
+  }, [filters, queryUnitId, tenantId, toast]);
 
   const fetchDetails = useCallback(async (id: number) => {
+    setCandidateLoading(true);
     try {
       const res = await fetch(`/api/candidates/${id}`);
+      if (!res.ok) {
+        throw new Error("Candidate not found");
+      }
       const data = await res.json();
       setCandidateDetails(data);
     } catch (err) {
       toast.error("Erro ao carregar detalhes.");
+      navigate("/candidatos", { replace: true });
+    } finally {
+      setCandidateLoading(false);
     }
-  }, [toast]);
+  }, [navigate, toast]);
 
   useEffect(() => {
     fetchCandidates();
@@ -79,12 +97,26 @@ export default function Candidates() {
     }
   }, [selectedCandidateId, fetchDetails]);
 
-  if (view === 'create' || view === 'edit') {
+  if (isCreateRoute || isEditRoute) {
+    if (isEditRoute && (candidateLoading || !candidateDetails || Number(candidateDetails.id) !== routeCandidateId)) {
+      return (
+        <div className="flex flex-col items-center justify-center gap-4 py-24">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-zinc-900 border-t-transparent" />
+          <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
+            Carregando candidato...
+          </p>
+        </div>
+      );
+    }
+
     return (
       <CandidateForm 
-        candidate={view === 'edit' ? candidateDetails : null}
-        onBack={() => setView('list')}
-        onSuccess={() => { setView('list'); fetchCandidates(); }}
+        candidate={isEditRoute ? candidateDetails : null}
+        onBack={() => navigate(isEditRoute && routeCandidateId ? `/candidatos/${routeCandidateId}` : "/candidatos")}
+        onSuccess={() => {
+          navigate("/candidatos");
+          fetchCandidates();
+        }}
       />
     );
   }
@@ -111,7 +143,7 @@ export default function Candidates() {
               <RefreshCcw size={16} />
             </button>
             <button 
-              onClick={() => setView('create')}
+              onClick={() => navigate("/candidatos/novo")}
               className="flex items-center gap-2 px-6 py-2.5 bg-develoi-navy hover:bg-black text-white rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all active:scale-95 shadow-lg shadow-develoi-navy/10"
             >
               <Plus size={16} /> Novo Talento
@@ -171,7 +203,7 @@ export default function Candidates() {
                   {candidates.map((c) => (
                     <button 
                       key={c.id} 
-                      onClick={() => setSelectedCandidateId(c.id)}
+                      onClick={() => navigate(`/candidatos/${c.id}`)}
                       className={cn(
                         "w-full text-left p-5 flex items-center justify-between group hover:bg-zinc-50/50 transition-all border-l-4",
                         selectedCandidateId === c.id ? "border-zinc-900 bg-zinc-50/50" : "border-transparent"
@@ -229,8 +261,8 @@ export default function Candidates() {
         {candidateDetails ? (
           <CandidateDetails 
             candidate={candidateDetails} 
-            onClose={() => setSelectedCandidateId(null)}
-            onEdit={() => setView('edit')}
+            onClose={() => navigate("/candidatos")}
+            onEdit={() => navigate(`/candidatos/${candidateDetails.id}/editar`)}
             onRefresh={fetchCandidates}
           />
         ) : (

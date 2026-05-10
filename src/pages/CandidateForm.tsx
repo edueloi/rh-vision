@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { useToast, Badge } from "@/src/components/ui";
 import { Candidate } from "@/src/types";
+import { getTenantId } from "@/src/lib/auth";
 import { useUnit } from "@/src/lib/useUnit";
 import { motion } from "motion/react";
 import { cn } from "@/src/lib/utils";
@@ -32,6 +33,7 @@ interface CandidateFormProps {
 
 export default function CandidateForm({ candidate, onBack, onSuccess }: CandidateFormProps) {
   const { currentUnit } = useUnit();
+  const tenantId = getTenantId();
   const toast = useToast();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<Partial<Candidate>>({
@@ -66,7 +68,7 @@ export default function CandidateForm({ candidate, onBack, onSuccess }: Candidat
       
       const payload = {
         ...formData,
-        tenant_id: 'develoi',
+        tenant_id: tenantId,
         unit_id: currentUnit.id
       };
 

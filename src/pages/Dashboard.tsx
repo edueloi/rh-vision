@@ -35,6 +35,7 @@ import {
   Badge, 
   useToast 
 } from "@/src/components/ui";
+import { getTenantId } from "@/src/lib/auth";
 import { 
   BarChart, 
   Bar, 
@@ -57,15 +58,21 @@ import { Link } from "react-router-dom";
 
 export default function Dashboard() {
   const { currentUnit, units } = useUnit();
+  const tenantId = getTenantId();
+  const queryUnitId = currentUnit.is_master ? "master" : currentUnit.id;
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState('30d');
   const [data, setData] = useState<any>(null);
-  const [selectedUnit, setSelectedUnit] = useState<string>(currentUnit.id);
+  const [selectedUnit, setSelectedUnit] = useState<string>(queryUnitId);
+
+  useEffect(() => {
+    setSelectedUnit(queryUnitId);
+  }, [queryUnitId]);
 
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`/api/dashboard/overview?tenantId=develoi&unitId=${selectedUnit}&period=${period}`);
+      const res = await fetch(`/api/dashboard/overview?tenantId=${tenantId}&unitId=${selectedUnit}&period=${period}`);
       const result = await res.json();
       setData(result);
     } catch (error) {
@@ -162,7 +169,7 @@ export default function Dashboard() {
                  <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
               </button>
               <Link 
-                to="/vagas"
+                to="/vagas/nova"
                 className="flex-1 sm:flex-none px-5 py-3 bg-develoi-navy text-white rounded-2xl text-[10px] font-bold uppercase tracking-widest hover:bg-black transition-all flex items-center justify-center gap-2 shadow-lg shadow-develoi-navy/10"
               >
                  <Plus size={16} /> Nova Vaga
@@ -333,7 +340,7 @@ export default function Dashboard() {
                    <div className="py-20 text-center opacity-30 flex flex-col items-center gap-3 border-2 border-dashed border-zinc-200 rounded-[40px]">
                       <Briefcase size={40} />
                       <span className="text-[10px] font-bold uppercase tracking-widest">Nenhuma vaga cadastrada</span>
-                      <Link to="/vagas" className="text-blue-600 underline">Criar Vaga</Link>
+                      <Link to="/vagas/nova" className="text-blue-600 underline">Criar Vaga</Link>
                    </div>
                  )}
               </div>

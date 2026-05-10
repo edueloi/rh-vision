@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import { createServer as createViteServer } from 'vite';
@@ -10,6 +11,12 @@ import multer from 'multer';
 import mammoth from 'mammoth';
 import * as xlsx from 'xlsx';
 import { createRequire } from 'module';
+import {
+  getDefaultAccessProfile,
+  getPermissionPreset,
+  normalizeAccessPermissions,
+  stringifyAccessPermissions,
+} from './src/lib/access';
 
 const require = createRequire(import.meta.url);
 const pdf = require('pdf-parse');
@@ -19,9 +26,50 @@ const __dirname = path.dirname(__filename);
 
 const upload = multer({ storage: multer.memoryStorage() });
 
+function addDays(dateValue: string | Date, days: number) {
+  const date = new Date(dateValue);
+  date.setDate(date.getDate() + days);
+  return date;
+}
+
+function toSqlDateTime(date: Date) {
+  return date.toISOString().slice(0, 19).replace('T', ' ');
+}
+
+function getPlanLabel(validityDays: number) {
+  if (validityDays >= 365) return 'Plano Anual';
+  if (validityDays >= 180) return 'Plano Semestral';
+  if (validityDays >= 90) return 'Plano Trimestral';
+  return 'Trial 30 dias';
+}
+
+function getTenantContractStatus(expiresAt?: string | null, status?: string | null) {
+  if (status === 'Suspenso') {
+    return 'Suspenso';
+  }
+
+  if (!expiresAt) {
+    return status || 'Ativo';
+  }
+
+  const today = new Date();
+  const expiration = new Date(expiresAt);
+
+  if (expiration.getTime() < today.getTime()) {
+    return 'Expirado';
+  }
+
+  const diffDays = Math.ceil((expiration.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  if (diffDays <= 30) {
+    return 'Vencendo';
+  }
+
+  return status || 'Ativo';
+}
+
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT || 3000);
 
   // Initialize DB
   initDb();
@@ -53,7 +101,15 @@ async function startServer() {
         // Fallback for first-run
         if (cleanEmail === 'admin' && cleanPassword === 'admin') {
            console.log('Login success via Fallback Admin');
-           return res.json({ id: 'admin-root', full_name: 'Admin Master', email: 'admin', role: 'admin', tenant_id: 'develoi' });
+           return res.json({
+             id: 'admin-root',
+             full_name: 'Admin Master',
+             email: 'admin',
+             role: 'admin',
+             tenant_id: 'develoi',
+             access_profile: 'custom',
+             permissions_json: stringifyAccessPermissions(getPermissionPreset('admin-mestre'), 'admin-mestre'),
+           });
         }
         console.log(`Login failed for: [${cleanEmail}]. No user found with these credentials.`);
         res.status(401).json({ error: 'Invalid credentials' });
@@ -2079,20 +2135,78 @@ async function startServer() {
   // --- Tenants Management (SuperAdmin only) ---
   app.get('/api/tenants', (req, res) => {
     try {
-      const tenants = db.prepare('SELECT * FROM tenants ORDER BY created_at DESC').all();
-      res.json(tenants);
+      const tenants = db.prepare(`
+        SELECT
+          t.*,
+          COUNT(u.id) as total_users,
+          SUM(CASE WHEN u.status = 'Ativo' THEN 1 ELSE 0 END) as active_users,
+          SUM(CASE WHEN u.role = 'admin' THEN 1 ELSE 0 END) as admin_users,
+          MAX(u.last_login) as last_login
+        FROM tenants t
+        LEFT JOIN users u ON u.tenant_id = t.id
+        GROUP BY t.id
+        ORDER BY datetime(t.created_at) DESC
+      `).all() as any[];
+
+      res.json(
+        tenants.map((tenant) => ({
+          ...tenant,
+          total_users: Number(tenant.total_users || 0),
+          active_users: Number(tenant.active_users || 0),
+          admin_users: Number(tenant.admin_users || 0),
+          validity_days: Number(tenant.validity_days || 30),
+          max_users: Number(tenant.max_users || 0),
+          contract_status: getTenantContractStatus(tenant.expires_at, tenant.status),
+        }))
+      );
     } catch (error) {
       res.status(500).json({ error: 'Failed to fetch tenants' });
     }
   });
 
   app.post('/api/tenants/provision', (req, res) => {
-    const { name, document, responsible_name, email, password, phone } = req.body;
+    const {
+      name,
+      document,
+      responsible_name,
+      email,
+      password,
+      phone,
+      validity_days,
+      plan_label,
+      max_users,
+      access_profile,
+      permissions_json,
+    } = req.body;
     try {
       const tenantId = name.toLowerCase().replace(/\s+/g, '-').substring(0, 15) + '-' + Math.random().toString(36).substr(2, 4);
+      const validityDays = Math.max(1, Number(validity_days || 30));
+      const startsAt = toSqlDateTime(new Date());
+      const expiresAt = toSqlDateTime(addDays(startsAt, validityDays));
+      const accessProfile = access_profile || 'rh-operacao';
       
       // 1. Create Tenant
-      db.prepare('INSERT INTO tenants (id, name, document) VALUES (?, ?, ?)').run(tenantId, name, document || '');
+      db.prepare(`
+        INSERT INTO tenants (
+          id, name, document, status, plan_label, validity_days, starts_at, expires_at, max_users, access_profile
+        ) VALUES (?, ?, ?, 'Ativo', ?, ?, ?, ?, ?, ?)
+      `).run(
+        tenantId,
+        name,
+        document || '',
+        plan_label || getPlanLabel(validityDays),
+        validityDays,
+        startsAt,
+        expiresAt,
+        Number(max_users || 3),
+        accessProfile
+      );
+
+      const ownerAccessProfile = 'admin-mestre';
+      const ownerPermissions = normalizeAccessPermissions(
+        permissions_json,
+        ownerAccessProfile
+      );
 
       // 2. Create Master Unit for this Tenant
       const unitId = 'master-' + tenantId;
@@ -2104,14 +2218,130 @@ async function startServer() {
       // 3. Create First User (Admin of this Tenant)
       const userId = 'admin-' + tenantId;
       db.prepare(`
-        INSERT INTO users (id, tenant_id, unit_id, full_name, email, password, role, status)
-        VALUES (?, ?, ?, ?, ?, ?, 'admin', 'Ativo')
-      `).run(userId, tenantId, unitId, responsible_name, email, password);
+        INSERT INTO users (
+          id, tenant_id, unit_id, full_name, email, password, role, status, access_profile, permissions_json
+        )
+        VALUES (?, ?, ?, ?, ?, ?, 'admin', 'Ativo', ?, ?)
+      `).run(
+        userId,
+        tenantId,
+        unitId,
+        responsible_name,
+        email,
+        password,
+        ownerAccessProfile,
+        stringifyAccessPermissions(ownerPermissions, ownerAccessProfile)
+      );
 
       res.json({ success: true, tenantId, userId });
     } catch (error) {
       console.error(error);
       res.status(500).json({ error: 'Failed to provision tenant' });
+    }
+  });
+
+  app.get('/api/tenants/:id/accesses', (req, res) => {
+    try {
+      const accesses = db.prepare(`
+        SELECT u.*, un.name as unit_name
+        FROM users u
+        LEFT JOIN units un ON u.unit_id = un.id
+        WHERE u.tenant_id = ?
+        ORDER BY CASE WHEN u.role = 'admin' THEN 0 ELSE 1 END, u.full_name ASC
+      `).all(req.params.id);
+      res.json(accesses);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch tenant accesses' });
+    }
+  });
+
+  app.post('/api/tenants/:id/accesses', (req, res) => {
+    const { id: tenantId } = req.params;
+    const { full_name, email, password, role, status, access_profile, permissions_json, unit_id } = req.body;
+
+    try {
+      const tenant = db.prepare('SELECT * FROM tenants WHERE id = ?').get(tenantId) as any;
+      if (!tenant) {
+        return res.status(404).json({ error: 'Tenant not found' });
+      }
+
+      const accessCount = db.prepare('SELECT COUNT(*) as count FROM users WHERE tenant_id = ?').get(tenantId) as any;
+      if (tenant.max_users && Number(accessCount?.count || 0) >= Number(tenant.max_users)) {
+        return res.status(400).json({ error: 'Tenant reached max user limit' });
+      }
+
+      const userId = 'user-' + Math.random().toString(36).substr(2, 9);
+      const accessProfile = access_profile || tenant.access_profile || getDefaultAccessProfile(role);
+      const resolvedPermissions = normalizeAccessPermissions(permissions_json, accessProfile);
+      const masterUnitId = db.prepare('SELECT id FROM units WHERE tenant_id = ? AND is_master = 1').get(tenantId) as any;
+
+      db.prepare(`
+        INSERT INTO users (
+          id, tenant_id, unit_id, full_name, email, password, role, status, access_profile, permissions_json
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        userId,
+        tenantId,
+        unit_id || masterUnitId?.id || null,
+        full_name,
+        email,
+        password,
+        role || 'user',
+        status || 'Ativo',
+        accessProfile,
+        stringifyAccessPermissions(resolvedPermissions, accessProfile)
+      );
+
+      res.status(201).json({ success: true, id: userId });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: 'Failed to create tenant access' });
+    }
+  });
+
+  app.patch('/api/tenants/:id/settings', (req, res) => {
+    const { id } = req.params;
+    const { validity_days, plan_label, max_users, access_profile, status } = req.body;
+
+    try {
+      const tenant = db.prepare('SELECT * FROM tenants WHERE id = ?').get(id) as any;
+      if (!tenant) {
+        return res.status(404).json({ error: 'Tenant not found' });
+      }
+
+      const validityDays = Math.max(1, Number(validity_days || tenant.validity_days || 30));
+      const startsAt = toSqlDateTime(new Date());
+      const expiresAt = toSqlDateTime(addDays(startsAt, validityDays));
+      const accessProfile = access_profile || tenant.access_profile || 'admin-mestre';
+
+      db.prepare(`
+        UPDATE tenants
+        SET
+          status = ?,
+          plan_label = ?,
+          validity_days = ?,
+          starts_at = ?,
+          expires_at = ?,
+          max_users = ?,
+          access_profile = ?,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `).run(
+        status || 'Ativo',
+        plan_label || getPlanLabel(validityDays),
+        validityDays,
+        startsAt,
+        expiresAt,
+        Number(max_users || tenant.max_users || 3),
+        accessProfile,
+        id
+      );
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: 'Failed to update tenant settings' });
     }
   });
 
@@ -2129,8 +2359,9 @@ async function startServer() {
 
   // --- Units Management ---
   app.get('/api/units', (req, res) => {
+    const tenantId = (req.query.tenantId as string) || 'develoi';
     try {
-      const units = db.prepare('SELECT * FROM units ORDER BY is_master DESC, name ASC').all();
+      const units = db.prepare('SELECT * FROM units WHERE tenant_id = ? ORDER BY is_master DESC, name ASC').all(tenantId);
       res.json(units);
     } catch (error) {
       res.status(500).json({ error: 'Failed to fetch units' });
@@ -2196,11 +2427,12 @@ async function startServer() {
   // --- Users Management ---
   app.get('/api/users', (req, res) => {
     const { unitId } = req.query;
+    const tenantId = (req.query.tenantId as string) || 'develoi';
     try {
-      let query = 'SELECT u.*, un.name as unit_name FROM users u LEFT JOIN units un ON u.unit_id = un.id';
-      const params: any[] = [];
+      let query = 'SELECT u.*, un.name as unit_name FROM users u LEFT JOIN units un ON u.unit_id = un.id WHERE u.tenant_id = ?';
+      const params: any[] = [tenantId];
       if (unitId && unitId !== 'master') {
-        query += ' WHERE u.unit_id = ?';
+        query += ' AND u.unit_id = ?';
         params.push(unitId);
       }
       const users = db.prepare(query).all(...params);
@@ -2214,9 +2446,10 @@ async function startServer() {
     const user = req.body;
     try {
       const id = 'user-' + Math.random().toString(36).substr(2, 9);
+      const accessProfile = user.access_profile || getDefaultAccessProfile(user.role);
       db.prepare(`
-        INSERT INTO users (id, tenant_id, unit_id, full_name, email, password, role, status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO users (id, tenant_id, unit_id, full_name, email, password, role, status, access_profile, permissions_json)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         id, 
         user.tenant_id || 'develoi', 
@@ -2225,7 +2458,12 @@ async function startServer() {
         user.email, 
         user.password, 
         user.role || 'user', 
-        user.status || 'Ativo'
+        user.status || 'Ativo',
+        accessProfile,
+        stringifyAccessPermissions(
+          normalizeAccessPermissions(user.permissions_json, accessProfile),
+          accessProfile
+        )
       );
       res.json({ id, ...user });
     } catch (error) {
@@ -2238,11 +2476,24 @@ async function startServer() {
     const { id } = req.params;
     const user = req.body;
     try {
+      const accessProfile = user.access_profile || getDefaultAccessProfile(user.role);
       db.prepare(`
         UPDATE users SET 
-          full_name = ?, email = ?, role = ?, status = ?, unit_id = ?
+          full_name = ?, email = ?, role = ?, status = ?, unit_id = ?, access_profile = ?, permissions_json = ?
         WHERE id = ?
-      `).run(user.full_name, user.email, user.role, user.status, user.unit_id, id);
+      `).run(
+        user.full_name,
+        user.email,
+        user.role,
+        user.status,
+        user.unit_id,
+        accessProfile,
+        stringifyAccessPermissions(
+          normalizeAccessPermissions(user.permissions_json, accessProfile),
+          accessProfile
+        ),
+        id
+      );
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ error: 'Failed to update user' });

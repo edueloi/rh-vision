@@ -19,6 +19,7 @@ import {
   RefreshCcw
 } from "lucide-react";
 import { PanelCard, RichTextEditor, useToast, Badge } from "@/src/components/ui";
+import { getTenantId } from "@/src/lib/auth";
 import { Job } from "@/src/types";
 import { useUnit } from "@/src/lib/useUnit";
 import { cn } from "@/src/lib/utils";
@@ -40,6 +41,8 @@ const SECTIONS = [
 
 export default function JobForm({ job, initialData, onBack, onSuccess }: JobFormProps) {
   const { currentUnit } = useUnit();
+  const tenantId = getTenantId();
+  const isMasterUnit = currentUnit.is_master === 1;
   const toast = useToast();
   const [activeSection, setActiveSection] = useState('info');
   const [loading, setLoading] = useState(false);
@@ -57,8 +60,8 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
     desirable_requirements: "",
     eliminatory_criteria: "",
     benefits: "",
-    city: currentUnit.id === 'master' ? "" : currentUnit.location.split(',')[0],
-    state: currentUnit.id === 'master' ? "" : currentUnit.location.split(',')[1]?.trim(),
+    city: isMasterUnit ? "" : currentUnit.location.split(',')[0],
+    state: isMasterUnit ? "" : currentUnit.location.split(',')[1]?.trim(),
     work_model: "Presencial" as any,
     contract_type: "CLT" as any,
     seniority_level: "Pleno",
@@ -98,8 +101,8 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
          method: 'POST',
          headers: { 'Content-Type': 'application/json' },
          body: JSON.stringify({
-           tenant_id: 'develoi',
-           unit_id: currentUnit.id === 'master' ? 'tatui' : currentUnit.id,
+           tenant_id: tenantId,
+           unit_id: currentUnit.id,
            file_name: file.name,
            file_type: file.type,
            file_size: file.size
@@ -164,8 +167,8 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
         body: JSON.stringify({
           ...formData,
           is_public: isPublic ? 1 : (formData.is_public ? 1 : 0),
-          tenant_id: 'develoi',
-          unit_id: currentUnit.id === 'master' ? 'tatui' : currentUnit.id // Default to tatui if master creating
+          tenant_id: tenantId,
+          unit_id: currentUnit.id
         })
       });
 

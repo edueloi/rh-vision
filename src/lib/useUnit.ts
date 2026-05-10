@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { getSelectedUnitStorageKey, getTenantId } from "./auth";
 
 export type Unit = {
   id: string;
@@ -15,16 +16,18 @@ export type Unit = {
 };
 
 export function useUnit() {
+  const tenantId = getTenantId();
+  const defaultMasterName = tenantId === "develoi" ? "Develoi - Central (Master)" : "Central (Master)";
   const [units, setUnits] = useState<Unit[]>([]);
-  const [currentUnit, setCurrentUnit] = useState<Unit>({ id: "master", name: "Develoi - Central (Master)", location: "Todas" });
+  const [currentUnit, setCurrentUnit] = useState<Unit>({ id: "master", name: defaultMasterName, location: "Todas" });
 
   useEffect(() => {
     fetchUnits();
-  }, []);
+  }, [tenantId]);
 
   const fetchUnits = async () => {
     try {
-      const res = await fetch('/api/units');
+      const res = await fetch(`/api/units?tenantId=${tenantId}`);
       if (res.ok) {
         const data = await res.json();
         const formatted = data.map((u: any) => ({
@@ -33,7 +36,7 @@ export function useUnit() {
         }));
         setUnits(formatted);
         
-        const saved = localStorage.getItem("develoi_selected_unit");
+        const saved = localStorage.getItem(getSelectedUnitStorageKey(tenantId));
         if (saved) {
           const parsed = JSON.parse(saved);
           const found = formatted.find((u: any) => u.id === parsed.id);
@@ -50,7 +53,7 @@ export function useUnit() {
 
   const changeUnit = (unit: Unit) => {
     setCurrentUnit(unit);
-    localStorage.setItem("develoi_selected_unit", JSON.stringify(unit));
+    localStorage.setItem(getSelectedUnitStorageKey(tenantId), JSON.stringify(unit));
   };
 
   const isMaster = currentUnit.id === "master" || currentUnit.is_master === 1;

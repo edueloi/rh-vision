@@ -1,0 +1,531 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Tenant {
+  id         String   @id @db.VarChar(191)
+  name       String   @db.VarChar(255)
+  document   String?  @db.VarChar(255)
+  created_at DateTime @default(now()) @db.DateTime(0)
+  updated_at DateTime @default(now()) @updatedAt @db.DateTime(0)
+
+  @@map("tenants")
+}
+
+model Unit {
+  id               String    @id @db.VarChar(191)
+  tenant_id        String    @db.VarChar(191)
+  parent_id        String?   @db.VarChar(191)
+  name             String    @db.VarChar(255)
+  company_name     String?   @db.VarChar(255)
+  responsible_name String?   @db.VarChar(255)
+  phone            String?   @db.VarChar(255)
+  email            String?   @db.VarChar(255)
+  city             String?   @db.VarChar(255)
+  state            String?   @db.VarChar(255)
+  latitude         Float?
+  longitude        Float?
+  is_master        Boolean   @default(false)
+  created_at       DateTime  @default(now()) @db.DateTime(0)
+  updated_at       DateTime  @default(now()) @updatedAt @db.DateTime(0)
+
+  @@index([tenant_id])
+  @@index([parent_id])
+  @@map("units")
+}
+
+model User {
+  id         String    @id @db.VarChar(191)
+  tenant_id  String    @db.VarChar(191)
+  unit_id    String?   @db.VarChar(191)
+  full_name  String    @db.VarChar(255)
+  email      String    @unique @db.VarChar(255)
+  password   String    @db.VarChar(255)
+  role       String    @default("user") @db.VarChar(100)
+  status     String    @default("Ativo") @db.VarChar(100)
+  last_login DateTime? @db.DateTime(0)
+  created_at DateTime  @default(now()) @db.DateTime(0)
+
+  @@index([tenant_id])
+  @@index([unit_id])
+  @@map("users")
+}
+
+model Job {
+  id                         Int       @id @default(autoincrement())
+  tenant_id                  String    @db.VarChar(191)
+  unit_id                    String    @db.VarChar(191)
+  title                      String    @db.VarChar(255)
+  department                 String?   @db.VarChar(255)
+  description                String?   @db.LongText
+  responsibilities           String?   @db.LongText
+  technical_requirements     String?   @db.LongText
+  mandatory_requirements     String?   @db.LongText
+  desirable_requirements     String?   @db.LongText
+  eliminatory_criteria       String?   @db.LongText
+  benefits                   String?   @db.LongText
+  city                       String    @db.VarChar(255)
+  state                      String    @db.VarChar(255)
+  latitude                   Float?
+  longitude                  Float?
+  work_model                 String?   @db.VarChar(100)
+  contract_type              String?   @db.VarChar(100)
+  seniority_level            String?   @db.VarChar(255)
+  education_level            String?   @db.VarChar(255)
+  min_experience_years       Int?
+  salary_min                 Float?
+  salary_max                 Float?
+  workload                   String?   @db.VarChar(255)
+  work_schedule              String?   @db.VarChar(255)
+  requires_cnh               Boolean   @default(false)
+  cnh_category               String?   @db.VarChar(50)
+  requires_travel            Boolean   @default(false)
+  requires_relocation        Boolean   @default(false)
+  status                     String    @default("Rascunho") @db.VarChar(100)
+  is_public                  Boolean   @default(false)
+  public_slug                String?   @db.VarChar(255)
+  public_url                 String?   @db.VarChar(500)
+  compatibility_threshold    Int       @default(80)
+  distance_radius_km         Int       @default(50)
+  location_rule              String    @default("Peso médio") @db.VarChar(255)
+  max_compatible_candidates  Int       @default(20)
+  weight_technical           Int       @default(20)
+  weight_experience          Int       @default(20)
+  weight_education           Int       @default(20)
+  weight_location            Int       @default(10)
+  weight_soft_skills         Int       @default(15)
+  weight_culture             Int       @default(15)
+  internal_notes             String?   @db.LongText
+  tags                       String?   @db.LongText
+  external_link_linkedin     String?   @db.VarChar(500)
+  external_link_indeed       String?   @db.VarChar(500)
+  external_link_infojobs     String?   @db.VarChar(500)
+  external_link_catho        String?   @db.VarChar(500)
+  external_link_other        String?   @db.VarChar(500)
+  created_at                 DateTime  @default(now()) @db.DateTime(0)
+  updated_at                 DateTime  @default(now()) @updatedAt @db.DateTime(0)
+  deleted_at                 DateTime? @db.DateTime(0)
+
+  @@index([tenant_id])
+  @@index([unit_id])
+  @@index([status])
+  @@map("jobs")
+}
+
+model Candidate {
+  id                        Int       @id @default(autoincrement())
+  tenant_id                 String    @db.VarChar(191)
+  unit_id                   String    @db.VarChar(191)
+  full_name                 String    @db.VarChar(255)
+  email                     String    @db.VarChar(255)
+  phone                     String?   @db.VarChar(255)
+  cpf                       String?   @db.VarChar(50)
+  birth_date                String?   @db.VarChar(50)
+  city                      String?   @db.VarChar(255)
+  state                     String?   @db.VarChar(255)
+  latitude                  Float?
+  longitude                 Float?
+  address                   String?   @db.LongText
+  linkedin_url              String?   @db.VarChar(500)
+  portfolio_url             String?   @db.VarChar(500)
+  desired_position          String?   @db.VarChar(255)
+  desired_area              String?   @db.VarChar(255)
+  desired_salary            Float?
+  education_level           String?   @db.VarChar(255)
+  experience_years          Int?
+  professional_summary      String?   @db.LongText
+  professional_experiences  String?   @db.LongText
+  academic_education        String?   @db.LongText
+  courses_certifications    String?   @db.LongText
+  hard_skills               String?   @db.LongText
+  soft_skills               String?   @db.LongText
+  languages                 String?   @db.LongText
+  has_cnh                   Boolean   @default(false)
+  cnh_category              String?   @db.VarChar(50)
+  available_to_travel       Boolean   @default(false)
+  available_to_relocate     Boolean   @default(false)
+  desired_work_model        String?   @db.VarChar(100)
+  desired_contract_type     String?   @db.VarChar(100)
+  source                    String    @default("Manual") @db.VarChar(100)
+  status                    String    @default("Novo") @db.VarChar(100)
+  tags                      String?   @db.LongText
+  internal_notes            String?   @db.LongText
+  created_at                DateTime  @default(now()) @db.DateTime(0)
+  updated_at                DateTime  @default(now()) @updatedAt @db.DateTime(0)
+  deleted_at                DateTime? @db.DateTime(0)
+
+  @@index([tenant_id])
+  @@index([unit_id])
+  @@index([email])
+  @@map("candidates")
+}
+
+model AiSearchSession {
+  id                              Int       @id @default(autoincrement())
+  tenant_id                       String    @db.VarChar(191)
+  unit_id                         String    @db.VarChar(191)
+  user_id                         String?   @db.VarChar(191)
+  job_id                          Int?
+  search_type                     String?   @db.VarChar(100)
+  precision_mode                  String    @default("Equilibrada") @db.VarChar(100)
+  compatibility_threshold         Int       @default(70)
+  max_results                     Int       @default(50)
+  distance_radius_km              Int?
+  location_rule                   String?   @db.VarChar(255)
+  only_with_resume                Boolean   @default(false)
+  only_with_disc                  Boolean   @default(false)
+  filters_json                    String?   @db.LongText
+  prompt                          String?   @db.LongText
+  summary                         String?   @db.LongText
+  created_at                      DateTime  @default(now()) @db.DateTime(0)
+  updated_at                      DateTime  @default(now()) @updatedAt @db.DateTime(0)
+
+  @@index([tenant_id])
+  @@index([unit_id])
+  @@map("ai_search_sessions")
+}
+
+model AiSearchResult {
+  id                        Int      @id @default(autoincrement())
+  session_id                Int
+  candidate_id              Int
+  job_id                    Int?
+  compatibility_score       Int?
+  classification            String?  @db.VarChar(100)
+  distance_km               Float?
+  has_disc                  Boolean?
+  disc_profile              String?  @db.VarChar(255)
+  strengths                 String?  @db.LongText
+  attention_points          String?  @db.LongText
+  recommendation_reason     String?  @db.LongText
+  risk_reason               String?  @db.LongText
+  ai_analysis_json          String?  @db.LongText
+  created_at                DateTime @default(now()) @db.DateTime(0)
+
+  @@index([session_id])
+  @@index([candidate_id])
+  @@index([job_id])
+  @@map("ai_search_results")
+}
+
+model AiChatMessage {
+  id            Int      @id @default(autoincrement())
+  tenant_id     String   @db.VarChar(191)
+  unit_id       String   @db.VarChar(191)
+  user_id       String?  @db.VarChar(191)
+  session_id    Int?
+  role          String?  @db.VarChar(50)
+  message       String   @db.LongText
+  tool_used     String?  @db.VarChar(255)
+  metadata_json String?  @db.LongText
+  created_at    DateTime @default(now()) @db.DateTime(0)
+
+  @@index([tenant_id])
+  @@index([session_id])
+  @@map("ai_chat_messages")
+}
+
+model AiMatchingSetting {
+  id                               Int      @id @default(autoincrement())
+  tenant_id                        String   @db.VarChar(191)
+  unit_id                          String   @db.VarChar(191)
+  default_precision_mode           String   @default("Equilibrada") @db.VarChar(100)
+  default_compatibility_threshold  Int      @default(70)
+  default_max_results              Int      @default(20)
+  default_distance_radius_km       Int      @default(50)
+  weight_location                  Int      @default(10)
+  weight_experience                Int      @default(20)
+  weight_hard_skills               Int      @default(20)
+  weight_soft_skills               Int      @default(15)
+  weight_disc                      Int      @default(15)
+  weight_education                 Int      @default(10)
+  weight_salary                    Int      @default(5)
+  weight_work_model                Int      @default(5)
+  created_at                       DateTime @default(now()) @db.DateTime(0)
+  updated_at                       DateTime @default(now()) @updatedAt @db.DateTime(0)
+
+  @@unique([tenant_id, unit_id])
+  @@map("ai_matching_settings")
+}
+
+model CandidateFile {
+  id             Int      @id @default(autoincrement())
+  candidate_id   Int
+  file_name      String   @db.VarChar(255)
+  file_path      String?  @db.VarChar(500)
+  file_type      String?  @db.VarChar(255)
+  file_size      Int?
+  extracted_text String?  @db.LongText
+  ai_summary     String?  @db.LongText
+  tenant_id      String?  @db.VarChar(191)
+  created_at     DateTime @default(now()) @db.DateTime(0)
+  updated_at     DateTime @default(now()) @updatedAt @db.DateTime(0)
+
+  @@index([candidate_id])
+  @@map("candidate_files")
+}
+
+model CandidateJobMatch {
+  id                           Int       @id @default(autoincrement())
+  tenant_id                    String    @db.VarChar(191)
+  candidate_id                 Int
+  job_id                       Int
+  status                       String    @default("Inscrito") @db.VarChar(100)
+  compatibility_score          Int?
+  compatibility_classification String?   @db.VarChar(255)
+  compatibility_summary        String?   @db.LongText
+  strengths                    String?   @db.LongText
+  attention_points             String?   @db.LongText
+  requirements_met             String?   @db.LongText
+  requirements_partial         String?   @db.LongText
+  requirements_missing         String?   @db.LongText
+  eliminatory_flags            String?   @db.LongText
+  interview_questions          String?   @db.LongText
+  risk_analysis                String?   @db.LongText
+  final_recommendation         String?   @db.LongText
+  ai_analysis_json             String?   @db.LongText
+  analyzed_at                  DateTime? @db.DateTime(0)
+  created_at                   DateTime  @default(now()) @db.DateTime(0)
+  updated_at                   DateTime  @default(now()) @updatedAt @db.DateTime(0)
+
+  @@index([tenant_id])
+  @@index([candidate_id])
+  @@index([job_id])
+  @@map("candidate_job_matches")
+}
+
+model CandidateDiscResult {
+  id                    Int      @id @default(autoincrement())
+  candidate_id          Int
+  disc_d                Int?
+  disc_i                Int?
+  disc_s                Int?
+  disc_c                Int?
+  predominant_profile   String?  @db.VarChar(255)
+  behavioral_summary    String?  @db.LongText
+  strengths             String?  @db.LongText
+  attention_points      String?  @db.LongText
+  communication_style   String?  @db.LongText
+  leadership_style      String?  @db.LongText
+  ideal_environment     String?  @db.LongText
+  raw_answers_json      String?  @db.LongText
+  created_at            DateTime @default(now()) @db.DateTime(0)
+  updated_at            DateTime @default(now()) @updatedAt @db.DateTime(0)
+
+  @@index([candidate_id])
+  @@map("candidate_disc_results")
+}
+
+model CandidateHistory {
+  id          Int      @id @default(autoincrement())
+  candidate_id Int
+  job_id      Int?
+  event_type  String   @db.VarChar(100)
+  title       String   @db.VarChar(255)
+  description String?  @db.LongText
+  created_by  String?  @db.VarChar(191)
+  created_at  DateTime @default(now()) @db.DateTime(0)
+
+  @@index([candidate_id])
+  @@index([job_id])
+  @@map("candidate_history")
+}
+
+model JobPublicationText {
+  id         Int      @id @default(autoincrement())
+  job_id      Int
+  channel    String   @db.VarChar(100)
+  title      String?  @db.VarChar(255)
+  content    String?  @db.LongText
+  created_at DateTime @default(now()) @db.DateTime(0)
+  updated_at DateTime @default(now()) @updatedAt @db.DateTime(0)
+
+  @@index([job_id])
+  @@map("job_publication_texts")
+}
+
+model HrTool {
+  id            Int       @id @default(autoincrement())
+  tenant_id     String    @db.VarChar(191)
+  unit_id       String    @db.VarChar(191)
+  name          String    @db.VarChar(255)
+  type          String    @db.VarChar(100)
+  description   String?   @db.LongText
+  status        String    @default("Ativo") @db.VarChar(100)
+  is_public     Boolean   @default(true)
+  public_slug   String?   @unique @db.VarChar(255)
+  public_url    String?   @db.VarChar(500)
+  expires_at    DateTime? @db.DateTime(0)
+  settings_json String?   @db.LongText
+  created_by    String?   @db.VarChar(191)
+  created_at    DateTime  @default(now()) @db.DateTime(0)
+  updated_at    DateTime  @default(now()) @updatedAt @db.DateTime(0)
+  deleted_at    DateTime? @db.DateTime(0)
+
+  @@index([tenant_id])
+  @@index([unit_id])
+  @@map("hr_tools")
+}
+
+model HrToolQuestion {
+  id              Int      @id @default(autoincrement())
+  tool_id         Int
+  question_text   String   @db.LongText
+  question_type   String   @db.VarChar(100)
+  is_required     Boolean  @default(true)
+  is_eliminatory  Boolean  @default(false)
+  expected_answer String?  @db.LongText
+  score_weight    Int      @default(1)
+  options_json    String?  @db.LongText
+  position        Int      @default(0)
+  created_at      DateTime @default(now()) @db.DateTime(0)
+  updated_at      DateTime @default(now()) @updatedAt @db.DateTime(0)
+
+  @@index([tool_id])
+  @@map("hr_tool_questions")
+}
+
+model HrToolResponse {
+  id               Int       @id @default(autoincrement())
+  tenant_id        String    @db.VarChar(191)
+  unit_id          String    @db.VarChar(191)
+  tool_id          Int
+  candidate_id     Int?
+  job_id           Int?
+  status           String    @default("Pendente") @db.VarChar(100)
+  started_at       DateTime? @db.DateTime(0)
+  completed_at     DateTime? @db.DateTime(0)
+  score            Int?
+  classification   String?   @db.VarChar(255)
+  ai_summary       String?   @db.LongText
+  ai_analysis_json String?   @db.LongText
+  created_at       DateTime  @default(now()) @db.DateTime(0)
+  updated_at       DateTime  @default(now()) @updatedAt @db.DateTime(0)
+
+  @@index([tenant_id])
+  @@index([tool_id])
+  @@index([candidate_id])
+  @@index([job_id])
+  @@map("hr_tool_responses")
+}
+
+model HrToolAnswer {
+  id          Int      @id @default(autoincrement())
+  response_id Int
+  question_id Int
+  answer_text String?  @db.LongText
+  answer_json String?  @db.LongText
+  score       Int?
+  created_at  DateTime @default(now()) @db.DateTime(0)
+
+  @@index([response_id])
+  @@index([question_id])
+  @@map("hr_tool_answers")
+}
+
+model ImportBatch {
+  id                         Int       @id @default(autoincrement())
+  tenant_id                  String    @db.VarChar(191)
+  unit_id                    String    @db.VarChar(191)
+  job_id                     Int?
+  name                       String    @db.VarChar(255)
+  import_type                String    @default("mixed") @db.VarChar(100)
+  status                     String    @default("pending") @db.VarChar(100)
+  analysis_mode              String    @default("full") @db.VarChar(100)
+  precision_mode             String    @default("Equilibrada") @db.VarChar(100)
+  compatibility_threshold    Int       @default(70)
+  max_highlighted_candidates Int       @default(20)
+  duplicate_strategy         String    @default("manual") @db.VarChar(100)
+  location_rule              String    @default("Peso médio") @db.VarChar(255)
+  distance_radius_km         Int       @default(50)
+  language_mode              String    @default("Automático") @db.VarChar(100)
+  tags                       String?   @db.LongText
+  notes                      String?   @db.LongText
+  total_files                Int       @default(0)
+  processed_files            Int       @default(0)
+  created_candidates         Int       @default(0)
+  updated_candidates         Int       @default(0)
+  duplicate_files            Int       @default(0)
+  error_files                Int       @default(0)
+  summary                    String?   @db.LongText
+  created_by                 String?   @db.VarChar(191)
+  created_at                 DateTime  @default(now()) @db.DateTime(0)
+  updated_at                 DateTime  @default(now()) @updatedAt @db.DateTime(0)
+
+  @@index([tenant_id])
+  @@index([unit_id])
+  @@index([job_id])
+  @@map("import_batches")
+}
+
+model ImportFile {
+  id                           Int       @id @default(autoincrement())
+  batch_id                     Int
+  tenant_id                    String    @db.VarChar(191)
+  unit_id                      String    @db.VarChar(191)
+  candidate_id                 Int?
+  file_name                    String    @db.VarChar(255)
+  file_path                    String?   @db.VarChar(500)
+  file_type                    String?   @db.VarChar(255)
+  file_size                    Int?
+  status                       String    @default("pending") @db.VarChar(100)
+  progress                     Int       @default(0)
+  extracted_text               String?   @db.LongText
+  parsed_data_json             String?   @db.LongText
+  ai_summary                   String?   @db.LongText
+  duplicate_status             String?   @db.VarChar(100)
+  duplicate_candidate_id       Int?
+  compatibility_score          Int?
+  compatibility_classification String?   @db.VarChar(255)
+  job_analysis_json            String?   @db.LongText
+  error_message                String?   @db.LongText
+  created_at                   DateTime  @default(now()) @db.DateTime(0)
+  updated_at                   DateTime  @default(now()) @updatedAt @db.DateTime(0)
+
+  @@index([batch_id])
+  @@index([tenant_id])
+  @@index([candidate_id])
+  @@map("import_files")
+}
+
+model ImportBatchEvent {
+  id            Int      @id @default(autoincrement())
+  batch_id       Int
+  event_type    String   @db.VarChar(100)
+  description   String?  @db.LongText
+  metadata_json String?  @db.LongText
+  created_at    DateTime @default(now()) @db.DateTime(0)
+
+  @@index([batch_id])
+  @@map("import_batch_events")
+}
+
+model JobImport {
+  id               Int       @id @default(autoincrement())
+  tenant_id        String    @db.VarChar(191)
+  unit_id          String    @db.VarChar(191)
+  job_id           Int?
+  file_name        String    @db.VarChar(255)
+  file_path        String?   @db.VarChar(500)
+  file_type        String?   @db.VarChar(255)
+  file_size        Int?
+  status           String    @default("uploaded") @db.VarChar(100)
+  extracted_text   String?   @db.LongText
+  parsed_data_json String?   @db.LongText
+  confidence_json  String?   @db.LongText
+  ai_summary       String?   @db.LongText
+  error_message    String?   @db.LongText
+  created_by       String?   @db.VarChar(191)
+  created_at       DateTime  @default(now()) @db.DateTime(0)
+  updated_at       DateTime  @default(now()) @updatedAt @db.DateTime(0)
+
+  @@index([tenant_id])
+  @@index([unit_id])
+  @@index([job_id])
+  @@map("job_imports")
+}

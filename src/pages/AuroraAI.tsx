@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/src/lib/utils';
+import { getTenantId } from '@/src/lib/auth';
 import { useUnit } from '@/src/lib/useUnit';
 import { useToast } from '@/src/components/ui/Toast';
 import { PanelCard } from '@/src/components/ui/PanelCard';
@@ -59,6 +60,8 @@ interface MatchResult {
 
 export default function AuroraAI() {
   const { currentUnit } = useUnit();
+  const tenantId = getTenantId();
+  const queryUnitId = currentUnit.is_master ? 'master' : currentUnit.id;
   const toast = useToast();
   const [activeView, setActiveView] = useState<'chat' | 'match' | 'history'>('chat');
   const [chatMessages, setChatMessages] = useState<Message[]>([
@@ -103,7 +106,7 @@ export default function AuroraAI() {
     fetchJobs();
     fetchSessions();
     fetchSettings();
-  }, [currentUnit]);
+  }, [queryUnitId]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -113,7 +116,7 @@ export default function AuroraAI() {
 
   const fetchJobs = async () => {
     try {
-      const res = await fetch(`/api/jobs?tenantId=develoi&unitId=${currentUnit.id}&status=Aberta`);
+      const res = await fetch(`/api/jobs?tenantId=${tenantId}&unitId=${queryUnitId}&status=Aberta`);
       const data = await res.json();
       setJobs(data);
     } catch (error) {
@@ -124,7 +127,7 @@ export default function AuroraAI() {
   const fetchSessions = async () => {
     setIsLoadingSessions(true);
     try {
-      const res = await fetch(`/api/aurora-ai/sessions?tenantId=develoi&unitId=${currentUnit.id}`);
+      const res = await fetch(`/api/aurora-ai/sessions?tenantId=${tenantId}&unitId=${queryUnitId}`);
       const data = await res.json();
       setSessions(data);
     } catch (error) {
@@ -136,7 +139,7 @@ export default function AuroraAI() {
 
   const fetchSettings = async () => {
     try {
-      const res = await fetch(`/api/aurora-ai/settings?tenantId=develoi&unitId=${currentUnit.id}`);
+      const res = await fetch(`/api/aurora-ai/settings?tenantId=${tenantId}&unitId=${queryUnitId}`);
       const data = await res.json();
       setSettings(data);
       if (data) {
@@ -157,7 +160,7 @@ export default function AuroraAI() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...newSettings,
-          tenant_id: 'fadel',
+          tenant_id: tenantId,
           unit_id: currentUnit.id
         })
       });
@@ -205,8 +208,8 @@ export default function AuroraAI() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: inputMessage,
-          tenantId: 'fadel',
-          unitId: currentUnit.id
+          tenantId,
+          unitId: queryUnitId
         })
       });
       const data = await res.json();
@@ -240,8 +243,8 @@ export default function AuroraAI() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           jobId: selectedJobId,
-          tenantId: 'fadel',
-          unitId: currentUnit.id,
+          tenantId,
+          unitId: queryUnitId,
           precisionMode,
           minScore,
           maxResults,

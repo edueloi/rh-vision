@@ -1,6 +1,6 @@
 import React, { forwardRef, useState } from "react";
 import { cn } from "@/src/lib/utils";
-import { Info, AlertCircle, CheckCircle2, ChevronDown } from "lucide-react";
+import { Info, AlertCircle, CheckCircle2, ChevronDown, Eye, EyeOff } from "lucide-react";
 
 // ── Common Shared Props ───────────────────────────────────────
 
@@ -21,7 +21,9 @@ interface CommonProps {
 
 export interface InputProps
   extends React.InputHTMLAttributes<HTMLInputElement>,
-    CommonProps {}
+    CommonProps {
+  showPasswordToggle?: boolean;
+}
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
   (
@@ -37,10 +39,29 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
       addonLeft,
       addonRight,
       success,
+      showPasswordToggle = false,
+      type,
       ...props
     },
     ref
   ) => {
+    const [passwordVisible, setPasswordVisible] = useState(false);
+    const canTogglePassword = showPasswordToggle && type === "password";
+    const resolvedType = canTogglePassword && passwordVisible ? "text" : type;
+    const rightAdornment = canTogglePassword ? (
+      <button
+        type="button"
+        onClick={() => setPasswordVisible((current) => !current)}
+        className="inline-flex h-7 w-7 items-center justify-center rounded-full text-zinc-400 transition-colors hover:text-[#2a74ac] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300/50"
+        aria-label={passwordVisible ? "Ocultar senha" : "Mostrar senha"}
+        title={passwordVisible ? "Ocultar senha" : "Mostrar senha"}
+      >
+        {passwordVisible ? <EyeOff size={16} /> : <Eye size={16} />}
+      </button>
+    ) : (
+      addonRight
+    );
+
     return (
       <div className={cn("flex flex-col gap-1.5", fullWidth && "w-full", containerClassName)}>
         {label && (
@@ -64,6 +85,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
 
           <input
             ref={ref}
+            type={resolvedType}
             className={cn(
               "flex h-10 w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs font-bold text-zinc-800 shadow-sm transition-all placeholder:text-zinc-400 placeholder:font-normal placeholder:italic",
               "hover:border-zinc-300",
@@ -71,7 +93,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
               "disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-400",
               icon && "pl-10",
               addonLeft && "pl-14",
-              addonRight && "pr-10",
+              rightAdornment && "pr-10",
               error && "border-red-500 focus-visible:ring-red-500/20 focus-visible:border-red-500",
               success && "border-emerald-500 focus-visible:ring-emerald-500/20 focus-visible:border-emerald-500",
               className
@@ -79,9 +101,9 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             {...props}
           />
 
-          {addonRight && (
+          {rightAdornment && (
             <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center justify-center text-zinc-400 group-focus-within:text-[#2a74ac] transition-colors">
-              {addonRight}
+              {rightAdornment}
             </div>
           )}
 
