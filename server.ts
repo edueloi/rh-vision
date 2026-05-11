@@ -1781,10 +1781,24 @@ async function startServer() {
       const recentHistory = history.slice(-6);
 
       // Busca contexto do banco de dados para a IA
-      const jobs = await db.prepare('SELECT id, title, city, status, candidates_count FROM jobs WHERE tenant_id = ? AND (unit_id = ? OR unit_id = "master") LIMIT 50').all(tenantId, effectiveUnitId) as any[];
-      const jobsList = jobs.map(j => `- Vaga #${j.id}: ${j.title} (${j.city}) | Status: ${j.status} | Candidatos: ${j.candidates_count}`).join('\n');
+      let jobQuery = `SELECT id, title, city, status FROM jobs WHERE tenant_id = ? AND deleted_at IS NULL`;
+      let jobParams: any[] = [tenantId];
+      if (unitId !== 'master') {
+        jobQuery += ` AND unit_id = ?`;
+        jobParams.push(effectiveUnitId);
+      }
+      jobQuery += ` LIMIT 100`;
+      const jobs = await db.prepare(jobQuery).all(...jobParams) as any[];
+      const jobsList = jobs.map(j => `- Vaga #${j.id}: ${j.title} (${j.city || 'Remoto'}) | Status: ${j.status}`).join('\n');
 
-      const candidates = await db.prepare('SELECT id, full_name, desired_position, city, experience_years, hard_skills, status FROM candidates WHERE tenant_id = ? AND (unit_id = ? OR unit_id = "master") LIMIT 50').all(tenantId, effectiveUnitId) as any[];
+      let candQuery = `SELECT id, full_name, desired_position, city, experience_years, hard_skills, status FROM candidates WHERE tenant_id = ? AND deleted_at IS NULL`;
+      let candParams: any[] = [tenantId];
+      if (unitId !== 'master') {
+        candQuery += ` AND unit_id = ?`;
+        candParams.push(effectiveUnitId);
+      }
+      candQuery += ` LIMIT 100`;
+      const candidates = await db.prepare(candQuery).all(...candParams) as any[];
       const candidatesList = candidates.map(c => `- Candidato #${c.id} ${c.full_name} | Cargo: ${c.desired_position || '-'} | Local: ${c.city || '-'} | Exp: ${c.experience_years || 0} anos | Skills: ${c.hard_skills?.substring(0, 50) || '-'} | Status: ${c.status}`).join('\n');
 
       const systemPrompt = `
