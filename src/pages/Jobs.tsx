@@ -339,6 +339,22 @@ export default function Jobs() {
                                   <Globe size={14} className="text-zinc-400" /> {job.is_public ? 'Remover do Portal' : 'Publicar'}
                                 </button>
                                 <div className="h-px bg-zinc-100 my-1 mx-2" />
+                                {job.status !== 'Aberta' && (
+                                  <button onClick={() => { handleStatusChange(job, 'Aberta'); setActiveMenu(null); }} className="w-full px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-widest text-emerald-600 hover:bg-emerald-50 flex items-center gap-3">
+                                    <Building2 size={14} /> Ativar Vaga
+                                  </button>
+                                )}
+                                {job.status === 'Aberta' && (
+                                  <button onClick={() => { handleStatusChange(job, 'Pausada'); setActiveMenu(null); }} className="w-full px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-widest text-amber-600 hover:bg-amber-50 flex items-center gap-3">
+                                    <RefreshCcw size={14} /> Pausar Vaga
+                                  </button>
+                                )}
+                                {job.status !== 'Encerrada' && (
+                                  <button onClick={() => { handleStatusChange(job, 'Encerrada'); setActiveMenu(null); }} className="w-full px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-widest text-zinc-500 hover:bg-zinc-50 flex items-center gap-3">
+                                    <Trash2 size={14} /> Encerrar Vaga
+                                  </button>
+                                )}
+                                <div className="h-px bg-zinc-100 my-1 mx-2" />
                                 <button onClick={() => { setShowDeleteModal(job.id); setActiveMenu(null); }} className="w-full px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-widest text-red-500 hover:bg-red-50 flex items-center gap-3">
                                   <Trash2 size={14} /> Excluir
                                 </button>

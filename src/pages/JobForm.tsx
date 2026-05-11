@@ -167,6 +167,7 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
         body: JSON.stringify({
           ...formData,
           is_public: isPublic ? 1 : (formData.is_public ? 1 : 0),
+          status: isPublic && formData.status === 'Rascunho' ? 'Aberta' : formData.status,
           tenant_id: tenantId,
           unit_id: currentUnit.id
         })
