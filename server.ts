@@ -1813,6 +1813,23 @@ async function startServer() {
         4. Responda curto e direto por padrão. Só faça textos longos se o usuário pedir detalhes ou relatórios.
         5. Não repita "Eu sou a Aurora" em toda mensagem. Apenas responda a pergunta.
         6. Se o usuário pedir algo que não está na lista abaixo (ex: mais de 50 candidatos), avise que você está analisando apenas os 50 registros mais recentes do banco local.
+        7. AÇÕES NO SISTEMA: Você tem permissão para criar ou modificar vagas se o usuário pedir.
+           Para isso, inclua no final da sua mensagem um bloco exato como este (não use crases \`\`\`json no bloco, apenas a tag):
+           <action>
+           {
+             "type": "create_job",
+             "data": { "title": "Nome da Vaga", "city": "Cidade", "status": "Rascunho", "department": "TI" }
+           }
+           </action>
+           
+           Se for atualizar:
+           <action>
+           {
+             "type": "update_job",
+             "job_id": 123,
+             "data": { "status": "Aberta", "city": "Nova Cidade" }
+           }
+           </action>
 
         === DADOS DO SISTEMA (VAGAS) ===
         ${jobsList || 'Nenhuma vaga cadastrada.'}
@@ -1840,10 +1857,42 @@ async function startServer() {
       });
 
       if (!result.text?.trim()) {
-        throw new Error('O Gemini nÃƒÂ£o retornou conteÃƒÂºdo para esta conversa.');
+        throw new Error('O Gemini não retornou conteúdo para esta conversa.');
       }
 
-      const responseText = normalizeAuroraChatReply(result.text) || 'Como posso ajudar?';
+      let responseText = normalizeAuroraChatReply(result.text) || 'Como posso ajudar?';
+      
+      // Parse potential action block
+      const actionMatch = responseText.match(/<action>([\s\S]*?)<\/action>/);
+      let actionResultMsg = '';
+      if (actionMatch) {
+        try {
+          const actionJson = JSON.parse(actionMatch[1].trim());
+          if (actionJson.type === 'create_job') {
+            const data = { ...actionJson.data, tenant_id: tenantId, unit_id: effectiveUnitId };
+            const keys = Object.keys(data);
+            const placeholders = keys.map(() => '?').join(',');
+            const values = keys.map(k => data[k]);
+            const res = await db.prepare(`INSERT INTO jobs (${keys.join(',')}, created_at, updated_at) VALUES (${placeholders}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`).run(...values);
+            actionResultMsg = `\n\n[SISTEMA: Vaga "${data.title || ''}" criada com sucesso! ID: #${res.lastInsertRowid}]`;
+          } else if (actionJson.type === 'update_job' && actionJson.job_id) {
+            const updates = [];
+            const params = [];
+            for (const [key, value] of Object.entries(actionJson.data)) {
+              updates.push(`${key} = ?`);
+              params.push(value);
+            }
+            if (updates.length > 0) {
+              params.push(actionJson.job_id, tenantId);
+              await db.prepare(`UPDATE jobs SET ${updates.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND tenant_id = ?`).run(...params);
+              actionResultMsg = `\n\n[SISTEMA: Vaga #${actionJson.job_id} atualizada com sucesso!]`;
+            }
+          }
+        } catch (e) {
+          console.error("Action parse error", e);
+        }
+        responseText = responseText.replace(/<action>[\s\S]*?<\/action>/, '').trim() + actionResultMsg;
+      }
 
       // Save user message
       await db.prepare('INSERT INTO ai_chat_messages (tenant_id, unit_id, session_id, role, message, created_at) VALUES (?, ?, ?, "user", ?, CURRENT_TIMESTAMP)')
