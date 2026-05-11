@@ -5,7 +5,6 @@ import {
   BadgeCheck,
   Building2,
   CalendarClock,
-  Clock3,
   Globe,
   KeyRound,
   Plus,
@@ -25,15 +24,14 @@ import {
   PanelCard,
   Select,
   StatCard,
-  Switch,
   useToast,
 } from "../components/ui";
+import { getAuthHeaders } from "../lib/auth";
 import { formatCpfOrCnpj, formatPhoneBr } from "../lib/masks";
 import {
   ACCESS_PERMISSION_KEYS,
   ACCESS_PERMISSION_LABELS,
   ACCESS_PROFILE_LABELS,
-  AccessPermissionKey,
   AccessPermissions,
   AccessProfile,
   getPermissionPreset,
@@ -99,17 +97,6 @@ const initialTenantForm = {
   plan_label: "Trial 30 dias",
   max_users: "3",
   access_profile: "rh-operacao" as AccessProfile,
-};
-
-const initialAccessForm = {
-  tenant_id: "",
-  full_name: "",
-  email: "",
-  password: "",
-  role: "user",
-  status: "Ativo",
-  access_profile: "rh-operacao" as AccessProfile,
-  permissions: getPermissionPreset("rh-operacao"),
 };
 
 const initialContractForm = {
@@ -211,13 +198,11 @@ export default function SuperAdmin() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [showTenantModal, setShowTenantModal] = useState(false);
-  const [showAccessModal, setShowAccessModal] = useState(false);
   const [showContractModal, setShowContractModal] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isAccessLoading, setIsAccessLoading] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Tenant | null>(null);
   const [tenantForm, setTenantForm] = useState(initialTenantForm);
-  const [accessForm, setAccessForm] = useState(initialAccessForm);
   const [contractForm, setContractForm] = useState(initialContractForm);
   const toast = useToast();
 
@@ -301,15 +286,16 @@ export default function SuperAdmin() {
 
   const fetchTenants = async () => {
     try {
-      const res = await fetch("/api/tenants");
+      const res = await fetch("/api/tenants", { headers: getAuthHeaders() });
       if (!res.ok) {
-        throw new Error();
+        const payload = await res.json().catch(() => ({}));
+        throw new Error(payload.error || "Erro ao carregar clientes.");
       }
 
       const data = await res.json();
       setTenants(data);
-    } catch {
-      toast.error("Erro ao carregar clientes.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Erro ao carregar clientes.");
     } finally {
       setIsLoading(false);
     }
@@ -318,15 +304,16 @@ export default function SuperAdmin() {
   const fetchTenantAccesses = async (tenantId: string) => {
     setIsAccessLoading(true);
     try {
-      const res = await fetch(`/api/tenants/${tenantId}/accesses`);
+      const res = await fetch(`/api/tenants/${tenantId}/accesses`, { headers: getAuthHeaders() });
       if (!res.ok) {
-        throw new Error();
+        const payload = await res.json().catch(() => ({}));
+        throw new Error(payload.error || "Erro ao carregar acessos do cliente.");
       }
 
       const data = await res.json();
       setTenantAccesses(data);
-    } catch {
-      toast.error("Erro ao carregar acessos do cliente.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Erro ao carregar acessos do cliente.");
     } finally {
       setIsAccessLoading(false);
     }
@@ -337,28 +324,9 @@ export default function SuperAdmin() {
     setTenantForm(initialTenantForm);
   };
 
-  const closeAccessModal = () => {
-    setShowAccessModal(false);
-    setAccessForm(initialAccessForm);
-  };
-
   const closeContractModal = () => {
     setShowContractModal(false);
     setContractForm(initialContractForm);
-  };
-
-  const openAccessModal = () => {
-    const fallbackProfile = isAccessProfile(selectedTenant?.access_profile)
-      ? selectedTenant.access_profile
-      : "rh-operacao";
-
-    setAccessForm({
-      ...initialAccessForm,
-      tenant_id: selectedTenant?.id || tenants[0]?.id || "",
-      access_profile: fallbackProfile,
-      permissions: getPermissionPreset(fallbackProfile),
-    });
-    setShowAccessModal(true);
   };
 
   const openContractModal = () => {
@@ -380,10 +348,6 @@ export default function SuperAdmin() {
 
   const updateTenantField = (field: keyof typeof initialTenantForm, value: string) => {
     setTenantForm((current) => ({ ...current, [field]: value }));
-  };
-
-  const updateAccessField = (field: keyof typeof initialAccessForm, value: string) => {
-    setAccessForm((current) => ({ ...current, [field]: value as never }));
   };
 
   const updateContractField = (field: keyof typeof initialContractForm, value: string) => {
@@ -416,36 +380,13 @@ export default function SuperAdmin() {
     }));
   };
 
-  const handleAccessProfileChange = (profile: string) => {
-    const accessProfile = profile as AccessProfile;
-    setAccessForm((current) => ({
-      ...current,
-      access_profile: accessProfile,
-      permissions:
-        accessProfile === "custom"
-          ? current.permissions
-          : getPermissionPreset(accessProfile),
-    }));
-  };
-
-  const toggleAccessPermission = (key: AccessPermissionKey) => {
-    setAccessForm((current) => ({
-      ...current,
-      access_profile: "custom",
-      permissions: {
-        ...current.permissions,
-        [key]: !current.permissions[key],
-      },
-    }));
-  };
-
   const handleTenantSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
     try {
       const res = await fetch("/api/tenants/provision", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({
           ...tenantForm,
           validity_days: Number(tenantForm.validity_days),
@@ -470,41 +411,6 @@ export default function SuperAdmin() {
     }
   };
 
-  const handleAccessSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-
-    if (!accessForm.tenant_id) {
-      toast.error("Selecione um cliente.");
-      return;
-    }
-
-    try {
-      const res = await fetch(`/api/tenants/${accessForm.tenant_id}/accesses`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...accessForm,
-          permissions_json: accessForm.permissions,
-        }),
-      });
-
-      const payload = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        toast.error(payload.error || "Erro ao criar acesso.");
-        return;
-      }
-
-      toast.success("Novo acesso provisionado.");
-      closeAccessModal();
-      await fetchTenants();
-      if (accessForm.tenant_id === selectedTenantId) {
-        await fetchTenantAccesses(accessForm.tenant_id);
-      }
-    } catch {
-      toast.error("Erro ao criar acesso.");
-    }
-  };
-
   const handleContractSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
@@ -515,7 +421,7 @@ export default function SuperAdmin() {
     try {
       const res = await fetch(`/api/tenants/${selectedTenant.id}/settings`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({
           ...contractForm,
           validity_days: Number(contractForm.validity_days),
@@ -543,16 +449,17 @@ export default function SuperAdmin() {
     }
 
     try {
-      const res = await fetch(`/api/tenants/${deleteTarget.id}`, { method: "DELETE" });
+      const res = await fetch(`/api/tenants/${deleteTarget.id}`, { method: "DELETE", headers: getAuthHeaders() });
       if (!res.ok) {
-        throw new Error();
+        const payload = await res.json().catch(() => ({}));
+        throw new Error(payload.error || "Erro ao remover cliente.");
       }
 
       toast.success("Cliente removido.");
       setDeleteTarget(null);
       await fetchTenants();
-    } catch {
-      toast.error("Erro ao remover cliente.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Erro ao remover cliente.");
     }
   };
 
@@ -606,14 +513,6 @@ export default function SuperAdmin() {
                 className="h-12 rounded-2xl border-[#d3a843] bg-[#d3a843] px-6 text-[11px] font-black uppercase tracking-[0.18em] text-white hover:border-[#e0ba65] hover:bg-[#e0ba65]"
               >
                 Novo Cliente
-              </Button>
-              <Button
-                onClick={openAccessModal}
-                variant="outline"
-                iconLeft={<KeyRound size={16} />}
-                className="h-12 rounded-2xl border-white/20 bg-white/5 px-6 text-[11px] font-black uppercase tracking-[0.18em] text-white hover:bg-white hover:text-zinc-900"
-              >
-                Novo Acesso
               </Button>
             </div>
           </div>
@@ -741,14 +640,22 @@ export default function SuperAdmin() {
                   const daysUntilExpiration = getDaysUntil(tenant.expires_at);
 
                   return (
-                    <motion.button
+                    <motion.div
                       key={tenant.id}
                       layout
-                      type="button"
                       initial={{ opacity: 0, y: 16 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: index * 0.03, duration: 0.24 }}
                       onClick={() => setSelectedTenantId(tenant.id)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          setSelectedTenantId(tenant.id);
+                        }
+                      }}
+                      role="button"
+                      tabIndex={0}
+                      aria-pressed={selected}
                       className={`text-left transition-all ${
                         selected ? "scale-[1.01]" : "hover:-translate-y-1"
                       }`}
@@ -837,7 +744,7 @@ export default function SuperAdmin() {
                           </div>
                         </div>
                       </PanelCard>
-                    </motion.button>
+                    </motion.div>
                   );
                 })}
               </div>
@@ -875,23 +782,14 @@ export default function SuperAdmin() {
                   icon={ShieldCheck}
                   className="rounded-[36px] shadow-sm"
                   action={
-                    <div className="flex flex-col gap-2 sm:flex-row">
-                      <Button
-                        onClick={openAccessModal}
-                        iconLeft={<UserPlus size={14} />}
-                        className="rounded-2xl"
-                      >
-                        Novo Acesso
-                      </Button>
-                      <Button
-                        onClick={openContractModal}
-                        variant="outline"
-                        iconLeft={<Settings2 size={14} />}
-                        className="rounded-2xl"
-                      >
-                        Ajustar Contrato
-                      </Button>
-                    </div>
+                    <Button
+                      onClick={openContractModal}
+                      variant="outline"
+                      iconLeft={<Settings2 size={14} />}
+                      className="rounded-2xl"
+                    >
+                      Ajustar Contrato
+                    </Button>
                   }
                   contentClassName="space-y-6 p-6"
                 >
@@ -947,6 +845,7 @@ export default function SuperAdmin() {
                       </p>
                       <div className="mt-4 flex flex-wrap gap-2">
                         {ACCESS_PERMISSION_KEYS.filter((key) =>
+                          key !== "super_admin" &&
                           getPermissionPreset(
                             isAccessProfile(selectedTenant.access_profile)
                               ? selectedTenant.access_profile
@@ -1019,17 +918,8 @@ export default function SuperAdmin() {
                   ) : tenantAccesses.length === 0 ? (
                     <EmptyState
                       title="Nenhum acesso provisionado"
-                      description="Crie um novo acesso para começar a distribuir permissões desse cliente."
+                      description="O admin do cliente pode criar usuários e unidades na página Administração."
                       icon={<KeyRound size={46} />}
-                      action={
-                        <Button
-                          onClick={openAccessModal}
-                          iconLeft={<Plus size={14} />}
-                          className="rounded-2xl"
-                        >
-                          Criar Acesso
-                        </Button>
-                      }
                     />
                   ) : (
                     <div className="space-y-3">
@@ -1080,7 +970,7 @@ export default function SuperAdmin() {
                             </div>
 
                             <div className="mt-4 flex flex-wrap gap-2">
-                              {ACCESS_PERMISSION_KEYS.filter((key) => permissions[key]).map((key) => (
+                              {ACCESS_PERMISSION_KEYS.filter((key) => key !== "super_admin" && permissions[key]).map((key) => (
                                 <React.Fragment key={key}>
                                   <Badge color="info" pill>
                                     {ACCESS_PERMISSION_LABELS[key]}
@@ -1230,164 +1120,6 @@ export default function SuperAdmin() {
                     </Button>
                     <Button type="submit" className="flex-1 rounded-2xl">
                       Finalizar Provisionamento
-                    </Button>
-                  </div>
-                </form>
-              </PanelCard>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {showAccessModal && (
-          <div className="fixed inset-0 z-[110] overflow-y-auto p-4 md:p-6">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={closeAccessModal}
-              className="absolute inset-0 bg-zinc-950/60 backdrop-blur-md"
-            />
-
-            <motion.div
-              initial={{ opacity: 0, y: 40, scale: 0.96 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 40, scale: 0.96 }}
-              className="relative mx-auto my-4 w-full max-w-4xl"
-            >
-              <PanelCard
-                title="Provisionar Novo Acesso"
-                description="Defina a função, o perfil e os módulos liberados para esse usuário."
-                icon={KeyRound}
-                className="max-h-[88vh] rounded-[40px] shadow-2xl"
-                contentClassName="p-6 pt-0 md:p-8 md:pt-0"
-              >
-                <form
-                  onSubmit={handleAccessSubmit}
-                  className="flex max-h-[calc(88vh-128px)] flex-col"
-                >
-                  <div className="space-y-5 overflow-y-auto pr-1">
-                    <div className="grid gap-4 md:grid-cols-2">
-                    <Select
-                      label="Cliente"
-                      value={accessForm.tenant_id}
-                      onChange={(e) => updateAccessField("tenant_id", e.target.value)}
-                      className="h-11 rounded-2xl bg-zinc-50 text-sm font-bold"
-                    >
-                      <option value="">Selecione um cliente</option>
-                      {tenants.map((tenant) => (
-                        <option key={tenant.id} value={tenant.id}>
-                          {tenant.name}
-                        </option>
-                      ))}
-                    </Select>
-                    <Select
-                      label="Função"
-                      value={accessForm.role}
-                      onChange={(e) => updateAccessField("role", e.target.value)}
-                      className="h-11 rounded-2xl bg-zinc-50 text-sm font-bold"
-                    >
-                      <option value="admin">Admin</option>
-                      <option value="user">Operação</option>
-                      <option value="viewer">Leitura</option>
-                    </Select>
-                    <Input
-                      label="Nome Completo"
-                      value={accessForm.full_name}
-                      onChange={(e) => updateAccessField("full_name", e.target.value)}
-                      placeholder="Nome do usuário"
-                      required
-                      className="h-11 rounded-2xl bg-zinc-50 text-sm font-bold"
-                    />
-                    <Input
-                      label="E-mail de Acesso"
-                      type="email"
-                      value={accessForm.email}
-                      onChange={(e) => updateAccessField("email", e.target.value)}
-                      placeholder="usuario@empresa.com"
-                      required
-                      className="h-11 rounded-2xl bg-zinc-50 text-sm font-bold"
-                    />
-                    <Input
-                      label="Senha Inicial"
-                      type="password"
-                      value={accessForm.password}
-                      onChange={(e) => updateAccessField("password", e.target.value)}
-                      showPasswordToggle
-                      placeholder="••••••••"
-                      required
-                      className="h-11 rounded-2xl bg-zinc-50 text-sm font-bold"
-                    />
-                    <Select
-                      label="Status"
-                      value={accessForm.status}
-                      onChange={(e) => updateAccessField("status", e.target.value)}
-                      className="h-11 rounded-2xl bg-zinc-50 text-sm font-bold"
-                    >
-                      {ACCESS_STATUS_OPTIONS.map((status) => (
-                        <option key={status} value={status}>
-                          {status}
-                        </option>
-                      ))}
-                    </Select>
-                  </div>
-
-                  <PanelCard
-                    title="Perfil e Permissões"
-                    description="Escolha um perfil padrão ou ajuste os módulos manualmente."
-                    icon={Settings2}
-                    className="rounded-[28px] border-zinc-200 bg-zinc-50/70"
-                    contentClassName="space-y-4 p-4"
-                  >
-                    <Select
-                      label="Perfil de Acesso"
-                      value={accessForm.access_profile}
-                      onChange={(e) => handleAccessProfileChange(e.target.value)}
-                      className="h-11 rounded-2xl bg-white text-sm font-bold"
-                    >
-                      {PROFILE_OPTIONS.map((profile) => (
-                        <option key={profile} value={profile}>
-                          {ACCESS_PROFILE_LABELS[profile]}
-                        </option>
-                      ))}
-                    </Select>
-
-                    <div className="grid gap-2.5 md:grid-cols-2">
-                      {ACCESS_PERMISSION_KEYS.map((key) => (
-                        <div
-                          key={key}
-                          className="flex items-center justify-between rounded-xl border border-zinc-200 bg-white px-3 py-2.5"
-                        >
-                          <div className="pr-3">
-                            <p className="text-sm font-bold text-zinc-900">
-                              {ACCESS_PERMISSION_LABELS[key]}
-                            </p>
-                            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-400">
-                              Módulo liberado
-                            </p>
-                          </div>
-                          <Switch
-                            checked={accessForm.permissions[key]}
-                            onCheckedChange={() => toggleAccessPermission(key)}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  </PanelCard>
-                  </div>
-
-                  <div className="mt-4 flex gap-3 border-t border-zinc-200 pt-4">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      onClick={closeAccessModal}
-                      className="flex-1 rounded-2xl"
-                    >
-                      Cancelar
-                    </Button>
-                    <Button type="submit" className="flex-1 rounded-2xl">
-                      Criar Acesso
                     </Button>
                   </div>
                 </form>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { getSelectedUnitStorageKey, getTenantId } from "./auth";
+import { getAuthHeaders, getSelectedUnitStorageKey, getTenantId } from "./auth";
 
 export type Unit = {
   id: string;
@@ -26,8 +26,10 @@ export function useUnit() {
   }, [tenantId]);
 
   const fetchUnits = async () => {
+    const headers = getAuthHeaders();
+    if (!headers['x-user-id']) return;
     try {
-      const res = await fetch(`/api/units?tenantId=${tenantId}`);
+      const res = await fetch(`/api/units?tenantId=${tenantId}`, { headers });
       if (res.ok) {
         const data = await res.json();
         const formatted = data.map((u: any) => ({

@@ -148,15 +148,19 @@ export function getPermissionsForUser(
     return { ...ROOT_ACCESS_PERMISSIONS };
   }
 
+  let perms: AccessPermissions;
+
   if (user?.permissions_json) {
-    return normalizeAccessPermissions(user.permissions_json, user.access_profile);
+    perms = normalizeAccessPermissions(user.permissions_json, user.access_profile);
+  } else if (user?.role === "admin") {
+    perms = getPermissionPreset("admin-mestre");
+  } else {
+    perms = getPermissionPreset(user?.access_profile || "rh-operacao");
   }
 
-  if (user?.role === "admin") {
-    return getPermissionPreset("admin-mestre");
-  }
-
-  return getPermissionPreset(user?.access_profile || "rh-operacao");
+  // Usuários de tenant nunca têm super_admin, independente do que vier do banco
+  perms.super_admin = false;
+  return perms;
 }
 
 export function stringifyAccessPermissions(

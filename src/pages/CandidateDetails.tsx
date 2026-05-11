@@ -75,22 +75,34 @@ export default function CandidateDetails({ candidate, onClose, onEdit, onRefresh
 
   const TABS = [
     { id: 'summary', label: 'Resumo', icon: User },
-    { id: 'resume', label: 'Currículo', icon: FileText },
+    { id: 'resume', label: 'CurrÃ­culo', icon: FileText },
     { id: 'jobs', label: 'Vagas', icon: Briefcase },
-    { id: 'evaluations', label: 'Avaliações', icon: ClipboardCheck },
-    { id: 'ai', label: 'Análise IA', icon: Sparkles },
+    { id: 'evaluations', label: 'AvaliaÃ§Ãµes', icon: ClipboardCheck },
+    { id: 'ai', label: 'AnÃ¡lise IA', icon: Sparkles },
     { id: 'disc', label: 'DISC', icon: BarChart3 },
-    { id: 'history', label: 'Histórico', icon: History },
+    { id: 'history', label: 'HistÃ³rico', icon: History },
   ];
 
   const fetchAvailableJobs = async () => {
     try {
-      const res = await fetch(`/api/jobs?tenantId=${tenantId}&unitId=${queryUnitId}&status=Aberta`);
+      const res = await fetch(`/api/jobs?tenantId=${tenantId}&unitId=${queryUnitId}`);
       const data = await res.json();
       setAvailableJobs(data);
     } catch (err) {
-      toast.error("Erro ao carregar vagas disponíveis.");
+      toast.error("Erro ao carregar vagas disponÃ­veis.");
     }
+  };
+
+  const handleCandidateFileAction = (mode: 'view' | 'download') => {
+    const primaryFile = candidate.files?.[0];
+
+    if (!primaryFile?.id) {
+      toast.error("Nenhum currÃ­culo anexado para este candidato.");
+      return;
+    }
+
+    const url = `/api/candidates/${candidate.id}/files/${primaryFile.id}${mode === 'download' ? '?download=1' : ''}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
   };
 
   const handleLinkJob = async () => {
@@ -124,11 +136,11 @@ export default function CandidateDetails({ candidate, onClose, onEdit, onRefresh
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tenant_id: tenantId })
       });
-      if (!res.ok) throw new Error("Falha na análise IA.");
-      toast.success("Análise IA concluída!");
+      if (!res.ok) throw new Error("Falha na anÃ¡lise IA.");
+      toast.success("AnÃ¡lise IA concluÃ­da!");
       onRefresh();
     } catch (err) {
-      toast.error("Erro ao processar análise com Gemini.");
+      toast.error("Erro ao processar anÃ¡lise com Gemini.");
     } finally {
       setLoading(false);
     }
@@ -229,8 +241,8 @@ export default function CandidateDetails({ candidate, onClose, onEdit, onRefresh
                     <ClipboardCheck size={32} />
                   </div>
                   <div className="space-y-1">
-                    <p className="text-sm font-black text-zinc-900">Nenhuma avaliação</p>
-                    <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">O candidato ainda não respondeu nenhum instrumento de RH.</p>
+                    <p className="text-sm font-black text-zinc-900">Nenhuma avaliaÃ§Ã£o</p>
+                    <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">O candidato ainda nÃ£o respondeu nenhum instrumento de RH.</p>
                   </div>
                </div>
             ) : (
@@ -250,7 +262,7 @@ export default function CandidateDetails({ candidate, onClose, onEdit, onRefresh
                            <div>
                               <h5 className="text-xs font-black text-zinc-900">{evalItem.tool_name}</h5>
                               <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">
-                                Concluído em {new Date(evalItem.completed_at).toLocaleDateString()}
+                                ConcluÃ­do em {new Date(evalItem.completed_at).toLocaleDateString()}
                               </p>
                            </div>
                         </div>
@@ -265,7 +277,7 @@ export default function CandidateDetails({ candidate, onClose, onEdit, onRefresh
                            <span className="text-[9px] font-black uppercase tracking-widest">Parecer IA</span>
                         </div>
                         <p className="text-[11px] font-bold text-zinc-600 leading-relaxed italic">
-                           "{evalItem.ai_summary || "Análise de IA ainda não gerada para esta resposta."}"
+                           "{evalItem.ai_summary || "AnÃ¡lise de IA ainda nÃ£o gerada para esta resposta."}"
                         </p>
                      </div>
 
@@ -297,16 +309,16 @@ export default function CandidateDetails({ candidate, onClose, onEdit, onRefresh
 
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-white p-5 rounded-3xl border border-zinc-100 shadow-sm">
-                <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-2">Pretensão Salarial</p>
-                <p className="text-sm font-black text-zinc-900">{candidate.desired_salary ? `R$ ${candidate.desired_salary}` : "Não informada"}</p>
+                <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-2">PretensÃ£o Salarial</p>
+                <p className="text-sm font-black text-zinc-900">{candidate.desired_salary ? `R$ ${candidate.desired_salary}` : "NÃ£o informada"}</p>
               </div>
               <div className="bg-white p-5 rounded-3xl border border-zinc-100 shadow-sm">
-                <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-2">Anos de Experiência</p>
-                <p className="text-sm font-black text-zinc-900">{candidate.experience_years ? `${candidate.experience_years} anos` : "Não informado"}</p>
+                <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-2">Anos de ExperiÃªncia</p>
+                <p className="text-sm font-black text-zinc-900">{candidate.experience_years ? `${candidate.experience_years} anos` : "NÃ£o informado"}</p>
               </div>
               <div className="bg-white p-5 rounded-3xl border border-zinc-100 shadow-sm">
                 <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-2">Escolaridade</p>
-                <p className="text-sm font-black text-zinc-900">{candidate.education_level || "Não informado"}</p>
+                <p className="text-sm font-black text-zinc-900">{candidate.education_level || "NÃ£o informado"}</p>
               </div>
               <div className="bg-white p-5 rounded-3xl border border-zinc-100 shadow-sm">
                 <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-2">Modelo Desejado</p>
@@ -330,16 +342,24 @@ export default function CandidateDetails({ candidate, onClose, onEdit, onRefresh
         {activeTab === 'resume' && (
           <div className="space-y-6">
             <PanelCard title="Currículo Extraído" icon={FileText}>
-              <div className="prose prose-zinc max-w-none text-sm font-bold text-zinc-600 leading-relaxed bg-zinc-50 p-6 rounded-3xl border border-zinc-100 max-h-[500px] overflow-y-auto">
-                {candidate.professional_experiences || candidate.professional_summary || "Texto do currículo não disponível."}
+              <div className="prose prose-zinc max-w-none text-sm font-bold text-zinc-600 leading-relaxed bg-zinc-50 p-6 rounded-3xl border border-zinc-100 max-h-[500px] overflow-y-auto whitespace-pre-wrap">
+                {candidate.professional_experiences || candidate.files?.[0]?.extracted_text || candidate.professional_summary || "Texto do currículo não disponível."}
               </div>
             </PanelCard>
             
             <div className="flex gap-3">
-              <button className="flex-1 py-3.5 bg-zinc-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-all">
+              <button
+                onClick={() => handleCandidateFileAction('download')}
+                disabled={!candidate.files?.length}
+                className="flex-1 py-3.5 bg-zinc-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
                 <Download size={16} /> Baixar PDF Original
               </button>
-               <button className="flex-1 py-3.5 bg-white border border-zinc-200 text-zinc-900 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-sm hover:bg-zinc-50 active:scale-95 transition-all">
+               <button
+                 onClick={() => handleCandidateFileAction('view')}
+                 disabled={!candidate.files?.length}
+                 className="flex-1 py-3.5 bg-white border border-zinc-200 text-zinc-900 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-sm hover:bg-zinc-50 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+               >
                 <ExternalLink size={16} /> Ver Arquivo
               </button>
             </div>
@@ -442,7 +462,7 @@ export default function CandidateDetails({ candidate, onClose, onEdit, onRefresh
                         className="flex items-center gap-2 px-4 py-2 bg-develoi-navy/5 hover:bg-develoi-navy hover:text-white text-develoi-navy rounded-xl text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 border border-develoi-navy/10"
                        >
                          <Sparkles size={14} /> 
-                         {match.compatibility_score ? "Refazer Análise" : "Rodar Análise IA"}
+                         {match.compatibility_score ? "Refazer AnÃ¡lise" : "Rodar AnÃ¡lise IA"}
                        </button>
                     </div>
                   </div>
@@ -457,16 +477,16 @@ export default function CandidateDetails({ candidate, onClose, onEdit, onRefresh
              <div className="bg-develoi-gold/5 p-6 rounded-3xl border border-develoi-gold/20">
                <div className="flex items-center gap-3 mb-4 text-develoi-navy">
                  <Sparkles size={20} className="text-develoi-gold" />
-                 <h4 className="text-xs font-black uppercase tracking-widest">Relatório Gemini AI</h4>
+                 <h4 className="text-xs font-black uppercase tracking-widest">RelatÃ³rio Gemini AI</h4>
                </div>
                <p className="text-[11px] font-bold text-zinc-500 leading-relaxed">
-                 O Gemini analisa currículos, disc e requisitos das vagas para gerar insights profundos sobre o fit cultural e técnico.
+                 O Gemini analisa currÃ­culos, disc e requisitos das vagas para gerar insights profundos sobre o fit cultural e tÃ©cnico.
                </p>
              </div>
 
              {candidate.matches?.some(m => m.compatibility_score) ? (
                candidate.matches.filter(m => m.compatibility_score).map(match => (
-                 <PanelCard key={match.id} title={`Análise: ${match.job_title}`} icon={Briefcase}>
+                 <PanelCard key={match.id} title={`AnÃ¡lise: ${match.job_title}`} icon={Briefcase}>
                    <div className="space-y-6">
                      <div className="grid grid-cols-2 gap-4">
                        <div className="p-4 bg-zinc-50 rounded-2xl border border-zinc-100">
@@ -474,7 +494,7 @@ export default function CandidateDetails({ candidate, onClose, onEdit, onRefresh
                          <p className="text-lg font-black text-zinc-900">{match.compatibility_score}%</p>
                        </div>
                        <div className="p-4 bg-zinc-50 rounded-2xl border border-zinc-100">
-                         <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Classificação</p>
+                         <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">ClassificaÃ§Ã£o</p>
                          <p className="text-sm font-black text-zinc-900">{match.compatibility_classification}</p>
                        </div>
                      </div>
@@ -491,7 +511,7 @@ export default function CandidateDetails({ candidate, onClose, onEdit, onRefresh
                          </ul>
                        </div>
                        <div>
-                         <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-2">Pontos de Atenção</p>
+                         <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-2">Pontos de AtenÃ§Ã£o</p>
                          <ul className="space-y-1">
                            {JSON.parse(match.attention_points || '[]').map((s: string, i: number) => (
                              <li key={i} className="text-xs font-bold text-zinc-600 flex items-start gap-2">
@@ -529,8 +549,8 @@ export default function CandidateDetails({ candidate, onClose, onEdit, onRefresh
                    <Sparkles size={32} />
                  </div>
                  <div className="space-y-1">
-                   <p className="text-sm font-black text-zinc-900">Nenhuma análise disponível</p>
-                   <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">Vincule o candidato a uma vaga para rodar a análise Gemini.</p>
+                   <p className="text-sm font-black text-zinc-900">Nenhuma anÃ¡lise disponÃ­vel</p>
+                   <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">Vincule o candidato a uma vaga para rodar a anÃ¡lise Gemini.</p>
                  </div>
                </div>
              )}
@@ -576,7 +596,7 @@ export default function CandidateDetails({ candidate, onClose, onEdit, onRefresh
                     <span className="text-[10px] font-black uppercase tracking-widest">Adicionar Nota</span>
                   </div>
                   <textarea 
-                    placeholder="Escreva uma observação interna..."
+                    placeholder="Escreva uma observaÃ§Ã£o interna..."
                     className="w-full bg-white border border-develoi-navy/10 rounded-xl p-3 text-[11px] font-bold focus:ring-2 focus:ring-develoi-navy outline-none min-h-[80px]"
                   />
                   <button className="mt-3 px-4 py-2 bg-develoi-navy text-white text-[9px] font-black uppercase tracking-widest rounded-lg shadow-md shadow-develoi-navy/20 active:scale-95 transition-all">
@@ -593,7 +613,7 @@ export default function CandidateDetails({ candidate, onClose, onEdit, onRefresh
       {loading && (
         <div className="absolute inset-0 bg-white/60 backdrop-blur-sm z-[100] flex items-center justify-center flex-col gap-4">
            <div className="w-12 h-12 border-4 border-zinc-900 border-t-transparent rounded-full animate-spin"></div>
-           <p className="text-[10px] font-black text-zinc-900 uppercase tracking-widest">Processando Inteligência...</p>
+           <p className="text-[10px] font-black text-zinc-900 uppercase tracking-widest">Processando InteligÃªncia...</p>
         </div>
       )}
     </div>

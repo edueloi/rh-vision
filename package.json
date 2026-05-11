@@ -3,8 +3,11 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
-    "dev": "tsx server.ts",
+    "dev": "node scripts/run-dev.cjs",
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist",

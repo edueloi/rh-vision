@@ -52,6 +52,15 @@ export function getWelcomeStorageKey(userId: string) {
   return `has_seen_welcome:${userId}`;
 }
 
+export function getAuthHeaders(): Record<string, string> {
+  const user = getAuthUser();
+  if (!user) return {};
+  return {
+    "x-user-id": user.id,
+    "x-tenant-id": user.tenant_id || "develoi",
+  };
+}
+
 export function getSelectedUnitStorageKey(tenantId: string) {
   return `selected_unit:${tenantId}`;
 }

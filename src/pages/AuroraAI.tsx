@@ -28,7 +28,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/src/lib/utils';
-import { getTenantId } from '@/src/lib/auth';
+import { getAuthHeaders, getTenantId } from '@/src/lib/auth';
 import { useUnit } from '@/src/lib/useUnit';
 import { useToast } from '@/src/components/ui/Toast';
 import { PanelCard } from '@/src/components/ui/PanelCard';
@@ -58,22 +58,71 @@ interface MatchResult {
   risk_reason: string;
 }
 
+type MessageBlock =
+  | { type: 'paragraph'; text: string }
+  | { type: 'list'; items: string[] };
+
+function formatMessageBlocks(content: string): MessageBlock[] {
+  const normalized = content
+    .replace(/\r\n/g, '\n')
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
+  if (!normalized) {
+    return [];
+  }
+
+  const lines = normalized
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const blocks: MessageBlock[] = [];
+  let currentList: string[] = [];
+
+  const flushList = () => {
+    if (currentList.length > 0) {
+      blocks.push({ type: 'list', items: currentList });
+      currentList = [];
+    }
+  };
+
+  for (const line of lines) {
+    const listMatch = line.match(/^(?:[-•]\s+|\d+[.)]\s+)(.+)$/);
+
+    if (listMatch) {
+      currentList.push(listMatch[1].trim());
+      continue;
+    }
+
+    flushList();
+    blocks.push({ type: 'paragraph', text: line });
+  }
+
+  flushList();
+
+  return blocks;
+}
+
 export default function AuroraAI() {
   const { currentUnit } = useUnit();
   const tenantId = getTenantId();
   const queryUnitId = currentUnit.is_master ? 'master' : currentUnit.id;
+  const activeUnitId = currentUnit.id;
   const toast = useToast();
   const [activeView, setActiveView] = useState<'chat' | 'match' | 'history'>('chat');
   const [chatMessages, setChatMessages] = useState<Message[]>([
     { 
       id: '1', 
       role: 'assistant', 
-      content: 'Olá! Eu sou a Aurora AI. Como posso ajudar com seu recrutamento hoje? Posso encontrar candidatos, comparar currículos ou analisar perfis comportamentais.',
+      content: 'Posso ajudar com candidatos, vagas, comparativos e DISC. Diga o que você precisa.',
       timestamp: new Date().toISOString()
     }
   ]);
   const [inputMessage, setInputMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [chatSessionId, setChatSessionId] = useState<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Search/Match state
@@ -109,6 +158,10 @@ export default function AuroraAI() {
   }, [queryUnitId]);
 
   useEffect(() => {
+    setChatSessionId(null);
+  }, [activeUnitId]);
+
+  useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
@@ -116,7 +169,7 @@ export default function AuroraAI() {
 
   const fetchJobs = async () => {
     try {
-      const res = await fetch(`/api/jobs?tenantId=${tenantId}&unitId=${queryUnitId}&status=Aberta`);
+      const res = await fetch(`/api/jobs?tenantId=${tenantId}&unitId=${queryUnitId}`);
       const data = await res.json();
       setJobs(data);
     } catch (error) {
@@ -189,12 +242,13 @@ export default function AuroraAI() {
   };
 
   const handleSendMessage = async () => {
-    if (!inputMessage.trim()) return;
+    const trimmedMessage = inputMessage.trim();
+    if (!trimmedMessage) return;
 
     const userMsg: Message = {
       id: Date.now().toString(),
       role: 'user',
-      content: inputMessage,
+      content: trimmedMessage,
       timestamp: new Date().toISOString()
     };
 
@@ -205,14 +259,26 @@ export default function AuroraAI() {
     try {
       const res = await fetch('/api/aurora-ai/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders()
+        },
         body: JSON.stringify({
-          message: inputMessage,
+          message: trimmedMessage,
           tenantId,
-          unitId: queryUnitId
+          unitId: activeUnitId,
+          sessionId: chatSessionId
         })
       });
       const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Falha ao conversar com a Aurora AI.');
+      }
+
+      if (!data.message) {
+        throw new Error('A Aurora AI não retornou uma resposta.');
+      }
       
       const assistantMsg: Message = {
         id: (Date.now() + 1).toString(),
@@ -220,9 +286,12 @@ export default function AuroraAI() {
         content: data.message,
         timestamp: new Date().toISOString()
       };
+
+      setChatSessionId(data.sessionId ?? null);
       setChatMessages(prev => [...prev, assistantMsg]);
     } catch (error) {
-      toast.error('Erro ao processar mensagem');
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao processar mensagem';
+      toast.error(errorMessage);
     } finally {
       setIsTyping(false);
     }
@@ -368,18 +437,60 @@ export default function AuroraAI() {
                       {msg.role === 'assistant' ? <Sparkles size={16} /> : <User size={16} />}
                     </div>
                     <div className={cn(
-                      "max-w-[90%] sm:max-w-[80%] p-3 rounded-2xl text-[11px] sm:text-xs leading-relaxed",
+                      "max-w-[88%] sm:max-w-[78%] lg:max-w-[72%] rounded-[24px] px-4 py-3.5 sm:px-5 sm:py-4 text-[11px] sm:text-xs leading-relaxed break-words",
                       msg.role === 'assistant' 
-                        ? "bg-zinc-100/60 text-zinc-800 rounded-tl-none font-medium border border-zinc-200/50" 
+                        ? "bg-gradient-to-br from-white to-zinc-50 text-zinc-800 rounded-tl-md border border-zinc-200 shadow-sm" 
                         : "bg-develoi-navy text-white rounded-tr-none font-semibold shadow-lg shadow-develoi-navy/10"
                     )}>
-                      {msg.content}
-                      <p className={cn(
-                        "text-[9px] mt-2 opacity-50",
-                        msg.role === 'assistant' ? "text-zinc-500" : "text-white"
-                      )}>
-                        {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </p>
+                      {msg.role === 'assistant' ? (
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[9px] font-black uppercase tracking-[0.24em] text-develoi-navy/75">
+                              Aurora AI
+                            </span>
+                            <span className="rounded-full bg-develoi-gold/10 px-2 py-1 text-[8px] font-black uppercase tracking-[0.2em] text-develoi-gold">
+                              Objetiva
+                            </span>
+                          </div>
+
+                          <div className="space-y-3 text-[12px] leading-6 text-zinc-700">
+                            {formatMessageBlocks(msg.content).map((block, index) => (
+                              block.type === 'paragraph' ? (
+                                <p key={`${msg.id}-p-${index}`} className="text-pretty">
+                                  {block.text}
+                                </p>
+                              ) : (
+                                <div
+                                  key={`${msg.id}-l-${index}`}
+                                  className="rounded-2xl border border-zinc-200 bg-white/80 px-4 py-3"
+                                >
+                                  <ul className="space-y-2">
+                                    {block.items.map((item, itemIndex) => (
+                                      <li key={`${msg.id}-i-${itemIndex}`} className="flex items-start gap-2.5">
+                                        <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-develoi-gold" />
+                                        <span className="flex-1 text-zinc-700">{item}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )
+                            ))}
+                          </div>
+
+                          <p className="text-[9px] font-bold uppercase tracking-wider text-zinc-400">
+                            {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        </div>
+                      ) : (
+                        <>
+                          <p className="whitespace-pre-wrap text-[12px] leading-6 text-white">
+                            {msg.content}
+                          </p>
+                          <p className="mt-2 text-[9px] font-bold uppercase tracking-wider text-white/55">
+                            {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        </>
+                      )}
                     </div>
                   </div>
                 ))}

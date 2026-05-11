@@ -17,8 +17,9 @@ import {
   Users,
 } from "lucide-react";
 import { cn } from "../lib/utils";
-import { getTenantId } from "../lib/auth";
+import { getAuthHeaders, getTenantId } from "../lib/auth";
 import { useUnit, Unit } from "../lib/useUnit";
+import { ACCESS_PROFILE_LABELS, AccessProfile, getDefaultAccessProfile, getPermissionPreset, stringifyAccessPermissions } from "../lib/access";
 import {
   Badge,
   Button,
@@ -60,6 +61,7 @@ const initialUserForm = {
   role: "user" as "admin" | "user",
   unit_id: "",
   status: "Ativo" as "Ativo" | "Inativo",
+  access_profile: "rh-operacao" as AccessProfile,
 };
 
 export default function Administration() {
@@ -98,7 +100,7 @@ export default function Administration() {
     setIsLoading(true);
 
     try {
-      const res = await fetch(`/api/users?tenantId=${tenantId}&unitId=${isMaster ? "master" : currentUnit.id}`);
+      const res = await fetch(`/api/users?tenantId=${tenantId}&unitId=${isMaster ? "master" : currentUnit.id}`, { headers: getAuthHeaders() });
       if (res.ok) {
         const data = await res.json();
         setDbUsers(data);
@@ -132,7 +134,7 @@ export default function Administration() {
     try {
       const res = await fetch(url, {
         method,
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({ ...unitForm, tenant_id: tenantId }),
       });
 
@@ -153,11 +155,20 @@ export default function Administration() {
     const url = editingUser ? `/api/users/${editingUser.id}` : "/api/users";
     const method = editingUser ? "PUT" : "POST";
 
+    const accessProfile: AccessProfile = userForm.role === "admin" ? "admin-mestre" : userForm.access_profile;
+    const permissions = getPermissionPreset(accessProfile);
+    permissions.super_admin = false;
+
     try {
       const res = await fetch(url, {
         method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...userForm, tenant_id: tenantId }),
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify({
+          ...userForm,
+          tenant_id: tenantId,
+          access_profile: accessProfile,
+          permissions_json: JSON.parse(stringifyAccessPermissions(permissions, accessProfile)),
+        }),
       });
 
       if (res.ok) {
@@ -180,6 +191,7 @@ export default function Administration() {
     try {
       const res = await fetch(`/api/${deleteConfirm.type}s/${deleteConfirm.id}`, {
         method: "DELETE",
+        headers: getAuthHeaders(),
       });
 
       if (res.ok) {
@@ -225,6 +237,7 @@ export default function Administration() {
       role: user.role,
       unit_id: user.unit_id,
       status: user.status,
+      access_profile: (user as any).access_profile || getDefaultAccessProfile(user.role),
     });
     setShowUserModal(true);
   };
@@ -692,12 +705,14 @@ export default function Administration() {
                 <Select
                   label="Função"
                   value={userForm.role}
-                  onChange={(e) =>
+                  onChange={(e) => {
+                    const role = e.target.value as "admin" | "user";
                     setUserForm({
                       ...userForm,
-                      role: e.target.value as "admin" | "user",
-                    })
-                  }
+                      role,
+                      access_profile: role === "admin" ? "admin-mestre" : "rh-operacao",
+                    });
+                  }}
                   className="h-11 rounded-2xl bg-zinc-50 text-sm font-bold"
                 >
                   <option value="user">Recrutador</option>
@@ -719,6 +734,20 @@ export default function Administration() {
                   <option value="Inativo">Inativo</option>
                 </Select>
               </div>
+
+              {userForm.role === "user" && (
+                <Select
+                  label="Perfil de Acesso"
+                  value={userForm.access_profile}
+                  onChange={(e) =>
+                    setUserForm({ ...userForm, access_profile: e.target.value as AccessProfile })
+                  }
+                  className="h-11 rounded-2xl bg-zinc-50 text-sm font-bold"
+                >
+                  <option value="rh-operacao">{ACCESS_PROFILE_LABELS["rh-operacao"]}</option>
+                  <option value="executivo-leitura">{ACCESS_PROFILE_LABELS["executivo-leitura"]}</option>
+                </Select>
+              )}
 
               <Select
                 label="Unidade"

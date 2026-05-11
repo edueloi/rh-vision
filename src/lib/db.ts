@@ -1,673 +1,181 @@
-import Database from 'better-sqlite3';
-import { join } from 'path';
+import { PrismaClient } from '@prisma/client';
 
-const db = new Database(process.env.SQLITE_DB_PATH || 'aurora_recruitment.db');
+const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
+const prisma = globalForPrisma.prisma ?? new PrismaClient();
+if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
+
+export { prisma };
+
+// ──────────────────────────────────────────────────────────────────────────────
+// SQL dialect translator: SQLite → MySQL
+// ──────────────────────────────────────────────────────────────────────────────
+function toMySQL(sql: string): string {
+  return sql
+    .replace(/INSERT OR IGNORE INTO/gi, 'INSERT IGNORE INTO')
+    // SQLite ON CONFLICT → MySQL ON DUPLICATE KEY UPDATE
+    // E.g. ON CONFLICT(col) DO UPDATE SET a = excluded.a, b = excluded.b
+    .replace(
+      /ON CONFLICT\([^)]+\) DO UPDATE SET ([\s\S]*?)(?=\s*(?:WHERE|RETURNING|$|;))/gi,
+      (_m, sets: string) => {
+        const mysqlSets = sets
+          .trim()
+          .split(',')
+          .map(s => s.trim().replace(/(\w+)\s*=\s*excluded\.(\w+)/, '$1 = VALUES($1)'))
+          .join(', ');
+        return `ON DUPLICATE KEY UPDATE ${mysqlSets}`;
+      }
+    )
+    // date('now', '-N days') → DATE_SUB(NOW(), INTERVAL N DAY)
+    .replace(
+      /date\('now',\s*['"]-(\d+)\s*(year|years|day|days|month|months)['"]?\)/gi,
+      (_m, n: string, unit: string) => {
+        const u = unit.replace(/s$/i, '').toUpperCase();
+        return `DATE_SUB(NOW(), INTERVAL ${n} ${u})`;
+      }
+    )
+    // strftime('%Y-%m', col) → DATE_FORMAT(col, '%Y-%m')
+    .replace(/strftime\('([^']+)',\s*([^)]+)\)/gi, "DATE_FORMAT($2, '$1')")
+    // datetime('now') → NOW()
+    .replace(/datetime\('now'\)/gi, 'NOW()')
+    // CURRENT_TIMESTAMP stays — both SQLite and MySQL support it
+    // datetime(col) → col (MySQL doesn't need this cast)
+    .replace(/datetime\(([^)]+)\)/gi, '$1')
+    // SQLite-only PRAGMA / sqlite_master → no-op
+    .replace(/PRAGMA\s+\S+.*$/gim, '-- pragma removed')
+    .replace(/sqlite_master/gi, 'information_schema.tables');
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Async prepare shim — mirrors better-sqlite3 API but returns Promises
+// ──────────────────────────────────────────────────────────────────────────────
+export function prepare(sql: string) {
+  const mysqlSql = toMySQL(sql);
+
+  return {
+    /** Returns first matching row or null */
+    get: (...params: any[]): Promise<any> =>
+      prisma.$queryRawUnsafe<any[]>(mysqlSql, ...params.flat()).then(r => r[0] ?? null),
+
+    /** Returns all matching rows */
+    all: (...params: any[]): Promise<any[]> =>
+      prisma.$queryRawUnsafe<any[]>(mysqlSql, ...params.flat()),
+
+    /** Executes a write query; returns { lastInsertRowid } */
+    run: async (...params: any[]): Promise<{ lastInsertRowid: number | null; changes: number }> => {
+      const isInsert = /^\s*INSERT/i.test(mysqlSql);
+      const changes = await prisma.$executeRawUnsafe(mysqlSql, ...params.flat());
+      let lastInsertRowid: number | null = null;
+      if (isInsert) {
+        const row = await prisma.$queryRaw<[{ id: bigint }]>`SELECT LAST_INSERT_ID() as id`;
+        lastInsertRowid = Number(row[0]?.id ?? 0) || null;
+      }
+      return { lastInsertRowid, changes };
+    },
+  };
+}
+
+// Convenience wrapper so server.ts can import db as a default and call db.prepare(...)
+const db = { prepare };
+export default db;
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Seed / initDb
+// ──────────────────────────────────────────────────────────────────────────────
 
 const ROOT_PERMISSIONS_JSON = JSON.stringify({
-  dashboard: true,
-  aurora_ai: true,
-  jobs: true,
-  candidates: true,
-  imports: true,
-  tools: true,
-  administration: true,
-  super_admin: true,
+  dashboard: true, aurora_ai: true, jobs: true, candidates: true,
+  imports: true, tools: true, administration: true, super_admin: true,
 });
-
 const ADMIN_PERMISSIONS_JSON = JSON.stringify({
-  dashboard: true,
-  aurora_ai: true,
-  jobs: true,
-  candidates: true,
-  imports: true,
-  tools: true,
-  administration: true,
-  super_admin: false,
+  dashboard: true, aurora_ai: true, jobs: true, candidates: true,
+  imports: true, tools: true, administration: true, super_admin: false,
 });
-
 const OPERATION_PERMISSIONS_JSON = JSON.stringify({
-  dashboard: true,
-  aurora_ai: true,
-  jobs: true,
-  candidates: true,
-  imports: true,
-  tools: true,
-  administration: false,
-  super_admin: false,
+  dashboard: true, aurora_ai: true, jobs: true, candidates: true,
+  imports: true, tools: true, administration: false, super_admin: false,
 });
 
-function addDays(dateValue: string | Date, days: number) {
-  const date = new Date(dateValue);
-  date.setDate(date.getDate() + days);
-  return date;
+function addDays(d: Date, days: number) {
+  const r = new Date(d); r.setDate(r.getDate() + days); return r;
 }
 
-function toSqlDateTime(date: Date) {
-  return date.toISOString().slice(0, 19).replace("T", " ");
-}
+export async function initDb() {
+  const now = new Date();
 
-function tableHasColumn(table: string, column: string) {
-  const columns = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
-  return columns.some((item) => item.name === column);
-}
+  await prisma.tenant.upsert({
+    where: { id: 'develoi' },
+    update: {},
+    create: {
+      id: 'develoi', name: 'Develoi Recruitment', document: '00.000.000/0001-00',
+      status: 'Ativo', plan_label: 'Plano Anual', validity_days: 3650,
+      starts_at: now, expires_at: addDays(now, 3650), max_users: 999,
+      access_profile: 'admin-mestre',
+    },
+  });
 
-function addColumnIfMissing(table: string, column: string, definition: string) {
-  if (!tableHasColumn(table, column)) {
-    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
-  }
-}
+  await prisma.unit.upsert({
+    where: { id: 'master' },
+    update: {},
+    create: { id: 'master', tenant_id: 'develoi', name: 'Develoi - Central (Master)', city: 'Todas', state: 'N/A', is_master: true },
+  });
 
-// Enable foreign keys
-db.pragma('foreign_keys = ON');
+  await prisma.user.upsert({
+    where: { id: 'admin-root' },
+    update: { permissions_json: ROOT_PERMISSIONS_JSON },
+    create: {
+      id: 'admin-root', tenant_id: 'develoi', full_name: 'Admin Master',
+      email: 'admin', password: 'admin', role: 'admin', status: 'Ativo',
+      access_profile: 'custom', permissions_json: ROOT_PERMISSIONS_JSON,
+    },
+  });
 
-// Initialize schema
-export function initDb() {
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS tenants (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      document TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS units (
-      id TEXT PRIMARY KEY,
-      tenant_id TEXT NOT NULL,
-      parent_id TEXT,
-      name TEXT NOT NULL,
-      company_name TEXT,
-      responsible_name TEXT,
-      phone TEXT,
-      email TEXT,
-      city TEXT,
-      state TEXT,
-      latitude REAL,
-      longitude REAL,
-      is_master INTEGER DEFAULT 0,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (tenant_id) REFERENCES tenants(id),
-      FOREIGN KEY (parent_id) REFERENCES units(id)
-    );
-
-    CREATE TABLE IF NOT EXISTS users (
-      id TEXT PRIMARY KEY,
-      tenant_id TEXT NOT NULL,
-      unit_id TEXT,
-      full_name TEXT NOT NULL,
-      email TEXT UNIQUE NOT NULL,
-      password TEXT NOT NULL,
-      role TEXT DEFAULT 'user',
-      status TEXT DEFAULT 'Ativo',
-      last_login DATETIME,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (unit_id) REFERENCES units(id)
-    );
-
-    CREATE TABLE IF NOT EXISTS jobs (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      tenant_id TEXT NOT NULL,
-      unit_id TEXT NOT NULL,
-      title TEXT NOT NULL,
-      department TEXT,
-      description TEXT,
-      responsibilities TEXT,
-      technical_requirements TEXT,
-      mandatory_requirements TEXT,
-      desirable_requirements TEXT,
-      eliminatory_criteria TEXT,
-      benefits TEXT,
-      city TEXT NOT NULL,
-      state TEXT NOT NULL,
-      latitude REAL,
-      longitude REAL,
-      work_model TEXT CHECK(work_model IN ('Presencial', 'Híbrido', 'Home Office')),
-      contract_type TEXT CHECK(contract_type IN ('CLT', 'PJ', 'Estágio', 'Temporário', 'Freelancer', 'Outro')),
-      seniority_level TEXT,
-      education_level TEXT,
-      min_experience_years INTEGER,
-      salary_min REAL,
-      salary_max REAL,
-      workload TEXT,
-      work_schedule TEXT,
-      requires_cnh BOOLEAN DEFAULT 0,
-      cnh_category TEXT,
-      requires_travel BOOLEAN DEFAULT 0,
-      requires_relocation BOOLEAN DEFAULT 0,
-      status TEXT DEFAULT 'Rascunho' CHECK(status IN ('Rascunho', 'Aberta', 'Pausada', 'Encerrada')),
-      is_public BOOLEAN DEFAULT 0,
-      public_slug TEXT,
-      public_url TEXT,
-      compatibility_threshold INTEGER DEFAULT 80,
-      distance_radius_km INTEGER DEFAULT 50,
-      location_rule TEXT DEFAULT 'Peso médio',
-      max_compatible_candidates INTEGER DEFAULT 20,
-      weight_technical INTEGER DEFAULT 20,
-      weight_experience INTEGER DEFAULT 20,
-      weight_education INTEGER DEFAULT 20,
-      weight_location INTEGER DEFAULT 10,
-      weight_soft_skills INTEGER DEFAULT 15,
-      weight_culture INTEGER DEFAULT 15,
-      internal_notes TEXT,
-      tags TEXT,
-      external_link_linkedin TEXT,
-      external_link_indeed TEXT,
-      external_link_infojobs TEXT,
-      external_link_catho TEXT,
-      external_link_other TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      deleted_at DATETIME,
-      FOREIGN KEY (tenant_id) REFERENCES tenants(id),
-      FOREIGN KEY (unit_id) REFERENCES units(id)
-    );
-
-    CREATE TABLE IF NOT EXISTS candidates (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      tenant_id TEXT NOT NULL,
-      unit_id TEXT NOT NULL,
-      full_name TEXT NOT NULL,
-      email TEXT NOT NULL,
-      phone TEXT,
-      cpf TEXT,
-      birth_date TEXT,
-      city TEXT,
-      state TEXT,
-      latitude REAL,
-      longitude REAL,
-      address TEXT,
-      linkedin_url TEXT,
-      portfolio_url TEXT,
-      desired_position TEXT,
-      desired_area TEXT,
-      desired_salary REAL,
-      education_level TEXT,
-      experience_years INTEGER,
-      professional_summary TEXT,
-      professional_experiences TEXT,
-      academic_education TEXT,
-      courses_certifications TEXT,
-      hard_skills TEXT,
-      soft_skills TEXT,
-      languages TEXT,
-      has_cnh BOOLEAN DEFAULT 0,
-      cnh_category TEXT,
-      available_to_travel BOOLEAN DEFAULT 0,
-      available_to_relocate BOOLEAN DEFAULT 0,
-      desired_work_model TEXT,
-      desired_contract_type TEXT,
-      source TEXT DEFAULT 'Manual',
-      status TEXT DEFAULT 'Novo' CHECK(status IN ('Novo', 'Em análise', 'Compatível', 'Entrevista', 'Aprovado', 'Reprovado', 'Banco de talentos', 'Contratado')),
-      tags TEXT,
-      internal_notes TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      deleted_at DATETIME,
-      FOREIGN KEY (tenant_id) REFERENCES tenants(id),
-      FOREIGN KEY (unit_id) REFERENCES units(id)
-    );
-
-    -- New Aurora AI Tables
-    CREATE TABLE IF NOT EXISTS ai_search_sessions (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      tenant_id TEXT NOT NULL,
-      unit_id TEXT NOT NULL,
-      user_id TEXT,
-      job_id INTEGER,
-      search_type TEXT, -- 'match-job', 'chat', 'disc-filter', etc.
-      precision_mode TEXT DEFAULT 'Equilibrada',
-      compatibility_threshold INTEGER DEFAULT 70,
-      max_results INTEGER DEFAULT 50,
-      distance_radius_km INTEGER,
-      location_rule TEXT,
-      only_with_resume BOOLEAN DEFAULT 0,
-      only_with_disc BOOLEAN DEFAULT 0,
-      filters_json TEXT,
-      prompt TEXT,
-      summary TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (tenant_id) REFERENCES tenants(id),
-      FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE SET NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS ai_search_results (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      session_id INTEGER NOT NULL,
-      candidate_id INTEGER NOT NULL,
-      job_id INTEGER,
-      compatibility_score INTEGER,
-      classification TEXT,
-      distance_km REAL,
-      has_disc BOOLEAN,
-      disc_profile TEXT,
-      strengths TEXT,
-      attention_points TEXT,
-      recommendation_reason TEXT,
-      risk_reason TEXT,
-      ai_analysis_json TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (session_id) REFERENCES ai_search_sessions(id) ON DELETE CASCADE,
-      FOREIGN KEY (candidate_id) REFERENCES candidates(id) ON DELETE CASCADE,
-      FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE SET NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS ai_chat_messages (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      tenant_id TEXT NOT NULL,
-      unit_id TEXT NOT NULL,
-      user_id TEXT,
-      session_id INTEGER,
-      role TEXT CHECK(role IN ('user', 'assistant', 'system')),
-      message TEXT NOT NULL,
-      tool_used TEXT,
-      metadata_json TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (tenant_id) REFERENCES tenants(id),
-      FOREIGN KEY (session_id) REFERENCES ai_search_sessions(id) ON DELETE CASCADE
-    );
-
-    CREATE TABLE IF NOT EXISTS ai_matching_settings (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      tenant_id TEXT NOT NULL,
-      unit_id TEXT NOT NULL,
-      default_precision_mode TEXT DEFAULT 'Equilibrada',
-      default_compatibility_threshold INTEGER DEFAULT 70,
-      default_max_results INTEGER DEFAULT 20,
-      default_distance_radius_km INTEGER DEFAULT 50,
-      weight_location INTEGER DEFAULT 10,
-      weight_experience INTEGER DEFAULT 20,
-      weight_hard_skills INTEGER DEFAULT 20,
-      weight_soft_skills INTEGER DEFAULT 15,
-      weight_disc INTEGER DEFAULT 15,
-      weight_education INTEGER DEFAULT 10,
-      weight_salary INTEGER DEFAULT 5,
-      weight_work_model INTEGER DEFAULT 5,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (tenant_id) REFERENCES tenants(id),
-      UNIQUE(tenant_id, unit_id)
-    );
-
-    CREATE TABLE IF NOT EXISTS candidate_files (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      candidate_id INTEGER NOT NULL,
-      file_name TEXT NOT NULL,
-      file_path TEXT,
-      file_type TEXT,
-      file_size INTEGER,
-      extracted_text TEXT,
-      ai_summary TEXT,
-      tenant_id TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (candidate_id) REFERENCES candidates(id) ON DELETE CASCADE
-    );
-
-    CREATE TABLE IF NOT EXISTS candidate_job_matches (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      tenant_id TEXT NOT NULL,
-      candidate_id INTEGER NOT NULL,
-      job_id INTEGER NOT NULL,
-      status TEXT DEFAULT 'Inscrito',
-      compatibility_score INTEGER,
-      compatibility_classification TEXT,
-      compatibility_summary TEXT,
-      strengths TEXT,
-      attention_points TEXT,
-      requirements_met TEXT,
-      requirements_partial TEXT,
-      requirements_missing TEXT,
-      eliminatory_flags TEXT,
-      interview_questions TEXT,
-      risk_analysis TEXT,
-      final_recommendation TEXT,
-      ai_analysis_json TEXT,
-      analyzed_at DATETIME,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (tenant_id) REFERENCES tenants(id),
-      FOREIGN KEY (candidate_id) REFERENCES candidates(id) ON DELETE CASCADE,
-      FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE CASCADE
-    );
-
-    CREATE TABLE IF NOT EXISTS candidate_disc_results (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      candidate_id INTEGER NOT NULL,
-      disc_d INTEGER,
-      disc_i INTEGER,
-      disc_s INTEGER,
-      disc_c INTEGER,
-      predominant_profile TEXT,
-      behavioral_summary TEXT,
-      strengths TEXT,
-      attention_points TEXT,
-      communication_style TEXT,
-      leadership_style TEXT,
-      ideal_environment TEXT,
-      raw_answers_json TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (candidate_id) REFERENCES candidates(id) ON DELETE CASCADE
-    );
-
-    CREATE TABLE IF NOT EXISTS candidate_history (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      candidate_id INTEGER NOT NULL,
-      job_id INTEGER,
-      event_type TEXT NOT NULL,
-      title TEXT NOT NULL,
-      description TEXT,
-      created_by TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (candidate_id) REFERENCES candidates(id) ON DELETE CASCADE,
-      FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE SET NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS job_publication_texts (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      job_id INTEGER NOT NULL,
-      channel TEXT NOT NULL,
-      title TEXT,
-      content TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE CASCADE
-    );
-
-    -- HR Tools & Assessments Tables
-    CREATE TABLE IF NOT EXISTS hr_tools (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      tenant_id TEXT NOT NULL,
-      unit_id TEXT NOT NULL,
-      name TEXT NOT NULL,
-      type TEXT NOT NULL, -- 'DISC', 'screening', 'culture-fit', 'interview', 'technical', 'checklist', 'availability', 'ia-report'
-      description TEXT,
-      status TEXT DEFAULT 'Ativo',
-      is_public BOOLEAN DEFAULT 1,
-      public_slug TEXT UNIQUE,
-      public_url TEXT,
-      expires_at DATETIME,
-      settings_json TEXT, -- weights, colors, custom configs
-      created_by TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      deleted_at DATETIME,
-      FOREIGN KEY (tenant_id) REFERENCES tenants(id)
-    );
-
-    CREATE TABLE IF NOT EXISTS hr_tool_questions (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      tool_id INTEGER NOT NULL,
-      question_text TEXT NOT NULL,
-      question_type TEXT NOT NULL, -- 'text', 'long-text', 'yes-no', 'multiple-choice', 'scale-5', 'scale-10', 'file', 'date'
-      is_required BOOLEAN DEFAULT 1,
-      is_eliminatory BOOLEAN DEFAULT 0,
-      expected_answer TEXT,
-      score_weight INTEGER DEFAULT 1,
-      options_json TEXT, -- For multiple choice
-      position INTEGER DEFAULT 0,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (tool_id) REFERENCES hr_tools(id) ON DELETE CASCADE
-    );
-
-    CREATE TABLE IF NOT EXISTS hr_tool_responses (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      tenant_id TEXT NOT NULL,
-      unit_id TEXT NOT NULL,
-      tool_id INTEGER NOT NULL,
-      candidate_id INTEGER, -- Can be null initially if person is not in DB
-      job_id INTEGER,
-      status TEXT DEFAULT 'Pendente', -- 'Pendente', 'Em andamento', 'Concluído', 'Expirado'
-      started_at DATETIME,
-      completed_at DATETIME,
-      score INTEGER,
-      classification TEXT,
-      ai_summary TEXT,
-      ai_analysis_json TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (tenant_id) REFERENCES tenants(id),
-      FOREIGN KEY (tool_id) REFERENCES hr_tools(id) ON DELETE CASCADE,
-      FOREIGN KEY (candidate_id) REFERENCES candidates(id) ON DELETE SET NULL,
-      FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE SET NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS hr_tool_answers (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      response_id INTEGER NOT NULL,
-      question_id INTEGER NOT NULL,
-      answer_text TEXT,
-      answer_json TEXT,
-      score INTEGER,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (response_id) REFERENCES hr_tool_responses(id) ON DELETE CASCADE,
-      FOREIGN KEY (question_id) REFERENCES hr_tool_questions(id) ON DELETE CASCADE
-    );
-
-    -- Import Batches & Files Tables
-    CREATE TABLE IF NOT EXISTS import_batches (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      tenant_id TEXT NOT NULL,
-      unit_id TEXT NOT NULL,
-      job_id INTEGER,
-      name TEXT NOT NULL,
-      import_type TEXT DEFAULT 'mixed', -- 'individual', 'spreadsheet', 'mixed'
-      status TEXT DEFAULT 'pending', -- 'pending', 'processing', 'completed', 'failed'
-      analysis_mode TEXT DEFAULT 'full', -- 'extraction', 'creation', 'matching', 'full'
-      precision_mode TEXT DEFAULT 'Equilibrada',
-      compatibility_threshold INTEGER DEFAULT 70,
-      max_highlighted_candidates INTEGER DEFAULT 20,
-      duplicate_strategy TEXT DEFAULT 'manual', -- 'ignore', 'update', 'manual'
-      location_rule TEXT DEFAULT 'Peso médio',
-      distance_radius_km INTEGER DEFAULT 50,
-      language_mode TEXT DEFAULT 'Automático',
-      tags TEXT,
-      notes TEXT,
-      total_files INTEGER DEFAULT 0,
-      processed_files INTEGER DEFAULT 0,
-      created_candidates INTEGER DEFAULT 0,
-      updated_candidates INTEGER DEFAULT 0,
-      duplicate_files INTEGER DEFAULT 0,
-      error_files INTEGER DEFAULT 0,
-      summary TEXT,
-      created_by TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (tenant_id) REFERENCES tenants(id),
-      FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE SET NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS import_files (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      batch_id INTEGER NOT NULL,
-      tenant_id TEXT NOT NULL,
-      unit_id TEXT NOT NULL,
-      candidate_id INTEGER,
-      file_name TEXT NOT NULL,
-      file_path TEXT,
-      file_type TEXT,
-      file_size INTEGER,
-      status TEXT DEFAULT 'pending', -- 'pending', 'uploading', 'uploaded', 'processing', 'completed', 'duplicate', 'error'
-      progress INTEGER DEFAULT 0,
-      extracted_text TEXT,
-      parsed_data_json TEXT,
-      ai_summary TEXT,
-      duplicate_status TEXT, -- 'none', 'email', 'phone', 'cpf'
-      duplicate_candidate_id INTEGER,
-      compatibility_score INTEGER,
-      compatibility_classification TEXT,
-      job_analysis_json TEXT,
-      error_message TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (batch_id) REFERENCES import_batches(id) ON DELETE CASCADE,
-      FOREIGN KEY (candidate_id) REFERENCES candidates(id) ON DELETE SET NULL,
-      FOREIGN KEY (duplicate_candidate_id) REFERENCES candidates(id) ON DELETE SET NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS import_batch_events (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      batch_id INTEGER NOT NULL,
-      event_type TEXT NOT NULL,
-      description TEXT,
-      metadata_json TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (batch_id) REFERENCES import_batches(id) ON DELETE CASCADE
-    );
-
-    CREATE TABLE IF NOT EXISTS job_imports (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      tenant_id TEXT NOT NULL,
-      unit_id TEXT NOT NULL,
-      job_id INTEGER,
-      file_name TEXT NOT NULL,
-      file_path TEXT,
-      file_type TEXT,
-      file_size INTEGER,
-      status TEXT DEFAULT 'uploaded', -- 'uploaded', 'extracting_text', 'analyzing_ai', 'ready_for_review', 'created_job', 'error', 'cancelled'
-      extracted_text TEXT,
-      parsed_data_json TEXT,
-      confidence_json TEXT,
-      ai_summary TEXT,
-      error_message TEXT,
-      created_by TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (tenant_id) REFERENCES tenants(id),
-      FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE SET NULL
-    );
-
-    -- Insert Default Develoi Data
-    INSERT OR IGNORE INTO tenants (id, name, document) VALUES ('develoi', 'Develoi Recruitment', '00.000.000/0001-00');
-    
-    INSERT OR IGNORE INTO users (id, tenant_id, full_name, email, password, role) 
-    VALUES ('admin-root', 'develoi', 'Admin Master', 'admin', 'admin', 'admin');
-
-    INSERT OR IGNORE INTO units (id, tenant_id, name, city, state, is_master) VALUES ('master', 'develoi', 'Develoi - Central (Master)', 'Todas', 'N/A', 1);
-    
-    -- Insert default tools if they don't exist
-    INSERT OR IGNORE INTO hr_tools (tenant_id, unit_id, name, type, description, public_slug) 
-    VALUES ('develoi', 'master', 'Avaliação DISC', 'DISC', 'Avaliação comportamental baseada na metodologia DISC.', 'disc-standard');
-    
-    INSERT OR IGNORE INTO hr_tools (tenant_id, unit_id, name, type, description, public_slug) 
-    VALUES ('develoi', 'master', 'Fit Cultural', 'culture-fit', 'Aferição de alinhamento com os valores da Develoi.', 'cultural-fit-master');
-
-    -- Insert default questions for DISC (simplified example)
-    INSERT OR IGNORE INTO hr_tool_questions (tool_id, question_text, question_type, position)
-    SELECT id, 'Como você se comporta sob pressão?', 'text', 0 FROM hr_tools WHERE public_slug = 'disc-standard';
-    INSERT OR IGNORE INTO hr_tool_questions (tool_id, question_text, question_type, position)
-    SELECT id, 'Você prefere trabalhar sozinho ou em equipe?', 'yes-no', 1 FROM hr_tools WHERE public_slug = 'disc-standard';
-    INSERT OR IGNORE INTO hr_tool_questions (tool_id, question_text, question_type, position)
-    SELECT id, 'Em uma escala de 1 a 10, o quanto você gosta de rotinas claras?', 'scale-10', 2 FROM hr_tools WHERE public_slug = 'disc-standard';
-
-    -- Insert default questions for Fit Cultural
-    INSERT OR IGNORE INTO hr_tool_questions (tool_id, question_text, question_type, position)
-    SELECT id, 'O que você mais valoriza em uma empresa?', 'text', 0 FROM hr_tools WHERE public_slug = 'cultural-fit-master';
-    INSERT OR IGNORE INTO hr_tool_questions (tool_id, question_text, question_type, position)
-    SELECT id, 'Você se considera uma pessoa pontual e rigorosa com horários?', 'scale-5', 1 FROM hr_tools WHERE public_slug = 'cultural-fit-master';
-    INSERT OR IGNORE INTO hr_tool_questions (tool_id, question_text, question_type, position)
-    SELECT id, 'Você prefere ambientes estáveis ou em constante mudança?', 'text', 2 FROM hr_tools WHERE public_slug = 'cultural-fit-master';
-
-    INSERT OR IGNORE INTO units (id, tenant_id, name, city, state) VALUES ('tatui', 'develoi', 'Develoi - Tatuí', 'Tatuí', 'SP');
-    INSERT OR IGNORE INTO units (id, tenant_id, name, city, state) VALUES ('curitiba', 'develoi', 'Develoi - Curitiba', 'Curitiba', 'PR');
-    INSERT OR IGNORE INTO units (id, tenant_id, name, city, state) VALUES ('rio', 'develoi', 'Develoi - Rio de Janeiro', 'Rio de Janeiro', 'RJ');
-    INSERT OR IGNORE INTO units (id, tenant_id, name, city, state) VALUES ('bh', 'develoi', 'Develoi - Belo Horizonte', 'Belo Horizonte', 'MG');
-
-    -- Insert Default Sample Job
-    INSERT OR IGNORE INTO jobs (id, tenant_id, unit_id, title, department, city, state, work_model, contract_type, status, is_public, description) 
-    VALUES (1, 'develoi', 'tatui', 'Motorista Carreteiro', 'Logística', 'Tatuí', 'SP', 'Presencial', 'CLT', 'Aberta', 1, 'Vaga para transporte rodoviário de cargas pesadas.');
-  `);
-
-  addColumnIfMissing("tenants", "status", "TEXT DEFAULT 'Ativo'");
-  addColumnIfMissing("tenants", "plan_label", "TEXT DEFAULT 'Trial 30 dias'");
-  addColumnIfMissing("tenants", "validity_days", "INTEGER DEFAULT 30");
-  addColumnIfMissing("tenants", "starts_at", "DATETIME");
-  addColumnIfMissing("tenants", "expires_at", "DATETIME");
-  addColumnIfMissing("tenants", "max_users", "INTEGER DEFAULT 3");
-  addColumnIfMissing("tenants", "access_profile", "TEXT DEFAULT 'admin-mestre'");
-  addColumnIfMissing("users", "access_profile", "TEXT DEFAULT 'rh-operacao'");
-  addColumnIfMissing("users", "permissions_json", "TEXT");
-
-  const tenants = db.prepare(`
-    SELECT id, created_at, starts_at, expires_at, validity_days, plan_label, status, max_users, access_profile
-    FROM tenants
-  `).all() as Array<{
-    id: string;
-    created_at?: string;
-    starts_at?: string | null;
-    expires_at?: string | null;
-    validity_days?: number | null;
-    plan_label?: string | null;
-    status?: string | null;
-    max_users?: number | null;
-    access_profile?: string | null;
-  }>;
-
-  const updateTenantDefaults = db.prepare(`
-    UPDATE tenants
-    SET
-      status = ?,
-      plan_label = ?,
-      validity_days = ?,
-      starts_at = ?,
-      expires_at = ?,
-      max_users = ?,
-      access_profile = ?,
-      updated_at = CURRENT_TIMESTAMP
-    WHERE id = ?
-  `);
-
-  for (const tenant of tenants) {
-    const validityDays = Number(tenant.validity_days || 30);
-    const startsAt = tenant.starts_at || tenant.created_at || toSqlDateTime(new Date());
-    const expiresAt = tenant.expires_at || toSqlDateTime(addDays(startsAt, validityDays));
-    const planLabel =
-      tenant.plan_label ||
-      (validityDays >= 365
-        ? "Anual"
-        : validityDays >= 180
-          ? "Semestral"
-          : validityDays >= 90
-            ? "Trimestral"
-            : "Trial 30 dias");
-
-    updateTenantDefaults.run(
-      tenant.status || "Ativo",
-      planLabel,
-      validityDays,
-      startsAt,
-      expiresAt,
-      Number(tenant.max_users || 3),
-      tenant.access_profile || "admin-mestre",
-      tenant.id
-    );
+  for (const u of [
+    { id: 'tatui', name: 'Develoi - Tatuí', city: 'Tatuí', state: 'SP' },
+    { id: 'curitiba', name: 'Develoi - Curitiba', city: 'Curitiba', state: 'PR' },
+    { id: 'rio', name: 'Develoi - Rio de Janeiro', city: 'Rio de Janeiro', state: 'RJ' },
+    { id: 'bh', name: 'Develoi - Belo Horizonte', city: 'Belo Horizonte', state: 'MG' },
+  ]) {
+    await prisma.unit.upsert({ where: { id: u.id }, update: {}, create: { ...u, tenant_id: 'develoi' } });
   }
 
-  db.prepare(`
-    UPDATE users
-    SET access_profile = CASE
-      WHEN id = 'admin-root' THEN 'custom'
-      WHEN role = 'admin' THEN COALESCE(access_profile, 'admin-mestre')
-      ELSE COALESCE(access_profile, 'rh-operacao')
-    END
-  `).run();
+  const discTool = await prisma.hrTool.upsert({
+    where: { public_slug: 'disc-standard' },
+    update: {},
+    create: { tenant_id: 'develoi', unit_id: 'master', name: 'Avaliação DISC', type: 'DISC', description: 'Avaliação DISC.', public_slug: 'disc-standard', is_public: true },
+  });
 
-  db.prepare("UPDATE users SET permissions_json = ? WHERE id = 'admin-root'").run(
-    ROOT_PERMISSIONS_JSON
-  );
-  db.prepare(`
-    UPDATE users
-    SET permissions_json = COALESCE(permissions_json, ?)
-    WHERE role = 'admin' AND id <> 'admin-root'
-  `).run(ADMIN_PERMISSIONS_JSON);
-  db.prepare(`
-    UPDATE users
-    SET permissions_json = COALESCE(permissions_json, ?)
-    WHERE permissions_json IS NULL
-  `).run(OPERATION_PERMISSIONS_JSON);
+  const cultureTool = await prisma.hrTool.upsert({
+    where: { public_slug: 'cultural-fit-master' },
+    update: {},
+    create: { tenant_id: 'develoi', unit_id: 'master', name: 'Fit Cultural', type: 'culture-fit', description: 'Fit Cultural.', public_slug: 'cultural-fit-master', is_public: true },
+  });
+
+  if (await prisma.hrToolQuestion.count({ where: { tool_id: discTool.id } }) === 0) {
+    await prisma.hrToolQuestion.createMany({ data: [
+      { tool_id: discTool.id, question_text: 'Como você se comporta sob pressão?', question_type: 'text', position: 0 },
+      { tool_id: discTool.id, question_text: 'Você prefere trabalhar sozinho ou em equipe?', question_type: 'yes-no', position: 1 },
+      { tool_id: discTool.id, question_text: 'Em uma escala de 1 a 10, rotinas claras?', question_type: 'scale-10', position: 2 },
+    ]});
+  }
+
+  if (await prisma.hrToolQuestion.count({ where: { tool_id: cultureTool.id } }) === 0) {
+    await prisma.hrToolQuestion.createMany({ data: [
+      { tool_id: cultureTool.id, question_text: 'O que você mais valoriza em uma empresa?', question_type: 'text', position: 0 },
+      { tool_id: cultureTool.id, question_text: 'Você é pontual?', question_type: 'scale-5', position: 1 },
+      { tool_id: cultureTool.id, question_text: 'Prefere ambientes estáveis ou em mudança?', question_type: 'text', position: 2 },
+    ]});
+  }
+
+  if (await prisma.job.count({ where: { id: 1 } }) === 0) {
+    await prisma.job.create({ data: {
+      id: 1, tenant_id: 'develoi', unit_id: 'tatui', title: 'Motorista Carreteiro',
+      department: 'Logística', city: 'Tatuí', state: 'SP', work_model: 'Presencial',
+      contract_type: 'CLT', status: 'Aberta', is_public: true,
+      description: 'Vaga para transporte rodoviário de cargas pesadas.',
+    }});
+  }
+
+  await prisma.user.updateMany({ where: { id: 'admin-root' }, data: { permissions_json: ROOT_PERMISSIONS_JSON, access_profile: 'custom' } });
+  await prisma.user.updateMany({ where: { role: 'admin', id: { not: 'admin-root' }, permissions_json: null }, data: { permissions_json: ADMIN_PERMISSIONS_JSON, access_profile: 'admin-mestre' } });
+  await prisma.user.updateMany({ where: { role: 'user', permissions_json: null }, data: { permissions_json: OPERATION_PERMISSIONS_JSON } });
 }
-
-export default db;

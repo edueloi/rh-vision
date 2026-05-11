@@ -261,7 +261,7 @@ export default function Dashboard() {
               <PanelCard title="Compatibilidade Média" icon={BarChart3} description="Desempenho da IA por vaga aberta">
                  <div className="h-[250px] w-full">
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={data.charts.compatibilityMédia}>
+                      <BarChart data={data.charts.compatibilityMedia}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f4f4f5" />
                         <XAxis dataKey="name" fontSize={8} fontWeight={700} axisLine={false} tickLine={false} tick={{ fill: '#a1a1aa' }} />
                         <YAxis fontSize={8} fontWeight={700} axisLine={false} tickLine={false} tick={{ fill: '#a1a1aa' }} unit="%" />
@@ -270,7 +270,7 @@ export default function Dashboard() {
                            cursor={{ fill: '#fafafa' }}
                         />
                         <Bar dataKey="value" radius={[8, 8, 0, 0]}>
-                           {data.charts.compatibilityMédia.map((entry: any, index: number) => (
+                           {data.charts.compatibilityMedia.map((entry: any, index: number) => (
                             <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                           ))}
                         </Bar>

@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { 
   Upload, 
   FileText, 
@@ -110,6 +111,8 @@ export default function ImportResumes() {
   const [batchFiles, setBatchFiles] = useState<ImportFile[]>([]);
   const [selectedFile, setSelectedFile] = useState<ImportFile | null>(null);
   const [menuOpenId, setMenuOpenId] = useState<number | null>(null);
+  const [menuPosition, setMenuPosition] = useState<{ top: number, left: number } | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [stats, setStats] = useState<any>(null);
   const [availableJobs, setAvailableJobs] = useState<Job[]>([]);
@@ -139,6 +142,7 @@ export default function ImportResumes() {
   const [uploadQueue, setUploadQueue] = useState<{file: File, progress: number, status: 'pending' | 'uploading' | 'completed' | 'error'}[]>([]);
   const [dragging, setDragging] = useState(false);
   const [showCsvImport, setShowCsvImport] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: number | number[], type: 'batch' | 'file' | 'bulk-file', title: string } | null>(null);
 
   useEffect(() => {
     fetchDashboard();
@@ -407,7 +411,7 @@ export default function ImportResumes() {
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between md:justify-end gap-4 sm:gap-8 pt-4 md:pt-0 border-t md:border-t-0 border-zinc-50">
+                    <div className="flex items-center justify-between md:justify-end gap-4 sm:gap-6 pt-4 md:pt-0 border-t md:border-t-0 border-zinc-50">
                       <div className="flex items-center gap-4 sm:gap-8">
                          <div className="text-center">
                             <p className="text-sm font-black text-zinc-900 tracking-tight">{batch.total_files}</p>
@@ -422,8 +426,20 @@ export default function ImportResumes() {
                             <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Falhas</p>
                          </div>
                       </div>
-                      <div className="w-10 h-10 rounded-xl bg-zinc-50 flex items-center justify-center text-zinc-300 group-hover:bg-develoi-gold group-hover:text-white transition-all">
-                        <ChevronRight size={20} />
+                      
+                      <div className="flex items-center gap-2">
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); deleteBatch(batch.id); }}
+                          className="w-10 h-10 rounded-xl bg-white border border-zinc-100 flex items-center justify-center text-zinc-300 hover:bg-red-50 hover:text-red-500 hover:border-red-100 transition-all active:scale-90"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                        <div 
+                          onClick={() => openBatchDetails(batch)}
+                          className="w-10 h-10 rounded-xl bg-zinc-50 flex items-center justify-center text-zinc-300 group-hover:bg-develoi-gold group-hover:text-white transition-all"
+                        >
+                          <ChevronRight size={20} />
+                        </div>
                       </div>
                     </div>
                   </motion.div>
@@ -629,13 +645,14 @@ export default function ImportResumes() {
               </div>
               <div className="text-center">
                  <h4 className="text-xl font-black text-zinc-900 tracking-tight">Solte seus currículos aqui</h4>
-                 <p className="text-[11px] font-black text-zinc-400 uppercase tracking-widest mt-2 max-w-sm mx-auto">Suporte para PDF, DOCX e Imagens. Processamento automático via IA Vision.</p>
+                 <p className="text-[11px] font-black text-zinc-400 uppercase tracking-widest mt-2 max-w-sm mx-auto">Suporte para PDF, DOCX, TXT e XLSX. Pré-análise automática antes do cadastro.</p>
               </div>
               
               <div className="flex flex-col sm:flex-row items-center gap-4">
                  <input 
                    type="file" 
                    multiple 
+                   accept=".pdf,.docx,.txt,.csv,.xls,.xlsx"
                    className="hidden" 
                    id="file-upload" 
                    onChange={(e) => {
@@ -815,19 +832,105 @@ export default function ImportResumes() {
     }
   };
 
-  const deleteFile = async (fileId: number) => {
-    if (!confirm("Tem certeza que deseja excluir este arquivo?")) return;
+  const deleteFile = (fileId: number) => {
+    setDeleteConfirm({
+      id: fileId,
+      type: 'file',
+      title: 'Excluir este arquivo?'
+    });
+  };
+
+  const deleteBatch = (batchId: number) => {
+    setDeleteConfirm({
+      id: batchId,
+      type: 'batch',
+      title: 'Excluir lote completo?'
+    });
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteConfirm) return;
+    const { id, type } = deleteConfirm;
+
     try {
-      const res = await fetch(`/api/imports/files/${fileId}`, { method: 'DELETE' });
-      if (res.ok) {
-        toast.success("Arquivo excluído!");
-        setMenuOpenId(null);
+      if (type === 'batch') {
+        const batchId = id as number;
+        const res = await fetch(`/api/imports/${batchId}`, { method: 'DELETE' });
+        if (res.ok) {
+          toast.success("Lote excluído com sucesso!");
+          fetchDashboard();
+          const res2 = await fetch(`/api/imports?tenantId=${tenantId}`);
+          const data = await res2.json();
+          setBatches(data);
+          if (selectedBatch?.id === batchId) setView('dashboard');
+        }
+      } else if (type === 'file') {
+        const fileId = id as number;
+        const res = await fetch(`/api/imports/files/${fileId}`, { method: 'DELETE' });
+        if (res.ok) {
+          toast.success("Arquivo excluído!");
+          if (selectedBatch) openBatchDetails(selectedBatch);
+        }
+      } else if (type === 'bulk-file') {
+        const ids = id as number[];
+        await Promise.all(ids.map(fileId => fetch(`/api/imports/files/${fileId}`, { method: 'DELETE' })));
+        toast.success("Arquivos excluídos com sucesso!");
+        setSelectedFileIds([]);
         if (selectedBatch) openBatchDetails(selectedBatch);
       }
     } catch (error) {
-      toast.error("Erro ao excluir arquivo.");
+      toast.error("Erro ao realizar a exclusão.");
+      console.error(error);
+    } finally {
+      setDeleteConfirm(null);
     }
   };
+
+  const DeleteModal = () => (
+    <AnimatePresence>
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setDeleteConfirm(null)}
+            className="absolute inset-0 bg-zinc-900/40 backdrop-blur-sm"
+          />
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            className="bg-white rounded-[40px] p-10 max-w-md w-full relative z-10 shadow-2xl border border-zinc-100"
+          >
+            <div className="flex flex-col items-center text-center">
+              <div className="w-20 h-20 bg-red-50 text-red-500 rounded-[30px] flex items-center justify-center mb-6 shadow-inner">
+                <Trash2 size={32} />
+              </div>
+              <h3 className="text-xl font-black text-zinc-900 uppercase tracking-tighter mb-4">{deleteConfirm.title}</h3>
+              <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest leading-relaxed mb-10">
+                Esta ação é irreversível. Todos os dados vinculados a este registro serão removidos permanentemente dos nossos servidores.
+              </p>
+              <div className="grid grid-cols-2 gap-4 w-full">
+                <button 
+                  onClick={() => setDeleteConfirm(null)}
+                  className="py-5 bg-zinc-50 text-zinc-400 hover:text-zinc-900 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  onClick={confirmDelete}
+                  className="py-5 bg-red-500 text-white hover:bg-red-600 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-red-500/20 transition-all active:scale-95"
+                >
+                  Confirmar Exclusão
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
+  );
 
   const handleExportCSV = () => {
     if (!batchFiles.length) return;
@@ -897,17 +1000,13 @@ export default function ImportResumes() {
     }
   };
 
-  const handleBulkDelete = async () => {
-    if (!confirm(`Excluir ${selectedFileIds.length} arquivos selecionados?`)) return;
-    try {
-      // In a real app we'd have a bulk endpoint
-      await Promise.all(selectedFileIds.map(id => fetch(`/api/imports/files/${id}`, { method: 'DELETE' })));
-      toast.success("Arquivos excluídos com sucesso!");
-      setSelectedFileIds([]);
-      if (selectedBatch) openBatchDetails(selectedBatch);
-    } catch (error) {
-      toast.error("Erro nas ações em massa.");
-    }
+  const handleBulkDelete = () => {
+    if (selectedFileIds.length === 0) return;
+    setDeleteConfirm({
+      id: selectedFileIds,
+      type: 'bulk-file',
+      title: `Excluir ${selectedFileIds.length} arquivos?`
+    });
   };
 
   const renderDetails = () => (
@@ -985,67 +1084,58 @@ export default function ImportResumes() {
         />
       </StatGrid>
 
-      <div className="bg-white border border-zinc-100 rounded-[40px] shadow-2xl shadow-zinc-200/40 relative overflow-hidden">
-         <div className="p-8 md:p-10 border-b border-zinc-100 bg-zinc-50/30 flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div className="flex items-center gap-4">
-               <div className="w-1.5 h-6 bg-develoi-navy rounded-full" />
-               <h3 className="text-sm font-black text-zinc-900 uppercase tracking-widest flex flex-wrap items-center gap-3">
-                  Monitoramento em Tempo Real
-                  {(selectedBatch?.status === 'processing' || selectedBatch?.status === 'uploaded') && (
-                     <div className="flex items-center gap-2 px-3 py-1 bg-develoi-navy/10 rounded-full">
-                        <Loader2 size={12} className="animate-spin text-develoi-navy" />
-                        <span className="text-[9px] text-develoi-navy font-black uppercase tracking-widest">IA analisando currículos...</span>
-                     </div>
-                  )}
-               </h3>
-            </div>
-            <div className="flex items-center gap-3">
-                <div className="relative">
-                   <div className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400">
-                      <Search size={16} />
-                   </div>
-                   <input 
-                    type="text"
-                    placeholder="Buscar no lote..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 pr-4 py-3 bg-white border border-zinc-100 rounded-xl text-xs font-bold outline-none focus:border-develoi-navy w-48 md:w-64 transition-all shadow-sm"
-                   />
-                </div>
-                <select 
-                  value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value)}
-                  className="p-3 bg-white border border-zinc-100 text-zinc-500 text-[10px] font-black uppercase tracking-widest rounded-xl shadow-sm outline-none cursor-pointer"
-                >
-                   <option value="all">Todos Status</option>
-                   <option value="completed">Sucesso</option>
-                   <option value="error">Falha</option>
-                   <option value="duplicate">Refil</option>
-                </select>
-                <div className="h-8 w-[1px] bg-zinc-200 mx-2" />
-                <button 
-                  onClick={handleExportCSV}
-                  title="Exportar CSV"
-                  className="p-3 bg-white border border-zinc-100 text-zinc-400 hover:text-develoi-navy rounded-xl shadow-sm hover:border-develoi-navy transition-all"
-                >
-                  <Download size={18} />
-                </button>
-                <button 
-                  onClick={handleExportJSON}
-                  title="Exportar JSON"
-                  className="p-3 bg-white border border-zinc-100 text-zinc-400 hover:text-develoi-navy rounded-xl shadow-sm hover:border-develoi-navy transition-all"
-                >
-                  <FileJson size={18} />
-                </button>
-                <button 
-                  onClick={() => selectedBatch && openBatchDetails(selectedBatch)}
-                  className="p-3 bg-develoi-navy text-white rounded-xl hover:bg-develoi-gold transition-all shadow-lg active:scale-90"
-                >
-                  <RefreshCw size={18} />
-                </button>
-            </div>
-         </div>
-
+      <PanelCard 
+        padding={false}
+        className="shadow-2xl shadow-zinc-200/40 relative overflow-hidden"
+        title="Monitoramento em Tempo Real"
+        icon={Zap}
+        action={
+          <div className="flex items-center gap-3">
+              {(selectedBatch?.status === 'processing' || selectedBatch?.status === 'uploaded') && (
+                 <div className="flex items-center gap-2 px-3 py-1 bg-develoi-navy/10 rounded-full">
+                    <Loader2 size={12} className="animate-spin text-develoi-navy" />
+                    <span className="text-[9px] text-develoi-navy font-black uppercase tracking-widest">IA analisando...</span>
+                 </div>
+              )}
+              <div className="relative">
+                 <div className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400">
+                    <Search size={16} />
+                 </div>
+                 <input 
+                  type="text"
+                  placeholder="Buscar no lote..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 pr-4 py-3 bg-zinc-50 border border-zinc-100 rounded-xl text-xs font-bold outline-none focus:border-develoi-navy w-48 md:w-64 transition-all"
+                 />
+              </div>
+              <select 
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="p-3 bg-zinc-50 border border-zinc-100 text-zinc-500 text-[10px] font-black uppercase tracking-widest rounded-xl outline-none cursor-pointer"
+              >
+                 <option value="all">Status</option>
+                 <option value="completed">Sucesso</option>
+                 <option value="error">Falha</option>
+                 <option value="duplicate">Refil</option>
+              </select>
+              <div className="h-8 w-[1px] bg-zinc-200 mx-2" />
+              <button 
+                onClick={handleExportCSV}
+                title="Exportar CSV"
+                className="p-3 bg-white border border-zinc-200 text-zinc-400 rounded-2xl shadow-sm hover:border-develoi-navy transition-all"
+              >
+                <Download size={18} />
+              </button>
+              <button 
+                onClick={() => selectedBatch && openBatchDetails(selectedBatch)}
+                className="p-3 bg-develoi-navy text-white rounded-xl hover:bg-develoi-gold transition-all shadow-lg active:scale-90"
+              >
+                <RefreshCw size={18} />
+              </button>
+          </div>
+        }
+      >
          {/* Bulk Actions Bar */}
          <AnimatePresence>
             {selectedFileIds.length > 0 && (
@@ -1252,27 +1342,31 @@ export default function ImportResumes() {
                                  </button>
                                  <div className="relative">
                                    <button 
-                                    onClick={() => setMenuOpenId(menuOpenId === file.id ? null : file.id)}
+                                    onClick={(e) => {
+                                       const rect = e.currentTarget.getBoundingClientRect();
+                                       setMenuPosition({ top: rect.bottom, left: rect.left });
+                                       setMenuOpenId(menuOpenId === file.id ? null : file.id);
+                                    }}
                                     className={cn(
-                                      "p-3 rounded-xl transition-all shadow-sm active:scale-95",
+                                      "p-3 rounded-xl transition-all shadow-sm active:scale-90",
                                       menuOpenId === file.id ? "bg-develoi-navy text-white" : "bg-white border border-zinc-200 text-zinc-400 hover:text-zinc-900"
                                     )}
                                    >
                                     <MoreVertical size={16} />
                                    </button>
                                    
-                                   <AnimatePresence>
-                                     {menuOpenId === file.id && (
-                                       <>
+                                   {menuOpenId === file.id && menuPosition && createPortal(
+                                      <>
                                          <div 
-                                          className="fixed inset-0 z-[60]" 
+                                          className="fixed inset-0 z-[160]" 
                                           onClick={() => setMenuOpenId(null)}
                                          />
                                          <motion.div 
                                           initial={{ opacity: 0, y: 10, scale: 0.95 }}
                                           animate={{ opacity: 1, y: 0, scale: 1 }}
                                           exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                                          className="absolute right-0 top-full mt-2 w-52 bg-white border border-zinc-100 rounded-3xl shadow-2xl z-[70] py-3 overflow-hidden"
+                                          style={{ top: menuPosition.top + 8, left: menuPosition.left - 160 }}
+                                          className="fixed w-52 bg-white border border-zinc-100 rounded-3xl shadow-2xl z-[170] py-3 overflow-hidden"
                                          >
                                             <div className="px-5 py-2 border-b border-zinc-50 mb-2">
                                                <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Ações Rápidas</p>
@@ -1281,18 +1375,18 @@ export default function ImportResumes() {
                                               onClick={() => { reprocessFile(file.id); setMenuOpenId(null); }}
                                               className="w-full px-5 py-3 text-left text-[10px] font-black uppercase tracking-widest text-zinc-600 hover:bg-zinc-50 hover:text-develoi-navy flex items-center gap-3 transition-colors"
                                             >
-                                              <RefreshCw size={14} /> Reprocessar
+                                              <RefreshCw size={14} /> Reprocessar via IA
                                             </button>
                                             <button 
                                               onClick={() => { deleteFile(file.id); setMenuOpenId(null); }}
                                               className="w-full px-5 py-3 text-left text-[10px] font-black uppercase tracking-widest text-red-500 hover:bg-red-50 flex items-center gap-3 transition-colors"
                                             >
-                                              <Trash2 size={14} /> Eliminar
+                                              <Trash2 size={14} /> Excluir Registro
                                             </button>
                                          </motion.div>
-                                       </>
-                                     )}
-                                   </AnimatePresence>
+                                      </>,
+                                      document.body
+                                   )}
                                  </div>
                               </div>
                            </td>
@@ -1303,7 +1397,7 @@ export default function ImportResumes() {
                </tbody>
             </table>
          </div>
-      </div>
+      </PanelCard>
     </motion.div>
   );
 
@@ -1478,11 +1572,11 @@ export default function ImportResumes() {
                       </div>
                       <div className="relative z-10">
                         <div className="flex items-center gap-3 mb-6 text-develoi-gold">
-                          <Brain size={20} className="animate-pulse" />
-                          <h4 className="text-[10px] font-black uppercase tracking-[0.3em]">ANÁLISE E FIT DA AURORA</h4>
+                           <Brain size={20} className="animate-pulse" />
+                           <h4 className="text-[10px] font-black uppercase tracking-[0.3em]">ANÁLISE E FIT DA AURORA</h4>
                         </div>
                         <p className="text-base font-medium text-zinc-300 leading-relaxed italic">
-                          "{JSON.parse(selectedFile.parsed_data_json).summary}"
+                           "{JSON.parse(selectedFile.parsed_data_json).summary}"
                         </p>
                       </div>
                     </div>
@@ -1490,63 +1584,63 @@ export default function ImportResumes() {
 
                   <div className="pt-10 border-t border-zinc-100">
                     <div className="flex justify-between items-end mb-8">
-                       <div>
-                          <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-develoi-gold mb-1">MATCH PROATIVO DA AURORA</h4>
-                          <h3 className="text-xl font-black text-zinc-900 uppercase tracking-tighter">Oportunidades Sugeridas</h3>
-                       </div>
-                       {isMatching && (
-                          <div className="flex items-center gap-2 text-[9px] font-black text-develoi-gold uppercase tracking-[0.2em] animate-pulse bg-develoi-gold/10 px-4 py-2 rounded-full border border-develoi-gold/20">
-                             <Sparkles size={12} className="animate-spin" /> Calculando Afinidade...
-                          </div>
-                       )}
+                        <div>
+                           <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-develoi-gold mb-1">MATCH PROATIVO DA AURORA</h4>
+                           <h3 className="text-xl font-black text-zinc-900 uppercase tracking-tighter">Oportunidades Sugeridas</h3>
+                        </div>
+                        {isMatching && (
+                           <div className="flex items-center gap-2 text-[9px] font-black text-develoi-gold uppercase tracking-[0.2em] animate-pulse bg-develoi-gold/10 px-4 py-2 rounded-full border border-develoi-gold/20">
+                              <Sparkles size={12} className="animate-spin" /> Calculando Afinidade...
+                           </div>
+                        )}
                     </div>
 
                     <div className="grid gap-4">
-                       {aiSuggestions.length > 0 ? (
-                          aiSuggestions.map((sug, i) => {
-                             const job = availableJobs.find(j => j.id === sug.job_id);
-                             return (
-                                <motion.div 
-                                  initial={{ opacity: 0, x: -20 }}
-                                  animate={{ opacity: 1, x: 0 }}
-                                  transition={{ delay: i * 0.1 }}
-                                  key={i} 
-                                  className="p-6 bg-white border border-zinc-100 rounded-[32px] hover:border-develoi-gold hover:shadow-2xl hover:shadow-develoi-gold/10 transition-all group relative overflow-hidden"
-                                >
-                                   <div className="absolute top-0 right-0 w-32 h-32 bg-develoi-gold/5 rounded-full -mr-16 -mt-16 blur-3xl group-hover:bg-develoi-gold/10 transition-all" />
-                                   
-                                   <div className="flex justify-between items-start relative z-10">
-                                      <div className="flex items-center gap-5">
-                                         <div className="w-12 h-12 bg-zinc-50 rounded-2xl flex items-center justify-center text-zinc-400 group-hover:bg-develoi-gold group-hover:text-white transition-all shadow-inner">
-                                            <Briefcase size={22} />
-                                         </div>
-                                         <div>
-                                            <p className="text-sm font-black text-zinc-900 uppercase tracking-tight">{job?.title || 'Vaga Offline'}</p>
-                                            <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mt-1 flex items-center gap-2">
-                                              {job?.city}/{job?.state} 
-                                              <span className="w-1 h-1 bg-zinc-200 rounded-full" />
-                                              <span className="text-develoi-gold">{sug.score}% Match de Perfil</span>
-                                            </p>
-                                         </div>
-                                      </div>
-                                      <div className="px-4 py-2 bg-emerald-50 text-emerald-600 rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center gap-2 border border-emerald-100 shadow-sm">
-                                         <Star size={12} fill="currentColor" /> Recomendação Especial
-                                      </div>
-                                   </div>
-                                   <div className="mt-5 p-5 bg-zinc-50/50 rounded-2xl border border-dashed border-zinc-200 group-hover:bg-amber-50/30 group-hover:border-develoi-gold/20 transition-all">
-                                      <p className="text-[11px] font-bold text-zinc-500 leading-relaxed italic group-hover:text-zinc-700">"{sug.match_reason}"</p>
-                                   </div>
-                                </motion.div>
-                             );
-                          })
-                       ) : !isMatching && (
-                          <div className="p-12 text-center bg-zinc-50/50 rounded-[40px] border-2 border-dotted border-zinc-200">
-                             <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center text-zinc-200 mx-auto mb-4">
-                                <Zap size={32} />
-                             </div>
-                             <p className="text-xs font-black text-zinc-400 uppercase tracking-widest max-w-xs mx-auto">Nenhuma vaga aberta compatível ou todas já vinculadas ao sistema.</p>
-                          </div>
-                       )}
+                        {aiSuggestions.length > 0 ? (
+                           aiSuggestions.map((sug, i) => {
+                              const job = availableJobs.find(j => j.id === sug.job_id);
+                              return (
+                                 <motion.div 
+                                   initial={{ opacity: 0, x: -20 }}
+                                   animate={{ opacity: 1, x: 0 }}
+                                   transition={{ delay: i * 0.1 }}
+                                   key={i} 
+                                   className="p-6 bg-white border border-zinc-100 rounded-[32px] hover:border-develoi-gold hover:shadow-2xl hover:shadow-develoi-gold/10 transition-all group relative overflow-hidden"
+                                 >
+                                    <div className="absolute top-0 right-0 w-32 h-32 bg-develoi-gold/5 rounded-full -mr-16 -mt-16 blur-3xl group-hover:bg-develoi-gold/10 transition-all" />
+                                    
+                                    <div className="flex justify-between items-start relative z-10">
+                                       <div className="flex items-center gap-5">
+                                          <div className="w-12 h-12 bg-zinc-50 rounded-2xl flex items-center justify-center text-zinc-400 group-hover:bg-develoi-gold group-hover:text-white transition-all shadow-inner">
+                                             <Briefcase size={22} />
+                                          </div>
+                                          <div>
+                                             <p className="text-sm font-black text-zinc-900 uppercase tracking-tight">{job?.title || 'Vaga Offline'}</p>
+                                             <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mt-1 flex items-center gap-2">
+                                               {job?.city}/{job?.state} 
+                                               <span className="w-1 h-1 bg-zinc-200 rounded-full" />
+                                               <span className="text-develoi-gold">{sug.score}% Match de Perfil</span>
+                                             </p>
+                                          </div>
+                                       </div>
+                                       <div className="px-4 py-2 bg-emerald-50 text-emerald-600 rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center gap-2 border border-emerald-100 shadow-sm">
+                                          <Star size={12} fill="currentColor" /> Recomendação Especial
+                                       </div>
+                                    </div>
+                                    <div className="mt-5 p-5 bg-zinc-50/50 rounded-2xl border border-dashed border-zinc-200 group-hover:bg-amber-50/30 group-hover:border-develoi-gold/20 transition-all">
+                                       <p className="text-[11px] font-bold text-zinc-500 leading-relaxed italic group-hover:text-zinc-700">"{sug.match_reason}"</p>
+                                    </div>
+                                 </motion.div>
+                              );
+                           })
+                        ) : !isMatching && (
+                           <div className="p-12 text-center bg-zinc-50/50 rounded-[40px] border-2 border-dotted border-zinc-200">
+                              <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center text-zinc-200 mx-auto mb-4">
+                                 <Zap size={32} />
+                              </div>
+                              <p className="text-xs font-black text-zinc-400 uppercase tracking-widest max-w-xs mx-auto">Nenhuma vaga aberta compatível ou todas já vinculadas ao sistema.</p>
+                           </div>
+                        )}
                     </div>
                   </div>
                 </div>
@@ -1558,8 +1652,8 @@ export default function ImportResumes() {
                       <Zap className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-develoi-gold" size={24} />
                     </div>
                     <div className="text-center">
-                       <p className="text-[11px] font-black text-zinc-900 uppercase tracking-[0.3em]">Sincronizando com Aurora Engine...</p>
-                       <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mt-2">Isso pode levar alguns segundos dependendo da complexidade do arquivo.</p>
+                        <p className="text-[11px] font-black text-zinc-900 uppercase tracking-[0.3em]">Sincronizando com Aurora Engine...</p>
+                        <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mt-2">Isso pode levar alguns segundos dependendo da complexidade do arquivo.</p>
                     </div>
                   </div>
                 )
@@ -1766,6 +1860,7 @@ export default function ImportResumes() {
           }
         }
       `}} />
+      <DeleteModal />
     </PageWrapper>
   );
 }
