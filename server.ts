@@ -1,4 +1,4 @@
-import dotenv from 'dotenv';
+﻿import dotenv from 'dotenv';
 import express from 'express';
 import { createServer as createHttpServer } from 'http';
 import cors from 'cors';
@@ -8,8 +8,6 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import db, { initDb, prisma } from './src/lib/db';
 import OpenAI from 'openai';
-import { createRequire } from 'module';
-const require = createRequire(import.meta.url);
 import multer from 'multer';
 import mammoth from 'mammoth';
 import * as xlsx from 'xlsx';
@@ -345,10 +343,40 @@ async function saveImportedJobFile(importId: number | string, tenantId: string, 
 }
 
 async function extractPdfTextFromBuffer(buffer: Buffer) {
+  let parser: {
+    getText: () => Promise<{ text?: string }>;
+    destroy?: () => Promise<void> | void;
+  } | null = null;
   console.log('[PDF] Iniciando extração de texto do buffer...');
   try {
-    const pdf = require('pdf-parse');
-    const data = await pdf(buffer);
+    const pdfModule: any = await import('pdf-parse');
+    const legacyParse =
+      typeof pdfModule === 'function'
+        ? pdfModule
+        : typeof pdfModule?.default === 'function'
+          ? pdfModule.default
+          : null;
+
+    let data: { text?: string } | null = null;
+
+    if (legacyParse) {
+      data = await legacyParse(buffer);
+    } else {
+      const PDFParseClass =
+        typeof pdfModule?.PDFParse === 'function'
+          ? pdfModule.PDFParse
+          : typeof pdfModule?.default?.PDFParse === 'function'
+            ? pdfModule.default.PDFParse
+            : null;
+
+      if (!PDFParseClass) {
+        throw new Error('Modulo pdf-parse sem API compativel para extracao de texto.');
+      }
+
+      parser = new PDFParseClass({ data: buffer });
+      data = await parser.getText();
+    }
+
     const text = data?.text || '';
     
     console.log('[PDF] Texto extraído com sucesso. Tamanho:', text.length);
@@ -356,6 +384,12 @@ async function extractPdfTextFromBuffer(buffer: Buffer) {
   } catch (error: any) {
     console.error('[PDF] Erro ao ler PDF:', error);
     throw new Error('Falha ao processar arquivo PDF: ' + error.message);
+  } finally {
+    if (parser?.destroy) {
+      await Promise.resolve(parser.destroy()).catch((destroyError) => {
+        console.warn('[PDF] Falha ao liberar parser de PDF:', destroyError);
+      });
+    }
   }
 }
 
@@ -423,7 +457,7 @@ function normalizeStringList(value: unknown) {
 
   if (typeof value === 'string') {
     return value
-      .split(/[,;\nÃƒÂ¢ââ€šÂ¬Ã‚Â¢]/)
+      .split(/[,;\n•]/)
       .map((item) => item.trim())
       .filter(Boolean);
   }
@@ -2143,22 +2177,21 @@ Retorne EXATAMENTE este JSON:
       
       const prompt = `
         Você é Aurora, assistente de recrutamento inteligente da Develoi.
-        Sua missão é extrair ABSOLUTAMENTE TUDO do currículo abaixo.
-        NÃƒO PULE NENHUMA SEÃ‡ÃƒO. Leia CADA LINHA do currículo.
+        Sua missão é extrair ABSOLUTAMENTE TUDO do currículo abaixo com o máximo de inteligência e precisão.
+        NÃO PULE NENHUMA SEÇÃO. Leia CADA LINHA do currículo.
         Se um campo não existir no currículo, retorne null. Mas se existir, EXTRAIA.
 
-        REGRAS:
-        - "experiences_list": ARRAY obrigatório com CADA emprego/experiência. Inclua TODOS, mesmo estágios e freelances. Campos: company, role, period, location, description (atividades resumidas em 1-2 frases).
-        - "education_list": ARRAY com CADA formação. Inclua pós-graduação, MBA, graduação, técnico. Campos: course, institution, status ("Concluído", "Em andamento", "Trancado", "Incompleto"), degree_type (Bacharelado, Licenciatura, Tecnólogo, Especialização, MBA, Mestrado, Doutorado, Técnico, Outro), start_date (formato MM/YYYY se possível), end_date (formato MM/YYYY se possível).
-        - "certifications_list": ARRAY com CADA curso ou certificação mencionada. Campos: name, institution, year.
-        - "projects_list": ARRAY com projetos relevantes/portfólio mencionados. Campos: name (nome do projeto), description (o que é), technologies (tecnologias usadas, string separada por vírgula).
-        - "languages_list": ARRAY com idiomas. Campos: language, level.
-        - "hard_skills": String com TODAS as tecnologias, ferramentas e competências técnicas. Separe por vírgula. Inclua frameworks, linguagens, bancos, ferramentas, etc.
-        - "soft_skills": String com habilidades comportamentais inferidas. Separe por vírgula.
-        - "professional_summary": Resumo profissional baseado no currículo (2-3 parágrafos).
-        - "highlights": String com os destaques/diferenciais do candidato, separados por " | ".
-        - "experience_years": Número com total de anos de experiência.
-        - "education_level": Um entre: "Ensino Fundamental", "Ensino Médio", "Técnico", "Ensino Superior Incompleto", "Ensino Superior Completo", "Pós / MBA / Mestrado".
+        REGRAS ESPECÍFICAS DE INTELIGÊNCIA:
+        1. CARGO ATUAL/DESEJADO: Identifique o cargo principal no cabeçalho ou resumo (ex: "Engenheiro de Software Full Stack"). Se houver um título claro no topo do currículo, esse é o "desired_position".
+        2. AGRUPAMENTO POR EMPRESA: Se o candidato teve múltiplas promoções ou cargos na MESMA empresa (ex: Estagiário -> Júnior -> Pleno), agrupe-os em um único bloco de experiência se possível, ou garanta que o nome da empresa seja IDÊNTICO para facilitar a leitura. No campo "period", some o tempo total ou descreva a evolução.
+        3. DETALHAMENTO DE PROJETOS: Se houver uma seção de projetos ou portfólio, extraia as tecnologias e o papel do candidato.
+
+        CAMPOS JSON:
+        - "experiences_list": ARRAY com emprego/experiência. Campos: company, role, period, location, description (atividades resumidas).
+        - "education_list": ARRAY com formação. Campos: course, institution, status, degree_type, start_date, end_date.
+        - "hard_skills": String com TODAS as tecnologias e ferramentas (ex: Angular, Node.js, TypeScript, PostgreSQL).
+        - "experience_years": Número total de anos de carreira.
+        - "desired_position": O título profissional principal do candidato (ex: Engenheiro de Software Full Stack).
 
         Texto do Currículo:
         ${text}
@@ -2256,17 +2289,18 @@ Retorne EXATAMENTE este JSON:
     }
 
     if (search) {
-      query += ' AND (full_name LIKE ? OR email LIKE ? OR phone LIKE ? OR desired_position LIKE ? OR hard_skills LIKE ? OR summary LIKE ?)';
+      query += ' AND (full_name LIKE ? OR email LIKE ? OR phone LIKE ? OR desired_position LIKE ? OR hard_skills LIKE ? OR professional_summary LIKE ?)';
       params.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`);
     }
 
-    query += ' ORDER BY created_at DESC';
+    query += ' ORDER BY full_name ASC';
 
     try {
       const candidates = await db.prepare(query).all(...params);
       res.json(candidates);
-    } catch (error) {
-      res.status(500).json({ error: 'Failed to fetch candidates' });
+    } catch (error: any) {
+      console.error('[GET /api/candidates] SQL ERROR:', error?.message, '\nQUERY:', query, '\nPARAMS:', params);
+      res.status(500).json({ error: 'Failed to fetch candidates', detail: error?.message });
     }
   });
 
@@ -2602,16 +2636,18 @@ Retorne EXATAMENTE este JSON:
     }
   });
 
+
   app.get('/api/aurora-ai/matches/:jobId', async (req, res) => {
     try {
+      const minScore = Number(req.query.minScore) || 0;
       const results = await db.prepare(`
         SELECT r.*, c.full_name, c.city, c.state
         FROM ai_search_results r
         JOIN candidates c ON r.candidate_id = c.id
-        WHERE r.job_id = ?
+        WHERE r.job_id = ? AND r.compatibility_score >= ?
         ORDER BY r.compatibility_score DESC, c.full_name ASC
         LIMIT 50
-      `).all(req.params.jobId) as any[];
+      `).all(req.params.jobId, minScore) as any[];
       
       const parsedResults = results.map((r: any) => ({
         ...r,
@@ -2642,6 +2678,8 @@ Retorne EXATAMENTE este JSON:
       statusFilter,
       sourceFilter
     } = req.body;
+
+    const numericMinScore = Number(minScore) || 0;
 
     try {
       const job = await db.prepare('SELECT * FROM jobs WHERE id = ?').get(jobId) as any;
@@ -2695,6 +2733,7 @@ Retorne EXATAMENTE este JSON:
         1. Aderência de Experiência (CRÍTICO): Verifique se a experiência passada (cargos anteriores) tem relação direta ou transferível com a vaga. Anos de experiência não importam se forem em áreas completamente não relacionadas (ex: 10 anos de Produção não qualificam para Coordenador Administrativo). Penalize o fit drasticamente se a área for incompatível.
         2. Localização: Se presencial, deve estar na mesma cidade ou região viável.
         3. Formação e Habilidades: Verifique aderência real.
+        4. Senioridade e Risco de Turnover (Overqualification): Identifique se o candidato é "superqualificado" para a vaga (ex: um Pleno/Sênior aplicando para uma vaga Júnior). Nesses casos, o fit técnico pode ser alto, mas você DEVE adicionar um ponto de atenção sobre o risco de desmotivação ou turnover rápido devido ao nível superior ao cargo oferecido.
         
         Vaga:
         Título: ${job.title}
@@ -2774,7 +2813,7 @@ Retorne EXATAMENTE este JSON:
       `);
 
       for (const resItem of analysis.results) {
-        if (resItem.compatibility_score >= (minScore || 0)) {
+        if (resItem.compatibility_score >= numericMinScore) {
           await insertResultStmt.run(
             sessionId,
             resItem.candidate_id,
@@ -2795,7 +2834,9 @@ Retorne EXATAMENTE este JSON:
       // Update session summary
       await db.prepare('UPDATE ai_search_sessions SET summary = ? WHERE id = ?').run(analysis.summary, sessionId);
 
-      let enhancedResults = analysis.results.map((resItem: any) => {
+      let enhancedResults = analysis.results
+        .filter((resItem: any) => resItem.compatibility_score >= numericMinScore)
+        .map((resItem: any) => {
         const candidate = candidates.find(c => Number(c.id) === Number(resItem.candidate_id));
         return {
           ...resItem,
@@ -2876,10 +2917,10 @@ Retorne EXATAMENTE este JSON:
         Responda sempre em português do Brasil, de forma clara e profissional.
         
         Diretrizes:
-        1. Baseie-se nos dados do sistema listados abaixo. NÃƒO invente candidatos ou vagas.
+        1. Baseie-se nos dados do sistema listados abaixo. NÃO invente candidatos ou vagas.
         2. Responda curto e direto por padrão.
         3. Não repita "Eu sou a Aurora" em toda mensagem.
-        4. CRIAÃ‡ÃƒO DE VAGA:
+        4. CRIAÇÃO DE VAGA:
            - Se o usuário pedir para criar uma vaga mas não informar o título, responda apenas: "Qual o título da vaga e a cidade?"
            - Se o usuário fornecer dados da vaga, use SOMENTE os campos que ele explicitamente informou.
            - NUNCA invente campos como salário, benefícios, experiência ou qualquer informação não fornecida pelo usuário.
@@ -3955,7 +3996,7 @@ Retorne EXATAMENTE este JSON:
         PERFIL DO CANDIDATO:
         ${JSON.stringify(candidateProfile)}
 
-        VAGAS DISPONÃƒÆ’Ã‚ÂVEIS:
+        VAGAS DISPONÍVEIS:
         ${JSON.stringify(activeJobs)}
 
         Por favor, selecione as vagas com maior afinidade (mínimo de 60%) e justifique brevemente sua escolha.

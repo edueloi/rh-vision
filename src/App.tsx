@@ -34,6 +34,7 @@ import { ToastProvider, useToast } from "./components/ui/Toast";
 import Dashboard from "./pages/Dashboard";
 import Jobs from "./pages/Jobs";
 import Candidates from "./pages/Candidates";
+import CandidateDetailsPage from "./pages/CandidateDetails";
 import HRTools from "./pages/HRTools";
 import Administration from "./pages/Administration";
 import ImportResumes from "./pages/ImportResumes";
@@ -156,20 +157,20 @@ function AppContent() {
   const activeLabel = activeItem?.label ?? (location.pathname === '/perfil' ? 'Meu Perfil' : (menuItems[0]?.label || "Painel"));
 
   useEffect(() => {
-    let nextTitle = "RH Vision | Aurora Recruitment Hub";
+    let nextTitle = "Recrute IA | Plataforma de Recrutamento";
 
     if (location.pathname === "/login") {
-      nextTitle = "RH Vision | Login";
+      nextTitle = "Recrute IA | Login";
     } else if (location.pathname === "/welcome") {
-      nextTitle = "RH Vision | Boas-vindas";
+      nextTitle = "Recrute IA | Boas-vindas";
     } else if (isRootShell) {
-      nextTitle = `RH Vision | Super Admin${activeRootSection ? ` • ${activeRootSection.label}` : ""}`;
+      nextTitle = `Recrute IA | Super Admin${activeRootSection ? ` • ${activeRootSection.label}` : ""}`;
     } else if (isPortalRoute) {
-      nextTitle = "RH Vision | Portal Público";
+      nextTitle = "Recrute IA | Portal Público";
     } else if (isToolRoute) {
-      nextTitle = "RH Vision | Ferramenta Pública";
+      nextTitle = "Recrute IA | Ferramenta Pública";
     } else if (activeLabel) {
-      nextTitle = `RH Vision | ${activeLabel}`;
+      nextTitle = `Recrute IA | ${activeLabel}`;
     }
 
     document.title = nextTitle;
@@ -328,27 +329,36 @@ function AppContent() {
             theme === 'dark' || isRootShell ? "bg-develoi-navy" : "bg-white"
           )}>
             <div className="mb-10 flex items-center gap-3">
-            <div
-              className={cn(
-                "flex h-10 w-10 items-center justify-center rounded-2xl text-white shadow-lg",
-                isRootShell
-                  ? "bg-white/10 shadow-black/20"
-                  : "bg-develoi-navy shadow-develoi-navy/20"
-              )}
-            >
-              <Brain size={22} strokeWidth={3} className="text-develoi-gold" />
-            </div>
-            <div>
-              <h1 className={cn(
-                "text-base font-bold uppercase leading-none tracking-tight transition-colors",
-                theme === 'dark' || isRootShell ? "text-white" : "text-develoi-navy"
-              )}>
-                {isRootShell ? "Aurora Root" : (user?.tenant_name || "Develoi")}
-              </h1>
-              <p className="mt-0.5 text-[9px] font-bold uppercase tracking-widest text-develoi-gold">
-                {isRootShell ? "Control Grid" : "Recruitment Hub"}
-              </p>
-            </div>
+            {isRootShell ? (
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/10 shadow-lg shadow-black/20">
+                  <Brain size={22} strokeWidth={3} className="text-develoi-gold" />
+                </div>
+                <div>
+                  <h1 className="text-base font-bold uppercase leading-none tracking-tight text-white">Aurora Root</h1>
+                  <p className="mt-0.5 text-[9px] font-bold uppercase tracking-widest text-develoi-gold">Control Grid</p>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3">
+                <img
+                  src="/icon_logo_recruteia.png"
+                  alt="Recrute IA"
+                  className="h-10 w-10 object-contain shrink-0"
+                />
+                <div>
+                  <h1 className={cn(
+                    "text-base font-bold leading-none tracking-tight transition-colors",
+                    theme === 'dark' ? "text-white" : "text-develoi-navy"
+                  )}>
+                    Recrute <span className="text-develoi-gold">IA</span>
+                  </h1>
+                  <p className="mt-0.5 text-[9px] font-bold uppercase tracking-widest text-develoi-gold">
+                    {user?.tenant_name || "Recruitment Hub"}
+                  </p>
+                </div>
+              </div>
+            )}
             <button
               onClick={() => setSidebarOpen(false)}
               className={cn(
@@ -757,7 +767,10 @@ function AppContent() {
             <Route path="/dashboard" element={guard(permissions.dashboard, <Dashboard />)} />
             <Route path="/aurora-ai" element={guard(permissions.aurora_ai, <AuroraAI />)} />
             <Route path="/vagas/*" element={guard(permissions.jobs, <Jobs />)} />
-            <Route path="/candidatos/*" element={guard(permissions.candidates, <Candidates />)} />
+            <Route path="/candidatos" element={guard(permissions.candidates, <Candidates />)} />
+            <Route path="/candidatos/novo" element={guard(permissions.candidates, <Candidates />)} />
+            <Route path="/candidatos/:candidateId/editar" element={guard(permissions.candidates, <Candidates />)} />
+            <Route path="/candidatos/:candidateId" element={guard(permissions.candidates, <CandidateDetailsPage />)} />
             <Route path="/importar-cvs" element={guard(permissions.imports, <ImportResumes />)} />
             <Route path="/ferramentas" element={guard(permissions.tools, <HRTools />)} />
             <Route

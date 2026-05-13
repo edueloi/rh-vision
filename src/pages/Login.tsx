@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { motion } from "motion/react";
-import { ArrowRight, Lock, ShieldCheck, Sparkles, User } from "lucide-react";
+import { ArrowRight, Lock, Sparkles, User } from "lucide-react";
 import { Button, Input, PanelCard, useToast } from "../components/ui";
 
 interface LoginProps {
@@ -52,14 +52,16 @@ export default function Login({ onLogin }: LoginProps) {
         className="relative z-10 w-full max-w-md"
       >
         <div className="mb-10 text-center">
-          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-3xl bg-zinc-900 text-develoi-gold shadow-2xl">
-            <ShieldCheck size={32} />
-          </div>
-          <h1 className="mb-2 text-3xl font-black uppercase tracking-tighter text-zinc-900">
-            Recruitment Hub
+          <img
+            src="/icon_logo_recruteia.png"
+            alt="Recrute IA"
+            className="mx-auto mb-4 h-20 w-20 object-contain"
+          />
+          <h1 className="mb-1 text-3xl font-black tracking-tight text-zinc-900">
+            Recrute <span className="text-develoi-gold">IA</span>
           </h1>
           <p className="flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-[0.3em] text-develoi-gold">
-            <Sparkles size={12} /> Powered by Aurora AI
+            <Sparkles size={12} /> Plataforma de Recrutamento Inteligente
           </p>
         </div>
 

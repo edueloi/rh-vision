@@ -1,25 +1,14 @@
 import React, { useState, useRef } from "react";
-import { User, Mail, ShieldCheck, Camera, Save, X, Trash2, Upload } from "lucide-react";
-import { 
-  Badge, 
-  Button, 
-  ContentCard, 
-  FormRow, 
-  IconButton, 
-  Input, 
-  PageWrapper, 
-  PanelCard, 
-  SectionTitle,
-  useToast 
-} from "@/src/components/ui";
+import { User, Mail, ShieldCheck, Camera, Save, X, Trash2, Upload, Briefcase, Loader2, Building2, KeyRound } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
+import { Badge, Button, useToast } from "@/src/components/ui";
 import { cn } from "@/src/lib/utils";
 
 export default function Profile() {
   const toast = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
-  // Load initial user from localStorage
-  const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
+
+  const storedUser = JSON.parse(localStorage.getItem("auth_user") || "{}");
   const [user, setUser] = useState(storedUser);
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -30,6 +19,11 @@ export default function Profile() {
     email: user.email || "",
   });
 
+  const persist = (updated: any) => {
+    setUser(updated);
+    localStorage.setItem("auth_user", JSON.stringify(updated));
+  };
+
   const handleSave = async () => {
     setLoading(true);
     try {
@@ -38,301 +32,280 @@ export default function Profile() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       });
-
-      if (!res.ok) throw new Error("Falha ao atualizar perfil");
-
-      const updatedUser = { ...user, ...formData };
-      setUser(updatedUser);
-      localStorage.setItem("user", JSON.stringify(updatedUser));
+      if (!res.ok) throw new Error();
+      persist({ ...user, ...formData });
       setIsEditing(false);
       toast.success("Perfil atualizado com sucesso!");
-    } catch (error) {
+    } catch {
       toast.error("Erro ao salvar alterações.");
-      console.error(error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
     if (!file) return;
-
     setUploading(true);
     const body = new FormData();
     body.append("file", file);
-
     try {
-      const res = await fetch(`/api/users/${user.id}/photo`, {
-        method: "POST",
-        body,
-      });
-
-      if (!res.ok) throw new Error("Falha ao fazer upload da foto");
-
+      const res = await fetch(`/api/users/${user.id}/photo`, { method: "POST", body });
+      if (!res.ok) throw new Error();
       const data = await res.json();
-      const updatedUser = { ...user, photo_url: data.photo_url };
-      setUser(updatedUser);
-      localStorage.setItem("user", JSON.stringify(updatedUser));
-      toast.success("Foto de perfil atualizada!");
-    } catch (error) {
+      persist({ ...user, photo_url: data.photo_url });
+      toast.success("Foto atualizada!");
+    } catch {
       toast.error("Erro ao carregar foto.");
-      console.error(error);
     } finally {
       setUploading(false);
     }
   };
 
   const handlePhotoRemove = async () => {
-    if (!confirm("Deseja realmente remover sua foto de perfil?")) return;
-
+    if (!confirm("Remover foto de perfil?")) return;
     setUploading(true);
     try {
-      const res = await fetch(`/api/users/${user.id}/photo`, {
-        method: "DELETE",
-      });
-
-      if (!res.ok) throw new Error("Falha ao remover foto");
-
-      const updatedUser = { ...user, photo_url: null };
-      setUser(updatedUser);
-      localStorage.setItem("user", JSON.stringify(updatedUser));
+      const res = await fetch(`/api/users/${user.id}/photo`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+      persist({ ...user, photo_url: null });
       toast.success("Foto removida.");
-    } catch (error) {
+    } catch {
       toast.error("Erro ao remover foto.");
-      console.error(error);
     } finally {
       setUploading(false);
     }
   };
 
-  return (
-    <PageWrapper>
-      <div className="space-y-6 px-4 py-6 sm:px-6 lg:px-8">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <SectionTitle
-            title="Meu Perfil"
-            subtitle="Gerencie suas informações pessoais e credenciais de acesso ao sistema."
-            icon={<User size={24} />}
-            className="mb-0"
-          />
-          
-          <div className="flex gap-2">
-            {isEditing ? (
-              <>
-                <Button 
-                  variant="ghost" 
-                  iconLeft={<X size={16} />} 
-                  onClick={() => {
-                    setIsEditing(false);
-                    setFormData({ full_name: user.full_name, email: user.email });
-                  }}
-                >
-                  Cancelar
-                </Button>
-                <Button 
-                  variant="secondary" 
-                  iconLeft={<Save size={16} />} 
-                  loading={loading}
-                  onClick={handleSave}
-                >
-                  Salvar Alterações
-                </Button>
-              </>
-            ) : (
-              <Button 
-                variant="outline" 
-                iconLeft={<Camera size={16} />} 
-                onClick={() => setIsEditing(true)}
-              >
-                Editar Perfil
-              </Button>
-            )}
-          </div>
-        </div>
+  const initials = (user.full_name || "U")
+    .split(" ")
+    .slice(0, 2)
+    .map((n: string) => n[0])
+    .join("")
+    .toUpperCase();
 
-        <div className="grid gap-6 lg:grid-cols-[300px,minmax(0,1fr)]">
-          {/* Sidebar / Photo */}
-          <div className="space-y-6">
-            <PanelCard className="text-center">
-              <div className="relative mx-auto mb-6 block h-32 w-32">
-                <div className="h-full w-full overflow-hidden rounded-full border-4 border-zinc-50 bg-zinc-100 shadow-inner dark:border-white/5 dark:bg-white/5">
+  return (
+    <div className="w-full px-4 sm:px-6 py-6 space-y-8">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-black text-zinc-900 tracking-tighter uppercase">Meu Perfil</h1>
+          <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mt-0.5">
+            Gerencie suas informações pessoais e credenciais de acesso
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <AnimatePresence mode="wait">
+            {isEditing ? (
+              <motion.div key="editing" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} className="flex gap-2">
+                <button
+                  onClick={() => { setIsEditing(false); setFormData({ full_name: user.full_name, email: user.email }); }}
+                  className="h-11 px-5 rounded-2xl border-2 border-zinc-200 text-zinc-500 text-xs font-black uppercase tracking-widest hover:border-zinc-900 hover:text-zinc-900 transition-all flex items-center gap-2"
+                >
+                  <X size={15} /> Cancelar
+                </button>
+                <button
+                  onClick={handleSave}
+                  disabled={loading}
+                  className="h-11 px-6 rounded-2xl bg-develoi-navy text-white text-xs font-black uppercase tracking-widest hover:bg-develoi-gold transition-all flex items-center gap-2 shadow-xl shadow-develoi-navy/20 disabled:opacity-60"
+                >
+                  {loading ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
+                  Salvar
+                </button>
+              </motion.div>
+            ) : (
+              <motion.button
+                key="view"
+                initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }}
+                onClick={() => setIsEditing(true)}
+                className="h-11 px-6 rounded-2xl border-2 border-zinc-200 text-zinc-700 text-xs font-black uppercase tracking-widest hover:border-develoi-navy hover:text-develoi-navy transition-all flex items-center gap-2"
+              >
+                <Camera size={15} /> Editar Perfil
+              </motion.button>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-[320px,minmax(0,1fr)]">
+        {/* Left column */}
+        <div className="space-y-5">
+          {/* Photo card */}
+          <div className="bg-white rounded-3xl border border-zinc-100 shadow-xl shadow-zinc-100/60 overflow-hidden">
+            {/* Banner */}
+            <div className="h-24 bg-gradient-to-br from-develoi-navy via-develoi-navy to-develoi-gold/40 relative">
+              <div className="absolute inset-0 opacity-20" style={{ backgroundImage: "radial-gradient(circle at 30% 50%, white 1px, transparent 1px)", backgroundSize: "24px 24px" }} />
+            </div>
+
+            <div className="px-6 pb-6 -mt-12 text-center">
+              <div className="relative inline-block">
+                <div className="w-24 h-24 rounded-2xl border-4 border-white shadow-xl overflow-hidden bg-develoi-navy flex items-center justify-center">
                   {user.photo_url ? (
-                    <img 
-                      src={user.photo_url} 
-                      alt="Avatar" 
-                      className="h-full w-full object-cover"
-                    />
+                    <img src={user.photo_url} alt="Avatar" className="w-full h-full object-cover" />
                   ) : (
-                    <div className="flex h-full w-full items-center justify-center text-zinc-300 dark:text-white/20">
-                      <User size={64} />
+                    <span className="text-2xl font-black text-develoi-gold">{initials}</span>
+                  )}
+                  {uploading && (
+                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                      <Loader2 size={20} className="animate-spin text-white" />
                     </div>
                   )}
                 </div>
-                
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  className="hidden"
-                  accept="image/*"
-                  onChange={handlePhotoUpload}
-                />
-                
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   disabled={uploading}
-                  className="absolute -bottom-1 -right-1 flex h-10 w-10 items-center justify-center rounded-full border-4 border-white bg-develoi-gold text-white shadow-lg transition-transform hover:scale-110 disabled:opacity-50 dark:border-[#0d1b3e]"
+                  className="absolute -bottom-2 -right-2 w-8 h-8 bg-develoi-gold rounded-xl flex items-center justify-center text-white shadow-lg hover:bg-develoi-navy transition-all disabled:opacity-50"
                 >
-                  {uploading ? (
-                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                  ) : (
-                    <Camera size={18} />
-                  )}
+                  <Camera size={14} />
                 </button>
+                <input ref={fileInputRef} type="file" className="hidden" accept="image/*" onChange={handlePhotoUpload} />
               </div>
 
-              <div className="space-y-1">
-                <h3 className="text-lg font-black text-zinc-900 dark:text-white">
-                  {user.full_name || "Usuário"}
-                </h3>
-                <p className="text-xs font-bold uppercase tracking-widest text-zinc-400">
-                  {user.role || "Membro"}
-                </p>
+              <div className="mt-4 mb-5">
+                <h3 className="text-lg font-black text-zinc-900 tracking-tight">{user.full_name || "Usuário"}</h3>
+                <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mt-0.5">{user.access_profile || user.role || "Membro"}</p>
               </div>
 
-              <div className="mt-6 flex flex-col gap-2">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  fullWidth 
-                  iconLeft={<Upload size={14} />}
+              <div className="flex flex-col gap-2">
+                <button
                   onClick={() => fileInputRef.current?.click()}
-                  loading={uploading}
+                  disabled={uploading}
+                  className="w-full h-10 rounded-2xl border-2 border-zinc-100 text-zinc-500 text-[10px] font-black uppercase tracking-widest hover:border-develoi-navy hover:text-develoi-navy transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                 >
-                  Trocar Foto
-                </Button>
+                  <Upload size={13} /> Trocar Foto
+                </button>
                 {user.photo_url && (
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    fullWidth 
-                    className="text-red-500 hover:bg-red-50 hover:text-red-600"
-                    iconLeft={<Trash2 size={14} />}
+                  <button
                     onClick={handlePhotoRemove}
+                    className="w-full h-10 rounded-2xl text-rose-400 text-[10px] font-black uppercase tracking-widest hover:bg-rose-50 transition-all flex items-center justify-center gap-2"
                   >
-                    Remover Foto
-                  </Button>
+                    <Trash2 size={13} /> Remover Foto
+                  </button>
                 )}
               </div>
-            </PanelCard>
-
-            <ContentCard className="bg-develoi-navy/5 border-develoi-navy/10">
-              <div className="flex items-start gap-3">
-                <ShieldCheck size={18} className="mt-0.5 text-develoi-navy" />
-                <div className="space-y-1">
-                  <p className="text-xs font-black uppercase tracking-widest text-develoi-navy">Status da Conta</p>
-                  <p className="text-sm font-bold text-zinc-900 dark:text-white">Verificada e Ativa</p>
-                  <p className="text-[11px] leading-relaxed text-zinc-500">Seu perfil está vinculado à unidade {user.unit_name || "Matriz"}.</p>
-                </div>
-              </div>
-            </ContentCard>
+            </div>
           </div>
 
-          {/* Main Form */}
-          <div className="space-y-6">
-            <PanelCard 
-              title="Informações Básicas" 
-              description="Estes dados são usados para identificação em relatórios e logs do sistema."
-            >
-              <FormRow cols={2}>
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-black uppercase tracking-widest text-zinc-400">Nome Completo</label>
-                  <Input
-                    value={formData.full_name}
-                    onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                    disabled={!isEditing}
-                    placeholder="Seu nome completo"
-                    iconLeft={<User size={16} />}
-                  />
+          {/* Account info */}
+          <div className="bg-white rounded-3xl border border-zinc-100 p-5 space-y-4">
+            <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Dados da Conta</p>
+            {[
+              { icon: ShieldCheck, label: "Status", value: "Verificada e Ativa", color: "text-emerald-600" },
+              { icon: Building2, label: "Unidade", value: user.unit_name || "Matriz", color: "text-develoi-navy" },
+              { icon: KeyRound, label: "Permissão", value: user.access_profile || "Operação RH", color: "text-develoi-gold" },
+            ].map(item => (
+              <div key={item.label} className="flex items-center gap-3 py-2.5 border-b border-zinc-50 last:border-0">
+                <div className="w-8 h-8 rounded-xl bg-zinc-50 flex items-center justify-center shrink-0">
+                  <item.icon size={15} className={item.color} />
                 </div>
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-black uppercase tracking-widest text-zinc-400">E-mail Corporativo</label>
-                  <Input
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    disabled={!isEditing}
-                    placeholder="seu.email@empresa.com"
-                    iconLeft={<Mail size={16} />}
-                  />
-                </div>
-              </FormRow>
-            </PanelCard>
-
-            <PanelCard 
-              title="Acesso e Segurança" 
-              description="Nível de permissão e cargo ocupado no Recruitment Hub."
-            >
-              <div className="grid gap-6 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-black uppercase tracking-widest text-zinc-400">Perfil de Acesso</label>
-                  <div className="flex items-center gap-3 rounded-2xl border border-zinc-100 bg-zinc-50/50 p-4 dark:border-white/5 dark:bg-white/5">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white shadow-sm dark:bg-[#1a2b4b]">
-                      <ShieldCheck className="text-develoi-navy" size={20} />
-                    </div>
-                    <div>
-                      <p className="text-sm font-bold text-zinc-900 dark:text-white">
-                        {user.access_profile || "Operação RH"}
-                      </p>
-                      <Badge color="gold" size="sm" pill className="mt-1">
-                        Sincronizado
-                      </Badge>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-black uppercase tracking-widest text-zinc-400">Cargo / Função</label>
-                  <div className="flex items-center gap-3 rounded-2xl border border-zinc-100 bg-zinc-50/50 p-4 dark:border-white/5 dark:bg-white/5">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white shadow-sm dark:bg-[#1a2b4b]">
-                      <Briefcase className="text-develoi-navy" size={20} />
-                    </div>
-                    <div>
-                      <p className="text-sm font-bold text-zinc-900 dark:text-white">
-                        {user.role || "Recrutador"}
-                      </p>
-                      <p className="text-[10px] font-medium text-zinc-500">Unidade: {user.unit_id || "Geral"}</p>
-                    </div>
-                  </div>
+                <div className="min-w-0">
+                  <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">{item.label}</p>
+                  <p className="text-xs font-black text-zinc-800 truncate">{item.value}</p>
                 </div>
               </div>
-            </PanelCard>
-
-            {isEditing && (
-              <div className="flex justify-end gap-3 rounded-[32px] bg-zinc-900 p-6 shadow-xl shadow-black/10">
-                <div className="mr-auto hidden sm:block">
-                  <p className="text-sm font-bold text-white">Alterações não salvas</p>
-                  <p className="text-xs text-white/50">Clique em salvar para persistir os dados no servidor.</p>
-                </div>
-                <Button 
-                  variant="ghost" 
-                  className="text-white hover:bg-white/10" 
-                  onClick={() => setIsEditing(false)}
-                >
-                  Descartar
-                </Button>
-                <Button 
-                  variant="secondary" 
-                  loading={loading}
-                  onClick={handleSave}
-                >
-                  Salvar Perfil
-                </Button>
-              </div>
-            )}
+            ))}
           </div>
         </div>
+
+        {/* Right column */}
+        <div className="space-y-5">
+          {/* Basic info */}
+          <div className="bg-white rounded-3xl border border-zinc-100 shadow-xl shadow-zinc-100/60 p-6">
+            <div className="mb-6">
+              <p className="text-xs font-black text-zinc-900 uppercase tracking-widest">Informações Básicas</p>
+              <p className="text-[10px] text-zinc-400 font-bold mt-0.5">Dados usados para identificação em relatórios e logs do sistema.</p>
+            </div>
+
+            <div className="grid sm:grid-cols-2 gap-4">
+              {[
+                { label: "Nome Completo", key: "full_name", icon: User, placeholder: "Seu nome completo", type: "text" },
+                { label: "E-mail Corporativo", key: "email", icon: Mail, placeholder: "seu.email@empresa.com", type: "email" },
+              ].map(field => (
+                <div key={field.key} className={cn("space-y-2", !isEditing && "opacity-70")}>
+                  <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block">{field.label}</label>
+                  <div className={cn(
+                    "flex items-center gap-3 rounded-2xl border-2 px-4 h-12 transition-all",
+                    isEditing ? "border-develoi-navy/20 bg-zinc-50 focus-within:border-develoi-navy focus-within:bg-white" : "border-zinc-100 bg-zinc-50/50"
+                  )}>
+                    <field.icon size={15} className="text-zinc-300 shrink-0" />
+                    <input
+                      type={field.type}
+                      value={formData[field.key as keyof typeof formData]}
+                      onChange={e => setFormData(p => ({ ...p, [field.key]: e.target.value }))}
+                      disabled={!isEditing}
+                      placeholder={field.placeholder}
+                      className="flex-1 bg-transparent text-sm font-bold text-zinc-800 placeholder:text-zinc-300 outline-none disabled:cursor-default"
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Access & Security */}
+          <div className="bg-white rounded-3xl border border-zinc-100 p-6">
+            <div className="mb-6">
+              <p className="text-xs font-black text-zinc-900 uppercase tracking-widest">Acesso e Segurança</p>
+              <p className="text-[10px] text-zinc-400 font-bold mt-0.5">Nível de permissão e cargo ocupado no Recrute IA.</p>
+            </div>
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div className="rounded-2xl border-2 border-zinc-100 bg-zinc-50/50 p-4 flex items-center gap-4">
+                <div className="w-11 h-11 rounded-xl bg-develoi-navy/5 flex items-center justify-center shrink-0">
+                  <ShieldCheck size={20} className="text-develoi-navy" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1">Perfil de Acesso</p>
+                  <p className="text-sm font-black text-zinc-900 truncate">{user.access_profile || "Operação RH"}</p>
+                  <span className="inline-flex items-center mt-1 px-2 py-0.5 bg-develoi-gold/10 text-develoi-gold rounded-lg text-[9px] font-black uppercase tracking-widest">Sincronizado</span>
+                </div>
+              </div>
+              <div className="rounded-2xl border-2 border-zinc-100 bg-zinc-50/50 p-4 flex items-center gap-4">
+                <div className="w-11 h-11 rounded-xl bg-develoi-navy/5 flex items-center justify-center shrink-0">
+                  <Briefcase size={20} className="text-develoi-navy" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1">Cargo / Função</p>
+                  <p className="text-sm font-black text-zinc-900 truncate">{user.role || "Recrutador"}</p>
+                  <p className="text-[9px] font-bold text-zinc-400 mt-0.5">Unidade: {user.unit_name || user.unit_id || "Geral"}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Save bar */}
+          <AnimatePresence>
+            {isEditing && (
+              <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 16 }}
+                className="flex items-center justify-between gap-4 rounded-3xl bg-zinc-900 px-6 py-5 shadow-2xl shadow-zinc-900/20"
+              >
+                <div className="hidden sm:block">
+                  <p className="text-sm font-black text-white">Alterações não salvas</p>
+                  <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Clique em salvar para aplicar</p>
+                </div>
+                <div className="flex gap-3 ml-auto">
+                  <button
+                    onClick={() => { setIsEditing(false); setFormData({ full_name: user.full_name, email: user.email }); }}
+                    className="h-11 px-5 rounded-2xl text-white/60 text-[10px] font-black uppercase tracking-widest hover:text-white hover:bg-white/10 transition-all"
+                  >
+                    Descartar
+                  </button>
+                  <button
+                    onClick={handleSave}
+                    disabled={loading}
+                    className="h-11 px-7 rounded-2xl bg-develoi-gold text-white text-[10px] font-black uppercase tracking-widest hover:bg-white hover:text-develoi-navy transition-all flex items-center gap-2 shadow-xl shadow-develoi-gold/30 disabled:opacity-60"
+                  >
+                    {loading ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                    Salvar Perfil
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
-    </PageWrapper>
+    </div>
   );
 }

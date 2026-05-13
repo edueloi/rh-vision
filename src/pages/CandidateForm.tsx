@@ -32,7 +32,6 @@ import {
   Input,
   Select,
   Textarea,
-  PageWrapper,
   FormRow,
   Modal,
   SplitterLine
@@ -87,14 +86,21 @@ interface Language {
 }
 
 const Section = ({ title, icon: Icon, children, rightNode, className }: { title: string, icon: any, children: React.ReactNode, rightNode?: React.ReactNode, className?: string }) => (
-  <div className={cn("py-8 last:border-0", className)}>
-    <SplitterLine 
-      label={title} 
-      icon={<Icon size={16} />} 
-      rightNode={rightNode} 
-      className="mb-8" 
-    />
-    {children}
+  <div className={cn("mb-6 last:mb-0", className)}>
+    <div className="bg-white border border-zinc-100 rounded-2xl shadow-sm hover:shadow-md transition-shadow overflow-hidden">
+      <div className="px-6 py-4 bg-gradient-to-r from-zinc-50 to-white border-b border-zinc-100 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-develoi-navy/10 rounded-lg text-develoi-navy">
+            <Icon size={16} />
+          </div>
+          <h3 className="text-sm font-bold text-zinc-900 tracking-tight">{title}</h3>
+        </div>
+        {rightNode}
+      </div>
+      <div className="px-6 py-5">
+        {children}
+      </div>
+    </div>
   </div>
 );
 
@@ -159,10 +165,11 @@ export default function CandidateForm({ candidate, onBack, onSuccess }: Candidat
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    const toastId = toast.loading("Salvando candidato, aguarde...");
     try {
       const url = candidate ? `/api/candidates/${candidate.id}` : '/api/candidates';
       const method = candidate ? 'PUT' : 'POST';
-      
+
       const updatedFormData = {
         ...formData,
         hard_skills: hardSkillsList.join(', '),
@@ -186,7 +193,7 @@ export default function CandidateForm({ candidate, onBack, onSuccess }: Candidat
 
       const dbPayload: any = {};
       const excludedKeys = ['files', 'matches', 'disc', 'history', 'units', 'tenant'];
-      
+
       Object.keys(payload).forEach(key => {
         if (!excludedKeys.includes(key) && payload[key as keyof typeof payload] !== undefined) {
           dbPayload[key] = payload[key as keyof typeof payload];
@@ -200,10 +207,12 @@ export default function CandidateForm({ candidate, onBack, onSuccess }: Candidat
       });
 
       if (!res.ok) throw new Error("Erro ao salvar candidato");
-      
-      toast.success(candidate ? "Candidato atualizado!" : "Candidato cadastrado!");
+
+      toast.dismiss(toastId);
+      toast.success(candidate ? "Candidato atualizado com sucesso!" : "Candidato cadastrado com sucesso!");
       onSuccess();
     } catch (err) {
+      toast.dismiss(toastId);
       toast.error("Ocorreu um erro ao salvar.");
     } finally {
       setLoading(false);
@@ -218,6 +227,7 @@ export default function CandidateForm({ candidate, onBack, onSuccess }: Candidat
     }
 
     setIsParsing(true);
+    const toastId = toast.loading("Processando currículo com Aurora AI, aguarde...");
     try {
       const body = new FormData();
       body.append('resume', file);
@@ -230,9 +240,11 @@ export default function CandidateForm({ candidate, onBack, onSuccess }: Candidat
       if (!res.ok) throw new Error("Falha na análise");
 
       const data = await res.json();
+      toast.dismiss(toastId);
       setParsedPreview(data);
-      toast.success("Currículo analisado!");
+      toast.success("Currículo analisado com sucesso!");
     } catch (error) {
+      toast.dismiss(toastId);
       toast.error("Erro ao analisar currículo.");
     } finally {
       setIsParsing(false);
@@ -273,53 +285,50 @@ export default function CandidateForm({ candidate, onBack, onSuccess }: Candidat
   };
 
   return (
-    <PageWrapper className="min-h-screen bg-white">
-      <div className="w-full max-w-full mx-auto">
-        {/* Unified Top Control Bar */}
-        <div className="sticky top-0 z-30 bg-white shadow-sm border-b border-zinc-100">
-          <div className="px-8 py-4 flex flex-wrap items-center justify-between gap-6">
-            <div className="flex items-center gap-4">
+    <div className="w-full">
+        {/* Enhanced Top Control Bar */}
+        <div className="sticky top-0 z-30 bg-white border-b border-zinc-100 shadow-sm">
+          <div className="w-full px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
               <IconButton onClick={onBack} variant="outline" className="h-8 w-8 border-zinc-200 hover:bg-zinc-50">
                 <ArrowLeft size={16} />
               </IconButton>
-              <div className="h-6 w-px bg-zinc-200" />
+              <div className="h-5 w-px bg-zinc-200" />
               <div>
-                <h1 className="text-lg font-bold text-develoi-navy tracking-tight">
+                <h1 className="text-base font-bold text-develoi-navy truncate">
                   {candidate ? candidate.full_name : 'Novo Talento'}
                 </h1>
-                <div className="flex items-center gap-2 mt-0.5">
-                  <p className="text-[10px] font-semibold text-zinc-400 uppercase tracking-widest">
-                    Matriz - Fadel <ChevronRight size={10} className="inline mx-0.5" /> Candidatos
-                  </p>
-                </div>
+                <p className="text-[10px] font-medium text-zinc-400 uppercase tracking-widest">
+                  Matriz - Fadel • Candidatos
+                </p>
               </div>
             </div>
             
-            <div className="flex items-center gap-3">
-               <div className="flex items-center gap-2 px-3 py-1.5 bg-zinc-50 rounded-lg border border-zinc-200/60">
-                 <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                 <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">Sincronizado</span>
+            <div className="flex items-center gap-2">
+               <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 rounded-lg border border-emerald-100">
+                 <div className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />
+                 <span className="text-[8px] font-bold text-emerald-700 uppercase tracking-widest">Sincronizado</span>
                </div>
                <Button 
                  form="candidate-form"
                  type="submit"
                  disabled={loading || isParsing}
-                 className="h-9 px-6 rounded-lg bg-develoi-navy hover:bg-develoi-navy/95 text-[10px] font-bold uppercase tracking-wider shadow-md"
-                 iconLeft={loading ? <Loader2 className="animate-spin" size={14} /> : <Save size={14} />}
+                 className="h-8 px-4 rounded-lg bg-develoi-navy hover:bg-develoi-navy/95 text-[9px] font-bold uppercase tracking-wider text-white"
+                 iconLeft={loading ? <Loader2 className="animate-spin" size={12} /> : <Save size={12} />}
                >
-                 {candidate ? 'Salvar Alterações' : 'Finalizar Cadastro'}
+                 {candidate ? 'Salvar' : 'Finalizar'}
                </Button>
             </div>
           </div>
 
-          {/* Sleek Horizontal Status Bar */}
-          <div className="px-8 py-2.5 bg-zinc-50/50 flex flex-wrap items-center gap-x-8 gap-y-3 border-t border-zinc-100/50">
-             <div className="flex items-center gap-3">
-               <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">Status:</span>
+          {/* Quick Controls Bar */}
+          <div className="w-full px-4 sm:px-6 py-2.5 bg-zinc-50/50 border-t border-zinc-100 flex flex-wrap items-center gap-3">
+             <div className="flex items-center gap-2">
+               <span className="text-[8px] font-bold text-zinc-400 uppercase">Status:</span>
                <Select 
                  value={formData.status} 
                  onChange={e => setFormData(f => ({ ...f, status: e.target.value as any }))}
-                 className="h-8 min-w-[140px] text-[11px] font-semibold bg-white border-zinc-200 rounded shadow-sm"
+                 className="h-9 text-xs bg-white border-zinc-200 rounded-lg text-zinc-600 font-medium"
                >
                  {['Novo', 'Em análise', 'Compatível', 'Entrevista', 'Aprovado', 'Reprovado', 'Banco de talentos', 'Contratado'].map(s => (
                    <option key={s} value={s}>{s}</option>
@@ -327,28 +336,28 @@ export default function CandidateForm({ candidate, onBack, onSuccess }: Candidat
                </Select>
              </div>
              
-             <div className="flex items-center gap-3">
-               <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">Modelo:</span>
+             <div className="flex items-center gap-2">
+               <span className="text-[8px] font-bold text-zinc-400 uppercase">Modelo:</span>
                <Select 
                  value={formData.desired_work_model} 
                  onChange={e => setFormData(f => ({ ...f, desired_work_model: e.target.value as any }))}
-                 className="h-8 min-w-[120px] text-[11px] font-semibold bg-white border-zinc-200 rounded shadow-sm"
+                 className="h-9 text-xs bg-white border-zinc-200 rounded-lg text-zinc-600 font-medium"
                >
-                 <option value="Presencial">Presencial</option>
-                 <option value="Híbrido">Híbrido</option>
-                 <option value="Home Office">Home Office</option>
+                 <option>Presencial</option>
+                 <option>Híbrido</option>
+                 <option>Home Office</option>
                </Select>
              </div>
 
-             <div className="flex items-center gap-3">
-               <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">Pretensão:</span>
+             <div className="flex items-center gap-2">
+               <span className="text-[8px] font-bold text-zinc-400 uppercase">Pretensão:</span>
                <div className="relative">
-                 <DollarSign size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400" />
+                 <DollarSign size={10} className="absolute left-2 top-1/2 -translate-y-1/2 text-zinc-400" />
                  <Input 
                    type="number"
-                   value={formData.desired_salary}
-                   onChange={e => setFormData(f => ({ ...f, desired_salary: Number(e.target.value) }))}
-                   className="h-8 pl-7 w-28 text-[11px] font-semibold bg-white border-zinc-200 rounded shadow-sm"
+                   value={formData.desired_salary || ''}
+                   onChange={e => setFormData(f => ({ ...f, desired_salary: Number(e.target.value) || undefined }))}
+                   className="h-9 pl-6 w-24 text-xs bg-white border-zinc-200 rounded-lg"
                    placeholder="0.00"
                  />
                </div>
@@ -356,304 +365,437 @@ export default function CandidateForm({ candidate, onBack, onSuccess }: Candidat
 
              <div className="flex-1" />
 
-             <button onClick={() => fileInputRef.current?.click()} type="button" className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-develoi-navy/20 rounded-md cursor-pointer hover:bg-develoi-navy/5 transition-all text-develoi-navy shadow-sm">
-                <Sparkles size={12} />
-                <span className="text-[9px] font-bold uppercase tracking-widest">Análise Aurora AI</span>
+             <button 
+               onClick={() => fileInputRef.current?.click()} 
+               type="button" 
+               className="flex items-center gap-1.5 px-3 py-1.5 bg-develoi-navy/10 border border-develoi-navy/20 rounded-lg cursor-pointer hover:bg-develoi-navy/15 transition-all text-develoi-navy text-[9px] font-bold uppercase"
+             >
+                <Sparkles size={11} />
+                Importar CV
                 <input type="file" ref={fileInputRef} onChange={(e) => { const file = e.target.files?.[0]; if (file) handleFileUpload(file); }} accept=".pdf" className="hidden" />
              </button>
           </div>
         </div>
 
-        <form id="candidate-form" onSubmit={handleSubmit} className="px-8 lg:px-12 py-8 max-w-[1200px] mx-auto">
-          <Section title="Dados de Contato" icon={User}>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-6">
-              <Input required label="Nome Completo" value={formData.full_name} onChange={e => setFormData(f => ({ ...f, full_name: e.target.value }))} className="h-10 bg-white" />
-              <Input required type="email" label="E-mail" value={formData.email} onChange={e => setFormData(f => ({ ...f, email: e.target.value }))} className="h-10 bg-white" />
-              <Input label="Telefone" value={formData.phone} onChange={e => setFormData(f => ({ ...f, phone: e.target.value }))} className="h-10 bg-white" />
-              <Input label="LinkedIn" value={formData.linkedin_url} onChange={e => setFormData(f => ({ ...f, linkedin_url: e.target.value }))} className="h-10 bg-white" />
-              <Input label="Cidade" value={formData.city} onChange={e => setFormData(f => ({ ...f, city: e.target.value }))} className="h-10 bg-white" />
-              <Input label="Estado (UF)" value={formData.state} onChange={e => setFormData(f => ({ ...f, state: e.target.value }))} maxLength={2} className="h-10 bg-white uppercase text-center" />
-              <Select label="Categoria CNH" value={formData.cnh_category || "Não possui"} onChange={e => {
-                const val = e.target.value;
-                setFormData(f => ({ ...f, cnh_category: val, has_cnh: val !== "Não possui" }));
-              }} className="h-10 bg-white">
-                <option value="Não possui">Não possui</option>
-                <option value="A">A</option>
-                <option value="B">B</option>
-                <option value="C">C</option>
-                <option value="D">D</option>
-                <option value="E">E</option>
-                <option value="AB">AB</option>
-                <option value="AC">AC</option>
-                <option value="AD">AD</option>
-                <option value="AE">AE</option>
-              </Select>
-            </div>
-          </Section>
+        <form id="candidate-form" onSubmit={handleSubmit} className="w-full px-4 sm:px-6 py-4">
+          {/* Grid Layout - 2 Columns */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Column - Core Info */}
+            <div className="lg:col-span-2">
+              <Section title="Dados de Contato" icon={User}>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <Input required label="Nome Completo" value={formData.full_name} onChange={e => setFormData(f => ({ ...f, full_name: e.target.value }))} className="h-9 bg-white text-sm" />
+                    <Input required type="email" label="E-mail" value={formData.email} onChange={e => setFormData(f => ({ ...f, email: e.target.value }))} className="h-9 bg-white text-sm" />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <Input label="Telefone" value={formData.phone} onChange={e => setFormData(f => ({ ...f, phone: e.target.value }))} className="h-9 bg-white text-sm" placeholder="(11) 99999-9999" />
+                    <Input label="LinkedIn" value={formData.linkedin_url} onChange={e => setFormData(f => ({ ...f, linkedin_url: e.target.value }))} className="h-9 bg-white text-sm" placeholder="linkedin.com/in/..." />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <Input label="Cidade" value={formData.city} onChange={e => setFormData(f => ({ ...f, city: e.target.value }))} className="h-9 bg-white text-sm" />
+                    <Input label="Estado (UF)" value={formData.state} onChange={e => setFormData(f => ({ ...f, state: e.target.value }))} maxLength={2} className="h-9 bg-white text-sm uppercase text-center" />
+                    <Select label="CNH" value={formData.cnh_category || "Não possui"} onChange={e => {
+                      const val = e.target.value;
+                      setFormData(f => ({ ...f, cnh_category: val, has_cnh: val !== "Não possui" }));
+                    }} className="h-9 bg-white text-sm">
+                      <option>Não possui</option>
+                      <option>A</option>
+                      <option>B</option>
+                      <option>C</option>
+                      <option>D</option>
+                      <option>E</option>
+                      <option>AB</option>
+                      <option>AC</option>
+                    </Select>
+                  </div>
+                </div>
+              </Section>
 
-          <Section title="Habilidades & Especialidades" icon={Target}>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-12 gap-y-10">
-               {/* Hard Skills */}
-               <div className="space-y-4">
-                 <div className="flex items-center justify-between mb-2">
-                    <p className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">Hard Skills</p>
-                    <Badge className="bg-zinc-100 text-zinc-500 border-zinc-200">{hardSkillsList.length}</Badge>
-                 </div>
-                 <div className="relative">
-                   <Input 
-                     placeholder="Digite uma habilidade técnica e pressione Enter..."
-                     className="h-10 bg-white pr-16"
-                     onKeyDown={e => { 
-                       if (e.key === 'Enter') { 
-                         e.preventDefault(); 
-                         const v = e.currentTarget.value.trim(); 
-                         if (v && !hardSkillsList.includes(v)) { 
-                           setHardSkillsList(p => [...p, v]); 
-                           e.currentTarget.value = ''; 
-                         } 
-                       } 
-                     }}
-                   />
-                   <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[9px] font-bold text-zinc-300 uppercase tracking-widest pointer-events-none">
-                     Enter ↵
+              <Section title="Resumo Profissional" icon={FileText}>
+                <Textarea 
+                  label="Biografia"
+                  value={formData.professional_summary}
+                  onChange={e => setFormData(f => ({ ...f, professional_summary: e.target.value }))}
+                  placeholder="Descreva a trajetória profissional do candidato..."
+                  rows={4}
+                  className="text-xs bg-white border-zinc-200 p-4 rounded-lg"
+                />
+              </Section>
+
+              <Section title="Habilidades" icon={Target}>
+                <div className="space-y-5">
+                   {/* Hard Skills */}
+                   <div>
+                     <div className="flex items-center justify-between mb-2">
+                        <label className="text-[9px] font-bold text-zinc-600 uppercase">Hard Skills</label>
+                        <span className="text-[10px] text-zinc-400 font-medium">{hardSkillsList.length}</span>
+                     </div>
+                     <div className="relative mb-2">
+                       <Input 
+                         placeholder="Digite e pressione Enter..."
+                         className="h-8 bg-white pr-12 text-xs"
+                         onKeyDown={e => { 
+                           if (e.key === 'Enter') { 
+                             e.preventDefault(); 
+                             const v = e.currentTarget.value.trim(); 
+                             if (v && !hardSkillsList.includes(v)) { 
+                               setHardSkillsList(p => [...p, v]); 
+                               e.currentTarget.value = ''; 
+                             } 
+                           } 
+                         }}
+                       />
+                     </div>
+                     <div className="flex flex-wrap gap-2">
+                        <AnimatePresence mode="popLayout">
+                          {hardSkillsList.map((skill, i) => (
+                            <motion.div key={skill+i} layout initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }}
+                              className="pl-2.5 pr-1 py-1 bg-blue-50 border border-blue-100 rounded-lg flex items-center gap-1.5 group transition-all"
+                            >
+                              <span className="text-[9px] font-semibold text-blue-700">{skill}</span>
+                              <button type="button" onClick={() => setHardSkillsList(p => p.filter((_, idx) => idx !== i))} className="p-0.5 hover:bg-blue-100 rounded text-blue-300 hover:text-blue-600 transition-colors">
+                                <CloseIcon size={10} />
+                              </button>
+                            </motion.div>
+                          ))}
+                        </AnimatePresence>
+                     </div>
                    </div>
-                 </div>
-                 <div className="flex flex-wrap gap-2 pt-2">
-                    <AnimatePresence mode="popLayout">
-                      {hardSkillsList.map((skill, i) => (
-                        <motion.div key={skill+i} layout initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}
-                          className="pl-3 pr-1 py-1.5 bg-blue-50/50 border border-blue-100 rounded-lg flex items-center gap-2 group transition-all"
-                        >
-                          <span className="text-[10px] font-bold text-blue-700 uppercase tracking-tight">{skill}</span>
-                          <button type="button" onClick={() => setHardSkillsList(p => p.filter((_, idx) => idx !== i))} className="p-1 hover:bg-blue-100 rounded-md text-blue-400 hover:text-blue-700 transition-colors">
-                            <CloseIcon size={12} />
-                          </button>
-                        </motion.div>
-                      ))}
-                    </AnimatePresence>
-                 </div>
-               </div>
 
-               {/* Soft Skills */}
-               <div className="space-y-4">
-                 <div className="flex items-center justify-between mb-2">
-                    <p className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">Soft Skills</p>
-                    <Badge className="bg-zinc-100 text-zinc-500 border-zinc-200">{softSkillsList.length}</Badge>
-                 </div>
-                 <div className="relative">
-                   <Input 
-                     placeholder="Digite uma habilidade comportamental e pressione Enter..."
-                     className="h-10 bg-white pr-16"
-                     onKeyDown={e => { 
-                       if (e.key === 'Enter') { 
-                         e.preventDefault(); 
-                         const v = e.currentTarget.value.trim(); 
-                         if (v && !softSkillsList.includes(v)) { 
-                           setSoftSkillsList(p => [...p, v]); 
-                           e.currentTarget.value = ''; 
-                         } 
-                       } 
-                     }}
-                   />
-                   <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[9px] font-bold text-zinc-300 uppercase tracking-widest pointer-events-none">
-                     Enter ↵
-                   </div>
-                 </div>
-                 <div className="flex flex-wrap gap-2 pt-2">
-                    <AnimatePresence mode="popLayout">
-                      {softSkillsList.map((skill, i) => (
-                        <motion.div key={skill+i} layout initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}
-                          className="pl-3 pr-1 py-1.5 bg-purple-50/50 border border-purple-100 rounded-lg flex items-center gap-2 group transition-all"
-                        >
-                          <span className="text-[10px] font-bold text-purple-700 uppercase tracking-tight">{skill}</span>
-                          <button type="button" onClick={() => setSoftSkillsList(p => p.filter((_, idx) => idx !== i))} className="p-1 hover:bg-purple-100 rounded-md text-purple-400 hover:text-purple-700 transition-colors">
-                            <CloseIcon size={12} />
-                          </button>
-                        </motion.div>
-                      ))}
-                    </AnimatePresence>
-                 </div>
-               </div>
-            </div>
-          </Section>
-
-          <Section title="Resumo Profissional" icon={FileText}>
-            <div className="space-y-10">
-              <Textarea 
-                label="Biografia"
-                value={formData.professional_summary}
-                onChange={e => setFormData(f => ({ ...f, professional_summary: e.target.value }))}
-                placeholder="Descreva a trajetória do candidato..."
-                rows={5}
-                className="text-xs bg-white border-zinc-200 p-5 rounded-2xl"
-              />
-              <div className="space-y-4">
-                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] mb-2 block">Objetivos Profissionais</label>
-                <div className="relative max-w-2xl">
-                   <Input 
-                     placeholder="Digite um objetivo profissional e pressione Enter..."
-                     className="h-10 bg-white pr-16"
-                     onKeyDown={(e) => {
-                       if (e.key === 'Enter') {
-                         e.preventDefault();
-                         const val = e.currentTarget.value.trim();
-                         if (val && !objectives.includes(val)) { 
-                           setObjectives(prev => [...prev, val]); 
-                           e.currentTarget.value = ''; 
-                         }
-                       }
-                     }}
-                   />
-                   <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[9px] font-bold text-zinc-300 uppercase tracking-widest pointer-events-none">
-                     Enter ↵
+                   {/* Soft Skills */}
+                   <div>
+                     <div className="flex items-center justify-between mb-2">
+                        <label className="text-[9px] font-bold text-zinc-600 uppercase">Soft Skills</label>
+                        <span className="text-[10px] text-zinc-400 font-medium">{softSkillsList.length}</span>
+                     </div>
+                     <div className="relative mb-2">
+                       <Input 
+                         placeholder="Digite e pressione Enter..."
+                         className="h-8 bg-white pr-12 text-xs"
+                         onKeyDown={e => { 
+                           if (e.key === 'Enter') { 
+                             e.preventDefault(); 
+                             const v = e.currentTarget.value.trim(); 
+                             if (v && !softSkillsList.includes(v)) { 
+                               setSoftSkillsList(p => [...p, v]); 
+                               e.currentTarget.value = ''; 
+                             } 
+                           } 
+                         }}
+                       />
+                     </div>
+                     <div className="flex flex-wrap gap-2">
+                        <AnimatePresence mode="popLayout">
+                          {softSkillsList.map((skill, i) => (
+                            <motion.div key={skill+i} layout initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }}
+                              className="pl-2.5 pr-1 py-1 bg-purple-50 border border-purple-100 rounded-lg flex items-center gap-1.5"
+                            >
+                              <span className="text-[9px] font-semibold text-purple-700">{skill}</span>
+                              <button type="button" onClick={() => setSoftSkillsList(p => p.filter((_, idx) => idx !== i))} className="p-0.5 hover:bg-purple-100 rounded text-purple-300 hover:text-purple-600 transition-colors">
+                                <CloseIcon size={10} />
+                              </button>
+                            </motion.div>
+                          ))}
+                        </AnimatePresence>
+                     </div>
                    </div>
                 </div>
-                <div className="flex flex-wrap gap-2 pt-2">
-                   {objectives.map((obj, i) => (
-                     <Badge key={i} className="pl-3 pr-1 py-1.5 rounded-lg bg-zinc-50 text-zinc-700 border-zinc-200 flex items-center gap-2">
-                       <span className="text-[10px] font-bold uppercase">{obj}</span>
-                       <button type="button" onClick={() => setObjectives(prev => prev.filter((_, idx) => idx !== i))} className="p-1 hover:bg-zinc-200 rounded-md transition-colors text-zinc-400 hover:text-red-500">
-                         <CloseIcon size={12} />
-                       </button>
-                     </Badge>
-                   ))}
+              </Section>
+
+              <Section 
+                title="Experiência Profissional" 
+                icon={Briefcase}
+                rightNode={
+                  <Button type="button" onClick={() => setExperiences([...experiences, { company: '', role: '', period: '', description: '' }])} className="bg-zinc-100 hover:bg-zinc-200 border-0 py-1 px-3 rounded-lg text-zinc-600 font-bold text-xs" iconLeft={<Plus size={12} />}>
+                    Adicionar
+                  </Button>
+                }
+              >
+                <div className="space-y-5">
+                  <AnimatePresence mode="popLayout">
+                    {experiences.map((exp, i) => (
+                      <motion.div key={i} layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="p-4 bg-zinc-50 rounded-lg group relative border border-zinc-200 hover:border-zinc-300 transition-colors">
+                        <button onClick={() => setExperiences(prev => prev.filter((_, idx) => idx !== i))} className="absolute top-3 right-3 p-1.5 bg-white rounded-lg text-zinc-300 hover:text-red-500 hover:bg-red-50 transition-all opacity-0 group-hover:opacity-100">
+                          <Trash2 size={14} />
+                        </button>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+                          <Input label="Empresa" value={exp.company} onChange={e => {
+                            const n = [...experiences]; n[i].company = e.target.value; setExperiences(n);
+                          }} className="h-8 bg-white text-xs" />
+                          <Input label="Cargo" value={exp.role} onChange={e => {
+                            const n = [...experiences]; n[i].role = e.target.value; setExperiences(n);
+                          }} className="h-8 bg-white text-xs" />
+                          <Input label="Período" value={exp.period} onChange={e => {
+                            const n = [...experiences]; n[i].period = e.target.value; setExperiences(n);
+                          }} className="h-8 bg-white text-xs" placeholder="ex: 01/2020 - 12/2023" />
+                        </div>
+                        <Textarea label="Descrição" value={exp.description} rows={2} onChange={e => {
+                          const n = [...experiences]; n[i].description = e.target.value; setExperiences(n);
+                        }} className="text-xs bg-white p-3 rounded" />
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                  {experiences.length === 0 && (
+                    <div className="text-center py-6 text-zinc-400">
+                      <Briefcase size={24} className="mx-auto mb-2 opacity-30" />
+                      <p className="text-xs">Nenhuma experiência adicionada ainda</p>
+                    </div>
+                  )}
                 </div>
-              </div>
-            </div>
-          </Section>
+              </Section>
 
-          <Section 
-            title="Experiência Profissional" 
-            icon={Briefcase}
-            rightNode={
-              <Button type="button" onClick={() => setExperiences([...experiences, { company: '', role: '', period: '', description: '' }])} className="bg-zinc-100 hover:bg-zinc-200 border-0 py-1.5 px-4 rounded-full text-zinc-600 font-bold text-xs" iconLeft={<Plus size={14} />}>
-                Adicionar Experiência
-              </Button>
-            }
-          >
-            <div className="space-y-8">
-              <AnimatePresence mode="popLayout">
-                {experiences.map((exp, i) => (
-                  <motion.div key={i} layout initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="py-4 group relative">
-                    <button onClick={() => setExperiences(prev => prev.filter((_, idx) => idx !== i))} className="absolute top-6 right-6 p-2 bg-white rounded-xl shadow-sm text-zinc-300 hover:text-red-500 transition-all opacity-0 group-hover:opacity-100">
-                      <Trash2 size={16} />
-                    </button>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-10 mb-8">
-                      <Input label="Empresa" value={exp.company} onChange={e => {
-                        const n = [...experiences]; n[i].company = e.target.value; setExperiences(n);
-                      }} className="h-11 bg-white" />
-                      <Input label="Cargo" value={exp.role} onChange={e => {
-                        const n = [...experiences]; n[i].role = e.target.value; setExperiences(n);
-                      }} className="h-11 bg-white" />
-                      <Input label="Período" value={exp.period} onChange={e => {
-                        const n = [...experiences]; n[i].period = e.target.value; setExperiences(n);
-                      }} className="h-11 bg-white" />
-                    </div>
-                    <Textarea label="Descrição das Atividades" value={exp.description} rows={3} onChange={e => {
-                      const n = [...experiences]; n[i].description = e.target.value; setExperiences(n);
-                    }} className="text-xs bg-white p-4" />
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-            </div>
-          </Section>
+              <Section 
+                title="Formação Acadêmica" 
+                icon={GraduationCap}
+                rightNode={
+                  <Button type="button" onClick={() => setEducation([...education, { course: '', institution: '', status: 'Concluído', degree_type: '', start_date: '', end_date: '' }])} className="bg-zinc-100 hover:bg-zinc-200 border-0 py-1 px-3 rounded-lg text-zinc-600 font-bold text-xs" iconLeft={<Plus size={12} />}>
+                    Adicionar
+                  </Button>
+                }
+              >
+                <div className="space-y-5">
+                     {education.map((edu, i) => (
+                        <div key={i} className="p-4 bg-zinc-50 rounded-lg relative group border border-zinc-200 hover:border-zinc-300 transition-colors">
+                           <button onClick={() => setEducation(prev => prev.filter((_, idx) => idx !== i))} className="absolute top-3 right-3 p-1.5 bg-white rounded-lg text-zinc-300 hover:text-red-500 hover:bg-red-50 transition-all opacity-0 group-hover:opacity-100">
+                             <Trash2 size={14} />
+                           </button>
+                           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                             <Input label="Curso" value={edu.course} onChange={e => {
+                               const n = [...education]; n[i].course = e.target.value; setEducation(n);
+                             }} className="h-8 bg-white text-xs" />
+                             <Select label="Tipo" value={edu.degree_type || ''} onChange={e => {
+                               const n = [...education]; n[i].degree_type = e.target.value; setEducation(n);
+                             }} className="h-8 bg-white text-xs">
+                               <option value="">Selecione...</option>
+                               <option value="Bacharelado">Bacharelado</option>
+                               <option value="Especialização">Especialização</option>
+                               <option value="MBA">MBA</option>
+                               <option value="Mestrado">Mestrado</option>
+                               <option value="Técnico">Técnico</option>
+                               <option value="Outro">Outro</option>
+                             </Select>
+                           </div>
+                           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                             <Input label="Instituição" value={edu.institution} onChange={e => {
+                               const n = [...education]; n[i].institution = e.target.value; setEducation(n);
+                             }} className="h-8 bg-white text-xs" />
+                             <Select label="Status" value={edu.status} onChange={e => {
+                               const n = [...education]; n[i].status = e.target.value; setEducation(n);
+                             }} className="h-8 bg-white text-xs">
+                               <option value="Concluído">Concluído</option>
+                               <option value="Em andamento">Em andamento</option>
+                               <option value="Trancado">Trancado</option>
+                             </Select>
+                           </div>
+                           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                             <Input label="Início" value={edu.start_date || ''} onChange={e => {
+                               const n = [...education]; n[i].start_date = e.target.value; setEducation(n);
+                             }} className="h-8 bg-white text-xs" placeholder="MM/YYYY" />
+                             <Input label="Fim/Previsão" value={edu.end_date || ''} onChange={e => {
+                               const n = [...education]; n[i].end_date = e.target.value; setEducation(n);
+                             }} className="h-8 bg-white text-xs" placeholder="MM/YYYY" />
+                           </div>
+                        </div>
+                     ))}
+                     {education.length === 0 && (
+                        <div className="text-center py-6 text-zinc-400">
+                          <GraduationCap size={24} className="mx-auto mb-2 opacity-30" />
+                          <p className="text-xs">Nenhuma formação adicionada ainda</p>
+                        </div>
+                     )}
+                </div>
+              </Section>
 
-          <Section 
-            title="Formação Acadêmica" 
-            icon={GraduationCap}
-            rightNode={
-              <Button type="button" onClick={() => setEducation([...education, { course: '', institution: '', status: 'Concluído', degree_type: '', start_date: '', end_date: '' }])} className="bg-zinc-100 hover:bg-zinc-200 border-0 py-1.5 px-4 rounded-full text-zinc-600 font-bold text-xs" iconLeft={<Plus size={14} />}>
-                Adicionar Formação
-              </Button>
-            }
-          >
-            <div className="space-y-6">
-                 {education.map((edu, i) => (
-                    <div key={i} className="py-4 relative group">
-                       <button onClick={() => setEducation(prev => prev.filter((_, idx) => idx !== i))} className="absolute top-4 right-4 text-zinc-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                         <Trash2 size={16} />
-                       </button>
-                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-5">
-                         <Input label="Curso" value={edu.course} onChange={e => {
-                           const n = [...education]; n[i].course = e.target.value; setEducation(n);
-                         }} className="h-10 bg-white" />
-                         <Select label="Tipo de Formação" value={edu.degree_type || ''} onChange={e => {
-                           const n = [...education]; n[i].degree_type = e.target.value; setEducation(n);
-                         }} className="h-10 bg-white">
-                           <option value="">Selecione...</option>
-                           <option value="Bacharelado">Bacharelado</option>
-                           <option value="Licenciatura">Licenciatura</option>
-                           <option value="Tecnólogo">Tecnólogo</option>
-                           <option value="Especialização">Especialização</option>
-                           <option value="MBA">MBA</option>
-                           <option value="Mestrado">Mestrado</option>
-                           <option value="Doutorado">Doutorado</option>
-                           <option value="Técnico">Técnico</option>
-                           <option value="Outro">Outro</option>
-                         </Select>
-                       </div>
-                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-5">
-                         <Input label="Instituição" value={edu.institution} onChange={e => {
-                           const n = [...education]; n[i].institution = e.target.value; setEducation(n);
-                         }} className="h-10 bg-white" />
-                         <Select label="Status" value={edu.status} onChange={e => {
-                           const n = [...education]; n[i].status = e.target.value; setEducation(n);
-                         }} className="h-10 bg-white">
-                           <option value="Concluído">Concluído</option>
-                           <option value="Em andamento">Em andamento</option>
-                           <option value="Trancado">Trancado</option>
-                           <option value="Incompleto">Incompleto</option>
-                         </Select>
-                       </div>
-                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                         <Input label="Início (Mês/Ano)" value={edu.start_date || ''} onChange={e => {
-                           const n = [...education]; n[i].start_date = e.target.value; setEducation(n);
-                         }} className="h-10 bg-white" placeholder="Ex: 02/2018" />
-                         <Input label="Término / Previsão" value={edu.end_date || ''} onChange={e => {
-                           const n = [...education]; n[i].end_date = e.target.value; setEducation(n);
-                         }} className="h-10 bg-white" placeholder="Ex: 12/2022" />
-                       </div>
-                    </div>
-                 ))}
+              <Section 
+                title="Idiomas" 
+                icon={Languages}
+                rightNode={
+                  <Button type="button" onClick={() => setLanguages([...languages, { language: '', level: 'Intermediário' }])} className="bg-zinc-100 hover:bg-zinc-200 border-0 py-1 px-3 rounded-lg text-zinc-600 font-bold text-xs" iconLeft={<Plus size={12} />}>
+                    Adicionar
+                  </Button>
+                }
+              >
+                <div className="space-y-3">
+                     {languages.map((lang, i) => (
+                        <div key={i} className="p-3 bg-zinc-50 rounded-lg relative group flex items-end gap-3 border border-zinc-200">
+                           <div className="flex-1 grid grid-cols-2 gap-3">
+                             <Input label="Idioma" value={lang.language} onChange={e => {
+                               const n = [...languages]; n[i].language = e.target.value; setLanguages(n);
+                             }} className="h-8 bg-white text-xs" />
+                             <Select label="Nível" value={lang.level} onChange={e => {
+                               const n = [...languages]; n[i].level = e.target.value; setLanguages(n);
+                             }} className="h-8 bg-white text-xs">
+                               <option value="Básico">Básico</option>
+                               <option value="Intermediário">Intermediário</option>
+                               <option value="Avançado">Avançado</option>
+                               <option value="Fluente">Fluente</option>
+                             </Select>
+                           </div>
+                           <button onClick={() => setLanguages(prev => prev.filter((_, idx) => idx !== i))} className="p-1.5 text-zinc-300 hover:text-red-500 hover:bg-red-50 rounded transition-all opacity-0 group-hover:opacity-100">
+                             <Trash2 size={14} />
+                           </button>
+                        </div>
+                     ))}
+                     {languages.length === 0 && (
+                        <div className="text-center py-4 text-zinc-400">
+                          <Languages size={20} className="mx-auto mb-1 opacity-30" />
+                          <p className="text-xs">Nenhum idioma adicionado ainda</p>
+                        </div>
+                     )}
+                </div>
+              </Section>
             </div>
-          </Section>
 
-          <Section 
-            title="Idiomas" 
-            icon={Languages}
-            rightNode={
-              <Button type="button" onClick={() => setLanguages([...languages, { language: '', level: 'Intermediário' }])} className="bg-zinc-100 hover:bg-zinc-200 border-0 py-1.5 px-4 rounded-full text-zinc-600 font-bold text-xs" iconLeft={<Plus size={14} />}>
-                Adicionar Idioma
-              </Button>
-            }
-          >
-            <div className="space-y-6">
-                 {languages.map((lang, i) => (
-                    <div key={i} className="py-4 relative group">
-                       <button onClick={() => setLanguages(prev => prev.filter((_, idx) => idx !== i))} className="absolute top-4 right-4 text-zinc-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
-                         <Trash2 size={16} />
-                       </button>
-                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                         <Input label="Idioma" value={lang.language} onChange={e => {
-                           const n = [...languages]; n[i].language = e.target.value; setLanguages(n);
-                         }} className="h-10 bg-white" />
-                         <Select label="Nível" value={lang.level} onChange={e => {
-                           const n = [...languages]; n[i].level = e.target.value; setLanguages(n);
-                         }} className="h-10 bg-white">
-                           <option value="Básico">Básico</option>
-                           <option value="Intermediário">Intermediário</option>
-                           <option value="Avançado">Avançado</option>
-                           <option value="Fluente">Fluente</option>
-                         </Select>
-                       </div>
+            {/* Right Column - Quick Info */}
+            <div className="lg:col-span-1">
+              <Section title="Posição Almejada" icon={Target}>
+                <div className="space-y-3">
+                  <Input 
+                    label="Cargo Desejado"
+                    value={formData.desired_position} 
+                    onChange={e => setFormData(f => ({ ...f, desired_position: e.target.value }))}
+                    className="h-9 bg-white text-sm"
+                    placeholder="ex: Gerente de Projetos"
+                  />
+                  <Input 
+                    type="number"
+                    label="Anos de Experiência"
+                    value={formData.experience_years || ''} 
+                    onChange={e => setFormData(f => ({ ...f, experience_years: Number(e.target.value) || undefined }))}
+                    className="h-9 bg-white text-sm"
+                    placeholder="5"
+                  />
+                  <Select 
+                    label="Nível de Formação"
+                    value={formData.education_level} 
+                    onChange={e => setFormData(f => ({ ...f, education_level: e.target.value }))}
+                    className="h-9 bg-white text-sm"
+                  >
+                    <option value="">Selecione...</option>
+                    <option value="Fundamental">Fundamental</option>
+                    <option value="Médio">Ensino Médio</option>
+                    <option value="Técnico">Técnico</option>
+                    <option value="Superior">Superior</option>
+                    <option value="Especialização">Especialização</option>
+                    <option value="MBA">MBA</option>
+                  </Select>
+                  <Select 
+                    label="Origem"
+                    value={formData.source} 
+                    onChange={e => setFormData(f => ({ ...f, source: e.target.value }))}
+                    className="h-9 bg-white text-sm"
+                  >
+                    <option value="Manual">Manual</option>
+                    <option value="LinkedIn">LinkedIn</option>
+                    <option value="Indicação">Indicação</option>
+                    <option value="Portal">Portal</option>
+                    <option value="Outro">Outro</option>
+                  </Select>
+                </div>
+              </Section>
+
+              <Section title="Objetivos" icon={Rocket}>
+                <div className="space-y-2">
+                  <div className="relative mb-2">
+                    <Input 
+                      placeholder="Pressione Enter..."
+                      className="h-8 bg-white text-xs"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const val = e.currentTarget.value.trim();
+                          if (val && !objectives.includes(val)) { 
+                            setObjectives(prev => [...prev, val]); 
+                            e.currentTarget.value = ''; 
+                          }
+                        }
+                      }}
+                    />
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                     {objectives.map((obj, i) => (
+                       <Badge key={i} className="pl-2 pr-1 py-1 rounded-lg bg-amber-50 text-amber-700 border-amber-100 text-[9px] font-semibold flex items-center gap-1.5">
+                         {obj}
+                         <button type="button" onClick={() => setObjectives(prev => prev.filter((_, idx) => idx !== i))} className="p-0.5 hover:bg-amber-200 rounded transition-colors text-amber-400">
+                           <CloseIcon size={10} />
+                         </button>
+                       </Badge>
+                     ))}
+                  </div>
+                  {objectives.length === 0 && (
+                     <div className="text-center py-3 text-zinc-400">
+                       <p className="text-[10px]">Nenhum objetivo adicionado</p>
+                     </div>
+                  )}
+                </div>
+              </Section>
+
+              <Section title="Certificações" icon={Award} rightNode={<Button type="button" onClick={() => setCertifications([...certifications, { name: '', institution: '', year: '' }])} className="bg-zinc-100 hover:bg-zinc-200 border-0 py-1 px-3 rounded-lg text-zinc-600 font-bold text-xs" iconLeft={<Plus size={12} />}>
+                Adicionar
+              </Button>}>
+                <div className="space-y-3">
+                  {certifications.map((cert, i) => (
+                    <div key={i} className="p-3 bg-zinc-50 rounded-lg relative group border border-zinc-200 flex items-end gap-2">
+                      <div className="flex-1 space-y-1">
+                        <Input label="Certificação" value={cert.name} onChange={e => {
+                          const n = [...certifications]; n[i].name = e.target.value; setCertifications(n);
+                        }} className="h-8 bg-white text-xs" />
+                        <div className="grid grid-cols-2 gap-2">
+                          <Input label="Instituição" value={cert.institution || ''} onChange={e => {
+                            const n = [...certifications]; n[i].institution = e.target.value; setCertifications(n);
+                          }} className="h-8 bg-white text-xs" />
+                          <Input label="Ano" value={cert.year || ''} onChange={e => {
+                            const n = [...certifications]; n[i].year = e.target.value; setCertifications(n);
+                          }} className="h-8 bg-white text-xs" placeholder="2023" />
+                        </div>
+                      </div>
+                      <button onClick={() => setCertifications(prev => prev.filter((_, idx) => idx !== i))} className="p-1.5 text-zinc-300 hover:text-red-500 hover:bg-red-50 rounded transition-all opacity-0 group-hover:opacity-100">
+                        <Trash2 size={14} />
+                      </button>
                     </div>
-                 ))}
+                  ))}
+                  {certifications.length === 0 && (
+                     <div className="text-center py-3 text-zinc-400">
+                       <Award size={20} className="mx-auto mb-1 opacity-30" />
+                       <p className="text-[10px]">Nenhuma certificação</p>
+                     </div>
+                  )}
+                </div>
+              </Section>
+
+              <Section title="Projetos" icon={Rocket} rightNode={<Button type="button" onClick={() => setProjects([...projects, { name: '', description: '', technologies: '' }])} className="bg-zinc-100 hover:bg-zinc-200 border-0 py-1 px-3 rounded-lg text-zinc-600 font-bold text-xs" iconLeft={<Plus size={12} />}>
+                Adicionar
+              </Button>}>
+                <div className="space-y-3">
+                  {projects.map((proj, i) => (
+                    <div key={i} className="p-3 bg-zinc-50 rounded-lg relative group border border-zinc-200">
+                      <button onClick={() => setProjects(prev => prev.filter((_, idx) => idx !== i))} className="absolute top-2 right-2 p-1 text-zinc-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all">
+                        <Trash2 size={13} />
+                      </button>
+                      <Input label="Projeto" value={proj.name} onChange={e => {
+                        const n = [...projects]; n[i].name = e.target.value; setProjects(n);
+                      }} className="h-8 bg-white text-xs mb-2" />
+                      <Input label="Tecnologias" value={proj.technologies || ''} onChange={e => {
+                        const n = [...projects]; n[i].technologies = e.target.value; setProjects(n);
+                      }} className="h-8 bg-white text-xs mb-2" placeholder="ex: React, Node.js" />
+                      <Textarea label="Descrição" value={proj.description} rows={2} onChange={e => {
+                        const n = [...projects]; n[i].description = e.target.value; setProjects(n);
+                      }} className="text-xs bg-white p-2 rounded" />
+                    </div>
+                  ))}
+                  {projects.length === 0 && (
+                     <div className="text-center py-3 text-zinc-400">
+                       <p className="text-[10px]">Nenhum projeto adicionado</p>
+                     </div>
+                  )}
+                </div>
+              </Section>
             </div>
-          </Section>
+          </div>
         </form>
         <PreviewModal open={Boolean(parsedPreview)} data={parsedPreview} onConfirm={confirmParsedData} onCancel={() => setParsedPreview(null)} />
-      </div>
-    </PageWrapper>
+    </div>
   );
 }
 

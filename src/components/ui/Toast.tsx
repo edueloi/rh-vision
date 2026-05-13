@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Check, X, AlertTriangle, Info } from 'lucide-react';
+import { Check, X, AlertTriangle, Info, Loader2 } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -15,12 +15,13 @@ import { cn } from '@/src/lib/utils';
 //  • Desktop: entra pela direita (x: 60px → 0)
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type ToastType = 'success' | 'error' | 'warning' | 'info';
+export type ToastType = 'success' | 'error' | 'warning' | 'info' | 'loading';
 
 interface ToastItem {
   id: string;
   type: ToastType;
   message: string;
+  persist?: boolean;
 }
 
 interface ToastProps extends ToastItem {
@@ -61,15 +62,24 @@ const toastConfig = {
     titleColor: 'text-blue-600',
     bar: 'bg-blue-500',
   },
+  loading: {
+    icon: <Loader2 className="w-4 h-4 animate-spin" strokeWidth={2.5} />,
+    accent: 'bg-develoi-navy',
+    iconBg:   'bg-develoi-navy/5 border-develoi-navy/20 text-develoi-navy',
+    title:    'Aguarde',
+    titleColor: 'text-develoi-navy',
+    bar: 'bg-develoi-navy',
+  },
 };
 
-export function Toast({ id, type, message, onClose, isMobile }: ToastProps) {
+export function Toast({ id, type, message, persist, onClose, isMobile }: ToastProps) {
   const cfg = toastConfig[type];
 
   useEffect(() => {
+    if (persist) return;
     const t = setTimeout(() => onClose(id), 5000);
     return () => clearTimeout(t);
-  }, [id, onClose]);
+  }, [id, persist, onClose]);
 
   return (
     <motion.div
@@ -107,25 +117,29 @@ export function Toast({ id, type, message, onClose, isMobile }: ToastProps) {
           </p>
         </div>
 
-        {/* Fechar */}
-        <button
-          onClick={() => onClose(id)}
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-zinc-300 hover:bg-zinc-50 hover:text-zinc-500 transition-all"
-          aria-label="Fechar"
-        >
-          <X size={15} />
-        </button>
+        {/* Fechar — oculto em loading persistente */}
+        {!persist && (
+          <button
+            onClick={() => onClose(id)}
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-zinc-300 hover:bg-zinc-50 hover:text-zinc-500 transition-all"
+            aria-label="Fechar"
+          >
+            <X size={15} />
+          </button>
+        )}
       </div>
 
-      {/* Barra de progresso */}
-      <div className="absolute bottom-0 left-0 w-full h-[3px] bg-zinc-50/80">
-        <motion.div
-          initial={{ width: "100%" }}
-          animate={{ width: "0%" }}
-          transition={{ duration: 5, ease: "linear" }}
-          className={cn("h-full", cfg.bar)}
-        />
-      </div>
+      {/* Barra de progresso — oculta em loading */}
+      {!persist && (
+        <div className="absolute bottom-0 left-0 w-full h-[3px] bg-zinc-50/80">
+          <motion.div
+            initial={{ width: "100%" }}
+            animate={{ width: "0%" }}
+            transition={{ duration: 5, ease: "linear" }}
+            className={cn("h-full", cfg.bar)}
+          />
+        </div>
+      )}
     </motion.div>
   );
 }
@@ -140,6 +154,8 @@ interface ToastContextType {
   error: (message: string) => void;
   warning: (message: string) => void;
   info: (message: string) => void;
+  loading: (message: string) => string;
+  dismiss: (id: string) => void;
 }
 
 export const ToastContext = React.createContext<ToastContextType | null>(null);
@@ -157,11 +173,17 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 
   const show = useCallback((message: string, type: ToastType = 'info') => {
     const id = Math.random().toString(36).slice(2, 9);
-    setToasts((prev) => [...prev.slice(-3), { id, type, message }]); // máx 4 toasts
+    setToasts((prev) => [...prev.slice(-3), { id, type, message }]);
   }, []);
 
   const remove = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+
+  const showLoading = useCallback((message: string): string => {
+    const id = Math.random().toString(36).slice(2, 9);
+    setToasts((prev) => [...prev.slice(-3), { id, type: 'loading', message, persist: true }]);
+    return id;
   }, []);
 
   const ctx: ToastContextType = {
@@ -170,6 +192,8 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     error:   (m) => show(m, 'error'),
     warning: (m) => show(m, 'warning'),
     info:    (m) => show(m, 'info'),
+    loading: showLoading,
+    dismiss: remove,
   };
 
   return (

@@ -60,7 +60,7 @@ export function Modal({
   }
 
   return createPortal(
-    <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 sm:p-6">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 sm:p-6">
       <div
         className="absolute inset-0 bg-zinc-950/55 backdrop-blur-sm"
         onClick={() => {
@@ -74,7 +74,7 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         className={cn(
-          "relative z-[121] flex max-h-[90vh] w-full flex-col overflow-hidden rounded-[28px] border border-zinc-200 bg-white shadow-2xl",
+          "relative z-[201] flex max-h-[90vh] w-full flex-col overflow-hidden rounded-[28px] border border-zinc-200 bg-white shadow-2xl",
           sizeMap[size],
           className
         )}

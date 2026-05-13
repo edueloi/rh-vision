@@ -107,11 +107,11 @@ export default function AuroraAI() {
     if (selectedJobId && activeView === 'match') {
       fetchExistingMatches();
     }
-  }, [selectedJobId, activeView]);
+  }, [selectedJobId, activeView, minScore]);
 
   const fetchExistingMatches = async () => {
     try {
-      const res = await fetch(`/api/aurora-ai/matches/${selectedJobId}`);
+      const res = await fetch(`/api/aurora-ai/matches/${selectedJobId}?minScore=${minScore}`);
       if (res.ok) {
         const data = await res.json();
         setMatchResults(data || []);

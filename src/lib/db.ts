@@ -121,7 +121,7 @@ export async function initDb() {
     where: { id: 'develoi' },
     update: {},
     create: {
-      id: 'develoi', name: 'Develoi Recruitment', document: '00.000.000/0001-00',
+      id: 'develoi', name: 'Recrute IA', document: '00.000.000/0001-00',
       status: 'Ativo', plan_label: 'Plano Anual', validity_days: 3650,
       starts_at: now, expires_at: addDays(now, 3650), max_users: 999,
       access_profile: 'admin-mestre',
