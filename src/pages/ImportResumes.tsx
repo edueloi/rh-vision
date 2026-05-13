@@ -15,6 +15,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { cn } from "@/src/lib/utils";
 import { getTenantId } from "@/src/lib/auth";
 import { useUnit } from "@/src/lib/useUnit";
+import { useNotifications } from "@/src/lib/notifications";
 import { Job } from "@/src/types";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -102,6 +103,7 @@ export default function ImportResumes() {
   const tenantId = getTenantId();
   const queryUnitId = currentUnit.is_master ? "master" : currentUnit.id;
   const toast = useToast();
+  const { push: pushNotif } = useNotifications();
 
   // Views
   type View = "dashboard" | "details";
@@ -200,12 +202,27 @@ export default function ImportResumes() {
     fetchTools();
   }, [currentUnit]);
 
-  // Auto-refresh while processing
+  // Auto-refresh while processing + notificação ao concluir
+  const prevProcessedRef = useRef<number>(-1);
   useEffect(() => {
     if (view !== "details" || !selectedBatch) return;
     if (selectedBatch.status !== "processing" && selectedBatch.status !== "uploaded") return;
     const allDone = selectedBatch.total_files > 0 && selectedBatch.processed_files >= selectedBatch.total_files;
+
+    // Dispara notificação uma única vez quando conclui
+    if (allDone && prevProcessedRef.current !== selectedBatch.processed_files) {
+      prevProcessedRef.current = selectedBatch.processed_files;
+      const errors = selectedBatch.error_files || 0;
+      pushNotif({
+        type: errors > 0 ? "warning" : "success",
+        title: `Lote "${selectedBatch.name}" concluído`,
+        message: `${selectedBatch.created_candidates} candidatos gerados${errors > 0 ? `, ${errors} com falha` : " com sucesso"}.`,
+      });
+      toast.success(`✓ Lote "${selectedBatch.name}" processado — ${selectedBatch.created_candidates} candidatos gerados.`);
+    }
+
     if (allDone) return;
+    prevProcessedRef.current = selectedBatch.processed_files;
     const id = setInterval(() => openBatchDetails(selectedBatch), 3500);
     return () => clearInterval(id);
   }, [view, selectedBatch]);
@@ -882,7 +899,12 @@ export default function ImportResumes() {
       fetch(`/api/imports/${batchId}/start`, { method: "POST" });
 
       toast.dismiss(loadId);
-      toast.success("Lote criado! Processamento iniciado pela Aurora IA.");
+      toast.loading(`Aurora IA processando "${nbForm.name}"... (${nbQueue.length} arquivo${nbQueue.length !== 1 ? "s" : ""})`);
+      pushNotif({
+        type: "info",
+        title: `Lote "${nbForm.name}" enviado`,
+        message: `${nbQueue.length} arquivo${nbQueue.length !== 1 ? "s" : ""} enviado${nbQueue.length !== 1 ? "s" : ""} para processamento pela Aurora IA.`,
+      });
       setShowNewBatch(false);
       setNbForm({ name: "", job_id: "", analysis_mode: "full", duplicate_strategy: "manual" });
       setNbQueue([]);

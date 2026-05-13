@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Users,
   Briefcase,
@@ -31,6 +31,7 @@ import {
   useNavigate,
 } from "react-router-dom";
 import { ToastProvider, useToast } from "./components/ui/Toast";
+import { NotificationsProvider, useNotifications } from "./lib/notifications";
 import Dashboard from "./pages/Dashboard";
 import Jobs from "./pages/Jobs";
 import Candidates from "./pages/Candidates";
@@ -123,11 +124,23 @@ function AppContent() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [unitMenuOpen, setUnitMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const notifRef = useRef<HTMLDivElement>(null);
   const { currentUnit, changeUnit, isMaster, units } = useUnit();
   const { theme, toggleTheme } = usePreferences();
   const toast = useToast();
+  const { notifications, unreadCount, markAllRead, clear } = useNotifications();
   const location = useLocation();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!notifOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) setNotifOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [notifOpen]);
 
   const isSuperAdmin = isRootAdmin(user);
   const isRootShell = isSuperAdmin && location.pathname.startsWith("/super-admin");
@@ -639,16 +652,63 @@ function AppContent() {
             )}
 
             <div className="flex items-center gap-4">
-              <button className={cn(
-                "relative p-2 transition-colors",
-                theme === 'dark' ? "text-white/60 hover:text-white" : "text-zinc-400 hover:text-develoi-navy"
-              )}>
-                <Bell size={20} />
-                <span className={cn(
-                  "absolute right-2 top-2 h-2 w-2 rounded-full border-2 bg-develoi-gold",
-                  theme === 'dark' ? "border-develoi-navy" : "border-white"
-                )} />
-              </button>
+              {/* Notification Bell */}
+              <div className="relative" ref={notifRef}>
+                <button
+                  onClick={() => { setNotifOpen(o => !o); if (!notifOpen) markAllRead(); }}
+                  className={cn(
+                    "relative p-2 transition-colors",
+                    theme === 'dark' ? "text-white/60 hover:text-white" : "text-zinc-400 hover:text-develoi-navy"
+                  )}
+                >
+                  <Bell size={20} />
+                  {unreadCount > 0 && (
+                    <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-develoi-gold text-[9px] font-black text-white border-2 border-white">
+                      {unreadCount > 9 ? "9+" : unreadCount}
+                    </span>
+                  )}
+                </button>
+
+                {notifOpen && (
+                  <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-2xl shadow-2xl border border-zinc-100 z-[200] overflow-hidden">
+                    {/* Header */}
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100 bg-zinc-50/50">
+                      <span className="text-[10px] font-black text-zinc-700 uppercase tracking-widest">Notificações</span>
+                      {notifications.length > 0 && (
+                        <button onClick={clear} className="text-[9px] font-black text-zinc-400 uppercase tracking-widest hover:text-rose-500 transition-colors">
+                          Limpar
+                        </button>
+                      )}
+                    </div>
+
+                    {/* List */}
+                    <div className="max-h-80 overflow-y-auto divide-y divide-zinc-50">
+                      {notifications.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-10 gap-2 opacity-40">
+                          <Bell size={28} className="text-zinc-300" />
+                          <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Nenhuma notificação</p>
+                        </div>
+                      ) : notifications.map(n => (
+                        <div key={n.id} className="flex items-start gap-3 px-4 py-3 hover:bg-zinc-50 transition-colors">
+                          <div className={cn(
+                            "mt-0.5 w-2 h-2 rounded-full shrink-0",
+                            n.type === "success" ? "bg-emerald-500" :
+                            n.type === "error" ? "bg-rose-500" :
+                            n.type === "warning" ? "bg-amber-400" : "bg-develoi-navy"
+                          )} />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-black text-zinc-800 leading-snug">{n.title}</p>
+                            <p className="text-[10px] font-medium text-zinc-400 mt-0.5 leading-relaxed">{n.message}</p>
+                            <p className="text-[9px] font-bold text-zinc-300 mt-1 uppercase tracking-widest">
+                              {n.at.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
               <div className={cn(
                 "flex items-center gap-3 pl-4 border-l transition-colors",
                 theme === 'dark' ? "border-white/10" : "border-zinc-200"
@@ -794,7 +854,9 @@ export default function App() {
   return (
     <BrowserRouter>
       <ToastProvider>
-        <AppContent />
+        <NotificationsProvider>
+          <AppContent />
+        </NotificationsProvider>
       </ToastProvider>
     </BrowserRouter>
   );
