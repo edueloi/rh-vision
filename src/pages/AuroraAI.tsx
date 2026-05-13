@@ -88,6 +88,7 @@ export default function AuroraAI() {
   const [matchResults, setMatchResults] = useState<MatchResult[]>([]);
   const [isMatching, setIsMatching] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [selectedMatchForDetails, setSelectedMatchForDetails] = useState<MatchResult | null>(null);
   
   // Filters
   const [precisionMode, setPrecisionMode] = useState('Equilibrada');
@@ -101,6 +102,24 @@ export default function AuroraAI() {
     fetchSessions();
     fetchStats();
   }, [queryUnitId]);
+
+  useEffect(() => {
+    if (selectedJobId && activeView === 'match') {
+      fetchExistingMatches();
+    }
+  }, [selectedJobId, activeView]);
+
+  const fetchExistingMatches = async () => {
+    try {
+      const res = await fetch(`/api/aurora-ai/matches/${selectedJobId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setMatchResults(data || []);
+      }
+    } catch (error) {
+      console.error('Erro ao buscar matches existentes:', error);
+    }
+  };
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -462,34 +481,68 @@ export default function AuroraAI() {
 
               {matchResults.length > 0 && (
                 <div className="grid md:grid-cols-2 gap-6 animate-in fade-in zoom-in duration-500">
-                  {matchResults.map((rec) => (
-                    <div key={rec.candidate_id} className="bg-white dark:bg-white/5 border border-zinc-100 dark:border-white/5 p-6 rounded-[2.5rem] hover:border-develoi-gold transition-all group shadow-sm">
+                  {matchResults.map((rec, i) => (
+                    <div 
+                      key={`${rec.candidate_id}-${i}`} 
+                      onClick={() => setSelectedMatchForDetails(rec)}
+                      className="bg-white dark:bg-white/5 border border-zinc-100 dark:border-white/5 p-6 rounded-[2.5rem] hover:border-develoi-gold transition-all group shadow-sm cursor-pointer flex flex-col h-full relative"
+                    >
                       <div className="flex justify-between items-start mb-4">
                         <div className="flex items-center gap-4">
-                          <div className="w-14 h-14 rounded-2xl bg-zinc-50 dark:bg-white/10 flex items-center justify-center font-black text-zinc-400 dark:text-white/40 group-hover:bg-develoi-navy group-hover:text-develoi-gold transition-all">
-                             {rec.full_name.split(' ').map(n => n[0]).join('')}
+                          <div className="w-14 h-14 rounded-2xl bg-zinc-50 dark:bg-white/10 flex items-center justify-center font-black text-zinc-400 dark:text-white/40 group-hover:bg-develoi-navy group-hover:text-develoi-gold transition-all shrink-0">
+                             {(rec.full_name || 'C').split(' ').map(n => n[0]).join('').substring(0, 2)}
                           </div>
                           <div>
-                             <h5 className="text-sm font-black text-zinc-900 dark:text-white">{rec.full_name}</h5>
+                             <h5 className="text-sm font-black text-zinc-900 dark:text-white line-clamp-1">{rec.full_name}</h5>
                              <p className="text-[9px] font-bold text-zinc-400 dark:text-white/40 uppercase tracking-widest mt-1 flex items-center gap-1">
                                <MapPin size={10} /> {rec.city}, {rec.state}
                              </p>
                           </div>
                         </div>
-                        <div className="text-right">
+                        <div className="text-right shrink-0">
                           <div className="text-xl font-black text-blue-600 dark:text-develoi-gold">{rec.compatibility_score}%</div>
                           <p className="text-[8px] font-bold text-zinc-400 uppercase tracking-tighter">Match AI</p>
                         </div>
                       </div>
                       
-                      <div className="space-y-3 mb-6">
+                      <div className="space-y-4 mb-6 flex-1">
                         <div className="flex flex-wrap gap-2">
-                           <Badge color={rec.classification === 'Alto Fit' ? 'success' : 'gold'}>{rec.classification}</Badge>
+                           <Badge color={rec.classification === 'Alto Fit' || rec.classification === 'Altíssimo Fit' ? 'success' : 'gold'}>{rec.classification}</Badge>
                            {rec.has_disc && <Badge color="primary">{rec.disc_profile}</Badge>}
+                           {rec.distance_km !== undefined && rec.distance_km !== null && (
+                             <Badge color="default" className="flex items-center gap-1">
+                               <MapPin size={10} /> {rec.distance_km <= radius ? `${rec.distance_km}km (No Raio)` : `${rec.distance_km}km (Fora do Raio)`}
+                             </Badge>
+                           )}
                         </div>
-                        <p className="text-[11px] font-medium text-zinc-600 dark:text-zinc-400 line-clamp-2 italic">
+                        
+                        {rec.strengths && rec.strengths.length > 0 && (
+                          <div className="space-y-2">
+                            <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">Pontos Fortes Principais</p>
+                            <div className="flex flex-wrap gap-1">
+                              {rec.strengths.slice(0, 3).map((strength, idx) => (
+                                <span key={idx} className="text-[10px] bg-zinc-50 dark:bg-white/5 border border-zinc-100 dark:border-white/10 px-2 py-1 rounded-md text-zinc-600 dark:text-zinc-300">
+                                  {strength}
+                                </span>
+                              ))}
+                              {rec.strengths.length > 3 && (
+                                <span className="text-[10px] bg-zinc-50 dark:bg-white/5 border border-zinc-100 dark:border-white/10 px-2 py-1 rounded-md text-zinc-400 italic">
+                                  +{rec.strengths.length - 3} mais
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        <p className="text-[11px] font-medium text-zinc-600 dark:text-zinc-400 line-clamp-2 italic border-l-2 border-develoi-gold pl-3">
                           "{rec.recommendation_reason}"
                         </p>
+                      </div>
+
+                      <div className="mt-auto pt-4 border-t border-zinc-50 dark:border-white/5 flex justify-end">
+                        <span className="text-[10px] font-bold text-develoi-gold uppercase tracking-widest flex items-center gap-1 group-hover:underline">
+                          Ver Análise Completa <ChevronRight size={12} />
+                        </span>
                       </div>
                     </div>
                   ))}
@@ -525,18 +578,34 @@ export default function AuroraAI() {
 
            <PanelCard title="Histórico Recente" icon={History}>
               <div className="space-y-4 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
-                 {sessions.length > 0 ? sessions.slice(0, 5).map((session, i) => (
-                   <div key={i} className="flex items-center justify-between group cursor-pointer hover:bg-zinc-50 dark:hover:bg-white/5 p-2 rounded-xl transition-all">
+                 {sessions.length > 0 ? sessions.slice(0, 8).map((session, i) => (
+                   <div 
+                     key={i} 
+                     onClick={() => {
+                       if (session.search_type === 'match-job' && session.job_id) {
+                         setSelectedJobId(String(session.job_id));
+                         setActiveView('match');
+                       } else {
+                         setActiveView('chat');
+                       }
+                     }}
+                     className="flex items-center justify-between group cursor-pointer hover:bg-zinc-50 dark:hover:bg-white/5 p-2 rounded-xl transition-all"
+                   >
                       <div className="flex items-center gap-3">
                          <div className="p-2 bg-zinc-50 dark:bg-white/5 rounded-xl text-zinc-400 group-hover:bg-develoi-navy group-hover:text-white transition-all">
-                            <MessageSquare size={14} />
+                            {session.search_type === 'match-job' ? <Target size={14} /> : <MessageSquare size={14} />}
                          </div>
                          <div>
-                            <h5 className="text-[11px] font-black text-zinc-800 dark:text-white/90 line-clamp-1">{session.query || "Conversa Aurora"}</h5>
+                            <h5 className="text-[11px] font-black text-zinc-800 dark:text-white/90 line-clamp-1" title={session.summary || ''}>
+                               {session.search_type === 'match-job' 
+                                 ? `Match: ${jobs.find(j => j.id === session.job_id)?.title || `Vaga #${session.job_id}`}` 
+                                 : (session.summary || "Conversa Aurora")
+                               }
+                            </h5>
                             <p className="text-[8px] font-bold text-zinc-400 uppercase tracking-widest">{formatDate(session.created_at)}</p>
                          </div>
                       </div>
-                      <ChevronRight size={14} className="text-zinc-200 group-hover:text-develoi-navy transition-colors" />
+                      <ChevronRight size={14} className="text-zinc-200 group-hover:text-develoi-navy transition-colors shrink-0" />
                    </div>
                  )) : (
                    <p className="text-[9px] font-bold text-zinc-400 uppercase text-center py-4">Sem histórico recente</p>
@@ -618,6 +687,99 @@ export default function AuroraAI() {
            </div>
         </div>
       </Modal>
+
+      {/* Match Details Modal */}
+      {selectedMatchForDetails && (
+        <Modal 
+          open={!!selectedMatchForDetails} 
+          onClose={() => setSelectedMatchForDetails(null)}
+          title={`Análise IA: ${selectedMatchForDetails.full_name}`}
+          size="lg"
+        >
+          <div className="space-y-8 pb-4">
+            <div className="flex items-center gap-6 p-6 bg-zinc-50 dark:bg-white/5 rounded-3xl border border-zinc-100 dark:border-white/10">
+              <div className="w-20 h-20 rounded-[2rem] bg-develoi-navy text-develoi-gold flex items-center justify-center font-black text-2xl shadow-xl">
+                {(selectedMatchForDetails.full_name || 'C').split(' ').map((n: string) => n[0]).join('').substring(0, 2)}
+              </div>
+              <div className="flex-1">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="text-xl font-black text-zinc-900 dark:text-white mb-1">{selectedMatchForDetails.full_name}</h3>
+                    <p className="text-[11px] font-bold text-zinc-500 flex items-center gap-2 uppercase tracking-widest">
+                      <MapPin size={12} /> {selectedMatchForDetails.city}, {selectedMatchForDetails.state}
+                      {selectedMatchForDetails.distance_km !== undefined && selectedMatchForDetails.distance_km !== null && (
+                        <span className={selectedMatchForDetails.distance_km <= radius ? "text-emerald-500" : "text-amber-500"}>
+                          ({selectedMatchForDetails.distance_km}km)
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-3xl font-black text-develoi-navy dark:text-develoi-gold">{selectedMatchForDetails.compatibility_score}%</div>
+                    <Badge color={selectedMatchForDetails.classification === 'Alto Fit' || selectedMatchForDetails.classification === 'Altíssimo Fit' ? 'success' : 'gold'}>
+                      {selectedMatchForDetails.classification}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 flex items-center gap-2">
+                <Sparkles size={14} className="text-develoi-gold" /> Veredito Aurora
+              </h4>
+              <div className="p-6 bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-3xl text-sm font-medium text-blue-900 dark:text-blue-100 leading-relaxed italic">
+                "{selectedMatchForDetails.recommendation_reason}"
+              </div>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-6">
+              {selectedMatchForDetails.strengths && selectedMatchForDetails.strengths.length > 0 && (
+                <div className="space-y-4">
+                  <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600 flex items-center gap-2">
+                    <CheckCircle2 size={14} /> Pontos Fortes
+                  </h4>
+                  <ul className="space-y-2">
+                    {selectedMatchForDetails.strengths.map((str: string, i: number) => (
+                      <li key={i} className="flex items-start gap-2 text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                        {str}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              
+              {selectedMatchForDetails.attention_points && selectedMatchForDetails.attention_points.length > 0 && (
+                <div className="space-y-4">
+                  <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-600 flex items-center gap-2">
+                    <AlertCircle size={14} /> Pontos de Atenção
+                  </h4>
+                  <ul className="space-y-2">
+                    {selectedMatchForDetails.attention_points.map((pt: string, i: number) => (
+                      <li key={i} className="flex items-start gap-2 text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1.5 shrink-0" />
+                        {pt}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+
+            {selectedMatchForDetails.risk_reason && (
+              <div className="space-y-4 pt-4 border-t border-zinc-100 dark:border-white/5">
+                <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-red-500 flex items-center gap-2">
+                  <AlertCircle size={14} /> Análise de Risco
+                </h4>
+                <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                  {selectedMatchForDetails.risk_reason}
+                </p>
+              </div>
+            )}
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

@@ -196,6 +196,23 @@ export function JobCard({
                           {job.is_public ? "Remover do portal" : "Publicar no portal"}
                         </Button>
 
+                        {job.is_public && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            fullWidth
+                            className="justify-start text-develoi-navy"
+                            iconLeft={<Globe size={14} />}
+                            onClick={() => {
+                              const slug = `${job.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${job.id}`;
+                              window.open(`/portal/vagas/${slug}`, '_blank');
+                              setMenuOpen(false);
+                            }}
+                          >
+                            Acessar portal da vaga
+                          </Button>
+                        )}
+
                         {job.status !== "Aberta" && (
                           <Button
                             variant="ghost"
@@ -357,6 +374,23 @@ export function JobCard({
                       >
                         {job.is_public ? "Remover do portal" : "Publicar no portal"}
                       </Button>
+
+                      {job.is_public && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          fullWidth
+                          className="justify-start text-develoi-navy"
+                          iconLeft={<Globe size={14} />}
+                          onClick={() => {
+                            const slug = `${job.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${job.id}`;
+                            window.open(`/portal/vagas/${slug}`, '_blank');
+                            setMenuOpen(false);
+                          }}
+                        >
+                          Acessar portal da vaga
+                        </Button>
+                      )}
 
                       {job.status !== "Aberta" && (
                         <Button

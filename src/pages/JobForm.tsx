@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import {
   AlertCircle,
   ArrowLeft,
@@ -783,10 +784,15 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
                       Vaga {index + 1}
                     </p>
                     <p className="truncate text-sm font-bold">{review.fileName}</p>
+                    {review.data?.title && (
+                      <p className="truncate text-[11px] text-zinc-500">
+                        {review.data.title} {review.data.city ? `• ${review.data.city}` : ""}
+                      </p>
+                    )}
                   </div>
                   {isActive && (
                     <Badge color="gold" pill className="shrink-0">
-                      Atual
+                      Editando
                     </Badge>
                   )}
                 </div>
@@ -914,7 +920,7 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
         </div>
 
         <div className="space-y-1.5">
-          <FieldHeader label="Departamento" />
+          <FieldHeader label="Departamento" badge={getConfidenceBadge("department")} />
           <Combobox
             options={DEPARTMENT_OPTIONS}
             value={formData.department ?? ""}
@@ -927,7 +933,7 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
         </div>
 
         <div className="space-y-1.5">
-          <FieldHeader label="Nível de senioridade" />
+          <FieldHeader label="Nível de senioridade" badge={getConfidenceBadge("seniority_level")} />
           <Select
             value={formData.seniority_level ?? ""}
             onChange={(event) => handleChange("seniority_level", event.target.value === "Não informado" ? "" : event.target.value)}
@@ -1088,7 +1094,7 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
 
       <FormRow cols={2}>
         <div className="space-y-1.5">
-          <FieldHeader label="Modelo de trabalho" />
+          <FieldHeader label="Modelo de trabalho" badge={getConfidenceBadge("work_model")} />
           <Select
             value={formData.work_model ?? ""}
             onChange={(event) => handleChange("work_model", event.target.value === "Não informado" ? "" : event.target.value)}
@@ -1102,7 +1108,7 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
         </div>
 
         <div className="space-y-1.5">
-          <FieldHeader label="Tipo de contrato" />
+          <FieldHeader label="Tipo de contrato" badge={getConfidenceBadge("contract_type")} />
           <Select
             value={formData.contract_type ?? ""}
             onChange={(event) => handleChange("contract_type", event.target.value === "Não informado" ? "" : event.target.value)}
@@ -1307,64 +1313,52 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
   const currentSectionMeta = SECTION_META.find((section) => section.id === activeSection)!;
 
   const renderEditorMode = () => (
-    <div className="grid gap-6 xl:grid-cols-[300px,minmax(0,1fr)]">
-      <div className="space-y-6">
-        {renderImportSummary()}
-        {renderQueueCard()}
+    <div className="space-y-6">
+      <div className="flex flex-col gap-6 xl:flex-row xl:items-start">
+        <div className="flex-1 space-y-6">
+          {renderImportSummary()}
+          
+          <div className="flex flex-wrap items-center gap-1.5 border-b border-zinc-200 pb-px">
+            {SECTION_META.map((section) => {
+              const Icon = section.icon;
+              const isActive = section.id === activeSection;
 
-        <ContentCard className="space-y-2 xl:sticky xl:top-6" padding="sm">
-          <div className="px-1 pb-2">
-            <p className="text-sm font-black tracking-tight text-zinc-900">Navegação da vaga</p>
-            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-400">
-              Revise cada bloco antes de publicar
-            </p>
+              return (
+                <button
+                  key={section.id}
+                  onClick={() => setActiveSection(section.id)}
+                  className={cn(
+                    "relative flex items-center gap-2 px-4 py-3 text-sm font-bold transition-all",
+                    isActive 
+                      ? "text-develoi-navy" 
+                      : "text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100/50 rounded-t-xl"
+                  )}
+                >
+                  <Icon size={16} className={cn(isActive ? "text-develoi-navy" : "text-zinc-400")} />
+                  {section.navLabel}
+                  
+                  {isActive && (
+                    <motion.div 
+                      layoutId="activeTab"
+                      className="absolute bottom-0 left-0 right-0 h-0.5 bg-develoi-navy"
+                    />
+                  )}
+                </button>
+              );
+            })}
           </div>
 
-          {SECTION_META.map((section) => {
-            const Icon = section.icon;
-            const isActive = section.id === activeSection;
+          <PanelCard
+            title={currentSectionMeta.title}
+            description={currentSectionMeta.description}
+            icon={currentSectionMeta.icon}
+          >
+            {renderCurrentSection()}
+          </PanelCard>
+        </div>
 
-            return (
-              <Button
-                key={section.id}
-                variant={isActive ? "secondary" : "ghost"}
-                size="sm"
-                fullWidth
-                iconLeft={<Icon size={16} />}
-                className="h-auto min-w-0 justify-start px-3 py-3"
-                onClick={() => setActiveSection(section.id)}
-              >
-                <div className="min-w-0 text-left">
-                  <p className="truncate text-sm font-bold">{section.navLabel}</p>
-                  <p className="truncate text-[10px] font-black uppercase tracking-[0.16em] opacity-70">
-                    {section.title}
-                  </p>
-                </div>
-              </Button>
-            );
-          })}
-        </ContentCard>
-      </div>
-
-      <div className="space-y-6">
-        <PanelCard
-          title={currentSectionMeta.title}
-          description={currentSectionMeta.description}
-          icon={currentSectionMeta.icon}
-        >
-          {renderCurrentSection()}
-        </PanelCard>
-
-        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-          <Button variant="ghost" onClick={onBack}>
-            Cancelar alterações
-          </Button>
-          <Button variant="outline" loading={loading} onClick={() => handleSave(false)}>
-            {job ? "Salvar vaga" : "Salvar rascunho"}
-          </Button>
-          <Button variant="secondary" loading={loading} onClick={() => handleSave(true)}>
-            Salvar e publicar
-          </Button>
+        <div className="xl:w-[320px] shrink-0 space-y-6">
+          {renderQueueCard()}
         </div>
       </div>
     </div>

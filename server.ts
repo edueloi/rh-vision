@@ -65,10 +65,10 @@ type GoogleGenAI = AIClient;
 const GEMINI_MODEL = OPENAI_MODEL;
 
 const AI_CORE_INSTRUCTIONS = [
-  'VocÃª Ã© Aurora AI, especialista sÃªnior em recrutamento, seleÃ§Ã£o, people analytics e anÃ¡lise tÃ©cnica de candidatos e vagas.',
-  'Responda sempre em portuguÃªs do Brasil com rigor, clareza e critÃ©rio profissional.',
-  'Nunca invente informaÃ§Ãµes ausentes. Quando faltarem dados, use null, [] ou declare a ausÃªncia conforme o formato solicitado.',
-  'Em anÃ¡lises de aderÃªncia, seja conservadora e baseie a conclusÃ£o apenas nas evidÃªncias fornecidas.',
+  'Você é Aurora AI, especialista sênior em recrutamento, seleção, people analytics e análise técnica de candidatos e vagas.',
+  'Responda sempre em português do Brasil com rigor, clareza e critério profissional.',
+  'Nunca invente informações ausentes. Quando faltarem dados, use null, [] ou declare a ausência conforme o formato solicitado.',
+  'Em análises de aderência, seja conservadora e baseie a conclusão apenas nas evidências fornecidas.',
 ].join(' ');
 
 class AITemporaryUnavailableError extends Error {
@@ -177,11 +177,11 @@ function convertGeminiLikeContentsToOpenAIInput(contents: string | AIMessage[]):
   }
 
   return normalizedMessages
-    .map((item) => `${item.role === 'assistant' ? 'Assistente' : 'UsuÃ¡rio'}:\n${item.text}`)
+    .map((item) => `${item.role === 'assistant' ? 'Assistente' : 'Usuário'}:\n${item.text}`)
     .join('\n\n');
 }
 
-async function executeAIRequestWithRetry<T>(request: () => Promise<T>, operationLabel = 'geraÃ§Ã£o de conteÃºdo') {
+async function executeAIRequestWithRetry<T>(request: () => Promise<T>, operationLabel = 'geração de conteúdo') {
   let lastError: unknown;
 
   for (let attempt = 1; attempt <= OPENAI_RETRY_ATTEMPTS; attempt += 1) {
@@ -196,7 +196,7 @@ async function executeAIRequestWithRetry<T>(request: () => Promise<T>, operation
 
       const delayMs = OPENAI_RETRY_BASE_DELAY_MS * attempt;
       const status = getAIErrorStatus(error) ?? 'sem status';
-      console.warn(`[OpenAI] ${operationLabel} temporariamente indisponÃ­vel (${status}). Nova tentativa em ${delayMs}ms.`);
+      console.warn(`[OpenAI] ${operationLabel} temporariamente indisponível (${status}). Nova tentativa em ${delayMs}ms.`);
       await wait(delayMs);
     }
   }
@@ -205,7 +205,7 @@ async function executeAIRequestWithRetry<T>(request: () => Promise<T>, operation
     const status = getAIErrorStatus(lastError) ?? 'sem status';
     const providerMessage = getAIErrorMessage(lastError);
     throw new AITemporaryUnavailableError(
-      `OpenAI indisponÃ­vel temporariamente para ${operationLabel} (${status}): ${providerMessage}`,
+      `OpenAI indisponível temporariamente para ${operationLabel} (${status}): ${providerMessage}`,
       lastError
     );
   }
@@ -216,14 +216,14 @@ async function executeAIRequestWithRetry<T>(request: () => Promise<T>, operation
 function createAIClient(): AIClient {
   if (!OPENAI_API_KEY) {
     if (LEGACY_GEMINI_API_KEY) {
-      throw new Error('OPENAI_API_KEY nÃ£o configurada. O arquivo .env ainda estÃ¡ com GEMINI_API_KEY. Renomeie para OPENAI_API_KEY e use uma chave OpenAI vÃ¡lida com prefixo sk- ou sk-proj-.');
+      throw new Error('OPENAI_API_KEY não configurada. O arquivo .env ainda está com GEMINI_API_KEY. Renomeie para OPENAI_API_KEY e use uma chave OpenAI válida com prefixo sk- ou sk-proj-.');
     }
 
-    throw new Error('OPENAI_API_KEY nÃ£o configurada. Defina a chave no arquivo .env.');
+    throw new Error('OPENAI_API_KEY não configurada. Defina a chave no arquivo .env.');
   }
 
   if (/^AIza[0-9A-Za-z_-]{20,}$/.test(OPENAI_API_KEY)) {
-    throw new Error('OPENAI_API_KEY estÃ¡ com uma chave do Google/Gemini (prefixo AIza). Remova a variÃ¡vel OPENAI_API_KEY do terminal atual e configure uma chave OpenAI vÃ¡lida com prefixo sk- ou sk-proj-.');
+    throw new Error('OPENAI_API_KEY está com uma chave do Google/Gemini (prefixo AIza). Remova a variável OPENAI_API_KEY do terminal atual e configure uma chave OpenAI válida com prefixo sk- ou sk-proj-.');
   }
 
   const client = new OpenAI({ apiKey: OPENAI_API_KEY });
@@ -246,10 +246,10 @@ function createAIClient(): AIClient {
               } : {}),
               text: {
                 format: expectsJson ? { type: 'json_object' } : { type: 'text' },
-                verbosity: expectsJson ? 'low' : config?.verbosity || normalizeTextVerbosity(process.env.OPENAI_TEXT_VERBOSITY, 'low'),
+                verbosity: config?.verbosity || normalizeTextVerbosity(process.env.OPENAI_TEXT_VERBOSITY, 'medium'),
               },
             }),
-          config?.operationLabel || 'geraÃ§Ã£o de conteÃºdo'
+          config?.operationLabel || 'geração de conteúdo'
         ) as any;
 
         return {
@@ -267,9 +267,9 @@ function normalizeAuroraChatReply(rawText: string) {
   return rawText
     .replace(/\r\n/g, '\n')
     .replace(/\*\*(.*?)\*\*/g, '$1')
-    .replace(/^OlÃƒÆ’Ã‚Â¡!? Eu sou a Aurora AI[^.]*\.\s*/i, '')
+    .replace(/^Olá!? Eu sou a Aurora AI[^.]*\.\s*/i, '')
     .replace(/^Eu sou a Aurora AI[^.]*\.\s*/i, '')
-    .replace(/^Minha missÃƒÆ’Ã‚Â£o ÃƒÆ’Ã‚Â©[^.]*\.\s*/i, '')
+    .replace(/^Minha missão é[^.]*\.\s*/i, '')
     .replace(/([.:])\s+(?=\d+\.\s)/g, '$1\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
@@ -345,22 +345,13 @@ async function saveImportedJobFile(importId: number | string, tenantId: string, 
 }
 
 async function extractPdfTextFromBuffer(buffer: Buffer) {
-  console.log('[PDF] Iniciando extraÃ§Ã£o de texto do buffer...');
+  console.log('[PDF] Iniciando extração de texto do buffer...');
   try {
-    const pdfModule = require('pdf-parse');
-    const PDFParseClass = pdfModule.PDFParse || pdfModule.default?.PDFParse;
-
-    if (!PDFParseClass) {
-      console.error('[PDF] Chaves disponÃ­veis no mÃ³dulo:', Object.keys(pdfModule));
-      throw new Error('Classe PDFParse nÃ£o encontrada no mÃ³dulo pdf-parse');
-    }
-
-    const parser = new PDFParseClass({ data: buffer });
-    const result = await parser.getText();
-    const text = result?.text || '';
-    await parser.destroy();
-
-    console.log('[PDF] Texto extraÃ­do com sucesso. Tamanho:', text.length);
+    const pdf = require('pdf-parse');
+    const data = await pdf(buffer);
+    const text = data?.text || '';
+    
+    console.log('[PDF] Texto extraído com sucesso. Tamanho:', text.length);
     return text;
   } catch (error: any) {
     console.error('[PDF] Erro ao ler PDF:', error);
@@ -390,12 +381,12 @@ async function extractResumeTextFromBuffer(buffer: Buffer, fileName: string, fil
   ) {
     text = buffer.toString('utf8');
   } else {
-    throw new Error(`Formato de currÃƒÆ’Ã‚Â­culo nÃƒÆ’Ã‚Â£o suportado: ${extension || fileType || 'desconhecido'}`);
+    throw new Error(`Formato de currículo não suportado: ${extension || fileType || 'desconhecido'}`);
   }
 
   const normalizedText = normalizeExtractedResumeText(text);
   if (normalizedText.length < 20) {
-    throw new Error('NÃƒÆ’Ã‚Â£o foi possÃƒÆ’Ã‚Â­vel extrair texto suficiente do currÃƒÆ’Ã‚Â­culo.');
+    throw new Error('Não foi possível extrair texto suficiente do currículo.');
   }
 
   return normalizedText;
@@ -403,7 +394,7 @@ async function extractResumeTextFromBuffer(buffer: Buffer, fileName: string, fil
 
 async function extractResumeTextFromStoredFile(file: any) {
   if (!file.file_path) {
-    throw new Error('Arquivo do currÃƒÆ’Ã‚Â­culo nÃƒÆ’Ã‚Â£o encontrado no armazenamento.');
+    throw new Error('Arquivo do currículo não encontrado no armazenamento.');
   }
 
   const buffer = await fs.promises.readFile(file.file_path);
@@ -416,7 +407,7 @@ async function extractJobTextFromBuffer(buffer: Buffer, fileName: string, fileTy
 
 async function extractJobTextFromStoredFile(file: any) {
   if (!file.file_path) {
-    throw new Error('Arquivo da vaga nÃ£o encontrado no armazenamento.');
+    throw new Error('Arquivo da vaga não encontrado no armazenamento.');
   }
 
   const buffer = await fs.promises.readFile(file.file_path);
@@ -432,7 +423,7 @@ function normalizeStringList(value: unknown) {
 
   if (typeof value === 'string') {
     return value
-      .split(/[,;\nÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢]/)
+      .split(/[,;\nÃƒÂ¢ââ€šÂ¬Ã‚Â¢]/)
       .map((item) => item.trim())
       .filter(Boolean);
   }
@@ -490,7 +481,7 @@ function normalizeNullableBoolean(value: unknown) {
       return true;
     }
 
-    if (['nao', 'nÃƒÆ’Ã‚Â£o', 'n', 'false', '0', 'no'].includes(normalized)) {
+    if (['nao', 'não', 'n', 'false', '0', 'no'].includes(normalized)) {
       return false;
     }
   }
@@ -517,7 +508,7 @@ function clampInteger(value: unknown, fallback: number, min = 0, max = 100) {
   return Math.max(min, Math.min(max, normalized));
 }
 
-function normalizeConfidenceLevel(value: unknown): 'Alta' | 'MÃ©dia' | 'Baixa' {
+function normalizeConfidenceLevel(value: unknown): 'Alta' | 'Média' | 'Baixa' {
   const normalized = String(value || '')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
@@ -525,7 +516,7 @@ function normalizeConfidenceLevel(value: unknown): 'Alta' | 'MÃ©dia' | 'Baixa'
     .toLowerCase();
 
   if (normalized === 'alta') return 'Alta';
-  if (normalized === 'media') return 'MÃ©dia';
+  if (normalized === 'media') return 'Média';
   return 'Baixa';
 }
 
@@ -544,14 +535,21 @@ function normalizeEvidenceText(value: string) {
 }
 
 function hasSourceEvidence(extractedText: string, evidence: string | null) {
-  if (!evidence) {
-    return false;
-  }
-
+  if (!evidence) return false;
+  
   const normalizedSource = normalizeEvidenceText(extractedText || '');
   const normalizedEvidence = normalizeEvidenceText(evidence);
 
-  return Boolean(normalizedEvidence) && normalizedSource.includes(normalizedEvidence);
+  // Lenient check: if evidence is contained in source, or if they share a significant common part
+  if (normalizedSource.includes(normalizedEvidence)) return true;
+  
+  // Also check if the evidence is at least 80% contained (handles slight mismatches at ends)
+  if (normalizedEvidence.length > 10) {
+    const part = normalizedEvidence.slice(1, -1); // Remove first and last char to handle small shifts
+    if (normalizedSource.includes(part)) return true;
+  }
+
+  return false;
 }
 
 function buildImportedJobSummary(data: any) {
@@ -572,9 +570,12 @@ function buildImportedJobSummary(data: any) {
 
 function normalizeImportedJobParsedData(data: any, extractedText: string) {
   const evidence = data && typeof data.evidence === 'object' && data.evidence ? data.evidence : {};
-  const pickValue = <T,>(value: T, evidenceValue: unknown, fallback: T = null as T) => (
-    hasSourceEvidence(extractedText, normalizeEvidenceSnippet(evidenceValue)) ? value : fallback
-  );
+  
+  // Relaxed pickValue: If the AI provided a value, we use it. 
+  // We only use evidence to validate the "confidence" later, not to wipe the data.
+  const pickValue = <T,>(value: T, evidenceValue: unknown, fallback: T = null as T) => {
+    return (value !== undefined && value !== null) ? value : fallback;
+  };
 
   const workModel = pickValue(normalizeNullableString(data?.work_model), evidence?.work_model);
   const contractType = pickValue(normalizeNullableString(data?.contract_type), evidence?.contract_type);
@@ -594,8 +595,8 @@ function normalizeImportedJobParsedData(data: any, extractedText: string) {
     benefits: pickValue(normalizeNullableTextBlock(data?.benefits), evidence?.benefits),
     city: pickValue(normalizeNullableString(data?.city), evidence?.city),
     state: pickValue(normalizeBrazilianState(data?.state), evidence?.state),
-    work_model: ['Presencial', 'HÃ­brido', 'Home Office'].includes(workModel || '') ? workModel : null,
-    contract_type: ['CLT', 'PJ', 'EstÃ¡gio', 'TemporÃ¡rio', 'Freelancer', 'Outro'].includes(contractType || '') ? contractType : null,
+    work_model: ['Presencial', 'Híbrido', 'Home Office'].includes(workModel || '') ? workModel : null,
+    contract_type: ['CLT', 'PJ', 'Estágio', 'Temporário', 'Freelancer', 'Outro'].includes(contractType || '') ? contractType : null,
     seniority_level: pickValue(normalizeNullableString(data?.seniority_level), evidence?.seniority_level),
     education_level: pickValue(normalizeNullableString(data?.education_level), evidence?.education_level),
     min_experience_years: pickValue(normalizeNullableInteger(data?.min_experience_years), evidence?.min_experience_years),
@@ -654,7 +655,7 @@ function buildResumePeriodLabel(startDate: string | null, endDate: string | null
     return null;
   }
 
-  return [startDate || 'InÃ­cio nÃ£o informado', endDate || 'Atual'].join(' - ');
+  return [startDate || 'Início não informado', endDate || 'Atual'].join(' - ');
 }
 
 function normalizeResumeExperienceList(value: unknown) {
@@ -688,7 +689,7 @@ function normalizeResumeEducationList(value: unknown) {
     .map((item: any) => {
       const course = normalizeNullableString(item?.course) || '';
       const institution = normalizeNullableString(item?.institution) || '';
-      const status = normalizeNullableString(item?.status) || 'NÃ£o informado';
+      const status = normalizeNullableString(item?.status) || 'Não informado';
       const degree_type = normalizeNullableString(item?.degree_type);
       const start_date = normalizeNullableString(item?.start_date);
       const end_date = normalizeNullableString(item?.end_date);
@@ -757,11 +758,11 @@ function normalizeResumeLanguageList(value: unknown) {
       .map((item: any) => {
         if (typeof item === 'string') {
           const language = normalizeNullableString(item) || '';
-          return language ? { language, level: 'NÃ£o informado' } : null;
+          return language ? { language, level: 'Não informado' } : null;
         }
 
         const language = normalizeNullableString(item?.language) || '';
-        const level = normalizeNullableString(item?.level) || 'NÃ£o informado';
+        const level = normalizeNullableString(item?.level) || 'Não informado';
 
         if (!language) {
           return null;
@@ -774,7 +775,7 @@ function normalizeResumeLanguageList(value: unknown) {
 
   return normalizeStringList(value).map((language) => ({
     language,
-    level: 'NÃ£o informado',
+    level: 'Não informado',
   }));
 }
 
@@ -849,7 +850,7 @@ function normalizeResumeParsedData(data: any, hasLinkedJob: boolean) {
   const summary = normalizeNullableTextBlock(data?.summary ?? data?.professional_summary);
   const highlights = normalizeStringList(data?.highlights);
   const languages = languages_list.length > 0
-    ? languages_list.map((item) => item.level && item.level !== 'NÃ£o informado' ? `${item.language} (${item.level})` : item.language)
+    ? languages_list.map((item) => item.level && item.level !== 'Não informado' ? `${item.language} (${item.level})` : item.language)
     : normalizeStringList(data?.languages);
 
   return {
@@ -907,28 +908,28 @@ function buildResumePreAnalysisPrompt(resumeText: string, linkedJob?: { job_titl
   const hasLinkedJob = Boolean(linkedJob?.job_title || linkedJob?.job_description);
 
   return `
-VocÃƒÆ’Ã‚Âª ÃƒÆ’Ã‚Â© uma analista de RH especialista em leitura de currÃƒÆ’Ã‚Â­culos.
+Você é uma analista de RH especialista em leitura de currículos.
 
 Tarefa:
-- Ler o currÃƒÆ’Ã‚Â­culo abaixo.
-- Extrair somente os dados que realmente aparecem no currÃƒÆ’Ã‚Â­culo.
-- NÃƒÆ’Ã‚Â£o inventar informaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Âµes.
-- Se um campo nÃƒÆ’Ã‚Â£o existir ou nÃƒÆ’Ã‚Â£o puder ser confirmado com seguranÃƒÆ’Ã‚Â§a, retorne null.
+- Ler o currículo abaixo.
+- Extrair somente os dados que realmente aparecem no currículo.
+- Não inventar informações.
+- Se um campo não existir ou não puder ser confirmado com segurança, retorne null.
 - Para listas sem dados, retorne [].
-- O resumo deve ser curto, objetivo e baseado apenas no currÃƒÆ’Ã‚Â­culo.
+- O resumo deve ser curto, objetivo e baseado apenas no currículo.
 
 ${hasLinkedJob ? `
-HÃƒÆ’Ã‚Â¡ uma vaga vinculada. FaÃƒÆ’Ã‚Â§a tambÃƒÆ’Ã‚Â©m uma prÃƒÆ’Ã‚Â©-anÃƒÆ’Ã‚Â¡lise de aderÃƒÆ’Ã‚Âªncia:
+Há uma vaga vinculada. Faça também uma pré-análise de aderência:
 - compatibility_score: nota de 0 a 100
 - recommendation: parecer curto
 - strengths: pontos fortes para a vaga
-- attention_points: pontos de atenÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o para a vaga
+- attention_points: pontos de atenção para a vaga
 
 Vaga vinculada:
-TÃƒÆ’Ã‚Â­tulo: ${linkedJob?.job_title || 'NÃƒÆ’Ã‚Â£o informado'}
-DescriÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o: ${linkedJob?.job_description || 'NÃƒÆ’Ã‚Â£o informada'}
+Título: ${linkedJob?.job_title || 'Não informado'}
+Descrição: ${linkedJob?.job_description || 'Não informada'}
 ` : `
-NÃƒÆ’Ã‚Â£o hÃƒÆ’Ã‚Â¡ vaga vinculada neste lote.
+Não há vaga vinculada neste lote.
 Nesse caso, retorne:
 - compatibility_score: null
 - recommendation: null
@@ -936,7 +937,7 @@ Nesse caso, retorne:
 - attention_points: []
 `}
 
-CurrÃƒÆ’Ã‚Â­culo:
+Currículo:
 ${resumeText}
 
 Retorne apenas JSON neste formato:
@@ -987,39 +988,39 @@ function buildStructuredResumeBatchPrompt(resumeText: string, linkedJob?: { job_
   const hasLinkedJob = Boolean(linkedJob?.job_title || linkedJob?.job_description);
 
   return `
-VocÃª Ã© Aurora, especialista em leitura de currÃ­culos para recrutamento.
+Você é Aurora, especialista em leitura de currículos para recrutamento.
 
 Objetivo:
-- Ler o currÃ­culo completo abaixo.
-- Extrair somente informaÃ§Ãµes que realmente aparecem no currÃ­culo.
-- NÃ£o inventar dados.
-- Quando nÃ£o houver confirmaÃ§Ã£o suficiente, retorne null.
+- Ler o currículo completo abaixo.
+- Extrair somente informações que realmente aparecem no currículo.
+- Não inventar dados.
+- Quando não houver confirmação suficiente, retorne null.
 - Para listas sem dados, retorne [].
-- Monte um JSON rico, com dados resumidos e tambÃ©m listas estruturadas para experiÃªncias, formaÃ§Ã£o, certificaÃ§Ãµes, projetos e idiomas.
+- Monte um JSON rico, com dados resumidos e também listas estruturadas para experiências, formação, certificações, projetos e idiomas.
 
 Regras de mapeamento:
-- "experiences_list": array com cada experiÃªncia profissional. Campos: company, role, period, location, description.
-- "education_list": array com cada formaÃ§Ã£o. Campos: course, institution, status, degree_type, start_date, end_date.
-- "certifications_list": array com cursos e certificaÃ§Ãµes. Campos: name, institution, year.
-- "projects_list": array com projetos ou portfÃ³lio. Campos: name, description, technologies.
+- "experiences_list": array com cada experiência profissional. Campos: company, role, period, location, description.
+- "education_list": array com cada formação. Campos: course, institution, status, degree_type, start_date, end_date.
+- "certifications_list": array com cursos e certificações. Campos: name, institution, year.
+- "projects_list": array com projetos ou portfólio. Campos: name, description, technologies.
 - "languages_list": array com idiomas. Campos: language, level.
-- "hard_skills": string com tecnologias, ferramentas e competÃªncias tÃ©cnicas separadas por vÃ­rgula.
-- "soft_skills": string com competÃªncias comportamentais separadas por vÃ­rgula.
-- "professional_summary": resumo profissional curto, objetivo e fiel ao currÃ­culo.
+- "hard_skills": string com tecnologias, ferramentas e competências técnicas separadas por vírgula.
+- "soft_skills": string com competências comportamentais separadas por vírgula.
+- "professional_summary": resumo profissional curto, objetivo e fiel ao currículo.
 - "highlights": string com destaques separados por " | ".
 
 ${hasLinkedJob ? `
-HÃ¡ uma vaga vinculada. FaÃ§a tambÃ©m a anÃ¡lise de aderÃªncia:
+Há uma vaga vinculada. Faça também a análise de aderência:
 - compatibility_score: nota de 0 a 100
 - recommendation: parecer curto
 - strengths: pontos fortes para a vaga
-- attention_points: pontos de atenÃ§Ã£o para a vaga
+- attention_points: pontos de atenção para a vaga
 
 Vaga vinculada:
-TÃ­tulo: ${linkedJob?.job_title || 'NÃ£o informado'}
-DescriÃ§Ã£o: ${linkedJob?.job_description || 'NÃ£o informada'}
+Título: ${linkedJob?.job_title || 'Não informado'}
+Descrição: ${linkedJob?.job_description || 'Não informada'}
 ` : `
-NÃ£o hÃ¡ vaga vinculada neste lote.
+Não há vaga vinculada neste lote.
 Nesse caso, retorne:
 - compatibility_score: null
 - recommendation: null
@@ -1027,7 +1028,7 @@ Nesse caso, retorne:
 - attention_points: []
 `}
 
-CurrÃ­culo:
+Currículo:
 ${resumeText}
 
 Retorne apenas JSON neste formato:
@@ -1079,7 +1080,7 @@ Retorne apenas JSON neste formato:
 function parseJsonFromAiResponse(textResponse: string) {
   const jsonMatch = textResponse.match(/\{[\s\S]*\}/);
   if (!jsonMatch) {
-    throw new Error('A IA nÃƒÆ’Ã‚Â£o retornou um JSON vÃƒÆ’Ã‚Â¡lido.');
+    throw new Error('A IA não retornou um JSON válido.');
   }
 
   return JSON.parse(jsonMatch[0]);
@@ -1094,7 +1095,7 @@ function parseJsonFromAiResponseSafe(textResponse: string) {
 
   const jsonMatch = normalizedText.match(/\{[\s\S]*\}/);
   if (!jsonMatch) {
-    throw new Error('A IA nÃ£o retornou um JSON vÃ¡lido.');
+    throw new Error('A IA não retornou um JSON válido.');
   }
 
   const rawJson = jsonMatch[0];
@@ -1135,8 +1136,8 @@ async function runResumePreAnalysis(ai: GoogleGenAI, file: any, linkedJob?: { jo
       responseMimeType: 'application/json',
       temperature: 0.2,
       maxOutputTokens: 2600,
-      reasoningEffort: 'low',
-      operationLabel: 'prÃ©-anÃ¡lise de currÃ­culo',
+      reasoningEffort: 'medium',
+      operationLabel: 'pré-análise de currículo',
     }
   });
 
@@ -1159,7 +1160,7 @@ function buildCandidateImportNotes(data: any) {
     data?.current_company ? `Empresa atual: ${data.current_company}` : null,
     Array.isArray(data?.highlights) && data.highlights.length > 0 ? `Destaques: ${data.highlights.join(' | ')}` : null,
     Array.isArray(data?.projects_list) && data.projects_list.length > 0 ? `Projetos mapeados: ${data.projects_list.length}` : null,
-    data?.country ? `PaÃƒÆ’Ã‚Â­s: ${data.country}` : null,
+    data?.country ? `País: ${data.country}` : null,
     data?.postal_code ? `CEP: ${data.postal_code}` : null,
     data?.age ? `Idade informada: ${data.age}` : null,
   ].filter(Boolean);
@@ -1212,7 +1213,7 @@ const candidateBatchUpload = multer({
   fileFilter: (_req, file, cb) => {
     const extension = path.extname(file.originalname || '').toLowerCase();
     if (!CANDIDATE_BATCH_IMPORT_EXTENSIONS.includes(extension)) {
-      cb(new Error(`Formato de currÃ­culo nÃ£o suportado: ${extension || 'desconhecido'}`));
+      cb(new Error(`Formato de currículo não suportado: ${extension || 'desconhecido'}`));
       return;
     }
 
@@ -1383,9 +1384,9 @@ async function startServer() {
       const ai = createGeminiClient();
 
       const prompt = `
-        Extraia as informaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Âµes do candidato a partir do texto do currÃƒÆ’Ã‚Â­culo abaixo e retorne um JSON estruturado.
+        Extraia as informações do candidato a partir do texto do currículo abaixo e retorne um JSON estruturado.
         
-        Texto do CurrÃƒÆ’Ã‚Â­culo:
+        Texto do Currículo:
         ${text}
 
         JSON Schema:
@@ -1400,7 +1401,7 @@ async function startServer() {
           "experience_years": number (total estimado),
           "education_level": string,
           "professional_summary": string,
-          "hard_skills": string (lista separada por vÃƒÆ’Ã‚Â­rgula),
+          "hard_skills": string (lista separada por vírgula),
           "professional_experiences": string (texto formatado),
           "linkedin_url": string
         }
@@ -1412,8 +1413,8 @@ async function startServer() {
         config: {
           responseMimeType: 'application/json',
           maxOutputTokens: 1100,
-          reasoningEffort: 'low',
-          operationLabel: 'extraÃ§Ã£o de currÃ­culo importado',
+          reasoningEffort: 'medium',
+          operationLabel: 'extração de currículo importado',
         }
       });
       
@@ -1426,7 +1427,7 @@ async function startServer() {
       
       const insertQuery = `
         INSERT INTO candidates (${keys.join(',')}, tenant_id, unit_id, source, status, created_at, updated_at) 
-        VALUES (${placeholders}, ?, ?, 'ImportaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o', 'Novo', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        VALUES (${placeholders}, ?, ?, 'Importação', 'Novo', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
       `;
 
       const insertResult = await db.prepare(insertQuery).run(...values, tenantId, unitId);
@@ -1451,7 +1452,7 @@ async function startServer() {
 
       // Log history
       await db.prepare('INSERT INTO candidate_history (candidate_id, event_type, title, description, created_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)')
-        .run(candidateId, 'IMPORT', 'CurrÃƒÆ’Ã‚Â­culo Importado', `Dados extraÃƒÆ’Ã‚Â­dos via IA a partir do arquivo ${req.file.originalname}`);
+        .run(candidateId, 'IMPORT', 'Currículo Importado', `Dados extraídos via IA a partir do arquivo ${req.file.originalname}`);
 
       res.status(201).json({ id: candidateId, ...candidateData });
     } catch (error) {
@@ -1666,17 +1667,17 @@ async function startServer() {
       // Here we simulate it based on the file name if text is not provided.
       const actualExtractedText = importData.extracted_text || await extractJobTextFromStoredFile(importData);
       console.log(`[DEBUG] Extracted text length: ${actualExtractedText?.length || 0}`);
-      const simulatedText = importData.extracted_text || `DescriÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o da vaga importada do arquivo ${importData.file_name}. Esperamos um profissional com experiÃƒÆ’Ã‚Âªncia em LogÃƒÆ’Ã‚Â­stica, CNH categoria E, residindo em TatuÃƒÆ’Ã‚Â­/SP. SalÃƒÆ’Ã‚Â¡rio entre R$ 3.500,00 e R$ 5.000,00. BenefÃƒÆ’Ã‚Â­cios: Vale transporte, plano de saÃƒÆ’Ã‚Âºde, seguro de vida.`;
+      const simulatedText = importData.extracted_text || `Descrição da vaga importada do arquivo ${importData.file_name}. Esperamos um profissional com experiência em Logística, CNH categoria E, residindo em Tatuí/SP. Salário entre R$ 3.500,00 e R$ 5.000,00. Benefícios: Vale transporte, plano de saúde, seguro de vida.`;
 
       const ai = createGeminiClient();
       
       const prompt = `
-        VocÃƒÆ’Ã‚Âª ÃƒÆ’Ã‚Â© um especialista em recrutamento e seleÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o. Analise o documento de descriÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o de vaga abaixo e extraia as informaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Âµes em JSON estruturado. 
-        NÃƒÆ’Ã‚Â£o invente informaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Âµes. Quando um dado nÃƒÆ’Ã‚Â£o existir, retorne null. 
-        Identifique requisitos obrigatÃƒÆ’Ã‚Â³rios, desejÃƒÆ’Ã‚Â¡veis, responsabilidades, localizaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o, modelo de trabalho, tipo de contrato, experiÃƒÆ’Ã‚Âªncia, formaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o, benefÃƒÆ’Ã‚Â­cios e critÃƒÆ’Ã‚Â©rios de compatibilidade para anÃƒÆ’Ã‚Â¡lise de candidatos. 
-        TambÃƒÆ’Ã‚Â©m sugira pesos para anÃƒÆ’Ã‚Â¡lise de compatibilidade com candidatos.
+        Você é um especialista em recrutamento e seleção. Analise o documento de descrição de vaga abaixo e extraia as informações em JSON estruturado. 
+        Não invente informações. Quando um dado não existir, retorne null. 
+        Identifique requisitos obrigatórios, desejáveis, responsabilidades, localização, modelo de trabalho, tipo de contrato, experiência, formação, benefícios e critérios de compatibilidade para análise de candidatos. 
+        Também sugira pesos para análise de compatibilidade com candidatos.
 
-        DescriÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o da Vaga:
+        Descrição da Vaga:
         ${simulatedText}
 
         Retorne EXATAMENTE este JSON:
@@ -1692,9 +1693,9 @@ async function startServer() {
           "benefits": string,
           "city": string,
           "state": string,
-          "work_model": "Presencial" | "HÃƒÆ’Ã‚Â­brido" | "Home Office",
-          "contract_type": "CLT" | "PJ" | "EstÃƒÆ’Ã‚Â¡gio" | "TemporÃƒÆ’Ã‚Â¡rio" | "Freelancer" | "Outro",
-          "seniority_level": "Operacional" | "JÃƒÆ’Ã‚Âºnior" | "Pleno" | "SÃƒÆ’Ã‚Âªnior" | "CoordenaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o" | "GerÃƒÆ’Ã‚Âªncia" | "Diretoria",
+          "work_model": "Presencial" | "Híbrido" | "Home Office",
+          "contract_type": "CLT" | "PJ" | "Estágio" | "Temporário" | "Freelancer" | "Outro",
+          "seniority_level": "Operacional" | "Júnior" | "Pleno" | "Sênior" | "Coordenação" | "Gerência" | "Diretoria",
           "education_level": string,
           "min_experience_years": number,
           "salary_min": number,
@@ -1715,26 +1716,29 @@ async function startServer() {
           "weight_culture": number,
           "ai_summary": string,
           "confidence": {
-            "title": "Alta" | "MÃƒÆ’Ã‚Â©dia" | "Baixa",
-            "city": "Alta" | "MÃƒÆ’Ã‚Â©dia" | "Baixa",
-            "salary": "Alta" | "MÃƒÆ’Ã‚Â©dia" | "Baixa",
-            "requirements": "Alta" | "MÃƒÆ’Ã‚Â©dia" | "Baixa"
+            "title": "Alta" | "Média" | "Baixa",
+            "city": "Alta" | "Média" | "Baixa",
+            "salary": "Alta" | "Média" | "Baixa",
+            "requirements": "Alta" | "Média" | "Baixa"
           }
         }
       `;
 
       const strictPrompt = `
-Analise o texto de uma vaga e retorne apenas dados que existirem de forma explÃ­cita no documento.
+Analise o texto de uma vaga e extraia TODAS as informações relevantes.
 
-Regras obrigatÃ³rias:
-- NÃ£o invente cidade, estado, salÃ¡rio, benefÃ­cios, experiÃªncia, contrato, senioridade ou qualquer outro campo.
-- Se um campo nÃ£o aparecer claramente no texto, retorne null.
-- Preserve a redaÃ§Ã£o original sempre que possÃ­vel; sÃ³ faÃ§a ajustes leves de ortografia ou concordÃ¢ncia.
-- NÃ£o use o nome do arquivo como fonte de verdade.
-- Para cada campo preenchido, informe um trecho literal do documento em "evidence".
-- O trecho em "evidence" precisa existir exatamente no texto enviado.
-- Os pesos de IA podem ser sugeridos por vocÃª, mas nunca preencha dados da vaga sem evidÃªncia.
-- Retorne JSON vÃ¡lido no padrÃ£o RFC 8259, sem comentÃ¡rios, sem markdown, sem vÃ­rgulas finais e com todas as chaves entre aspas duplas.
+Regras de Mapeamento Específicas:
+- "Regime De Contratação" ou "Contrato" deve ser mapeado para "contract_type".
+- "Departamento" ou "Área" deve ser mapeado para "department".
+- "Local" ou "Cidade" deve ser mapeado para "city" e "state".
+- Se encontrar "CLT", mapeie como "CLT". Se "PJ", mapeie como "PJ".
+- Tente identificar o "seniority_level" com base no cargo (ex: Coordenador -> Coordenação).
+
+Regras obrigatórias:
+- Não invente dados. Se algo não estiver no texto, retorne null.
+- Preserve a redação original nas responsabilidades e requisitos.
+- Forneça "evidence" (trecho literal) para cada campo preenchido.
+- Retorne JSON válido no padrão RFC 8259, sem comentários ou markdown.
 
 Texto da vaga:
 ${actualExtractedText}
@@ -1752,9 +1756,9 @@ Retorne EXATAMENTE este JSON:
   "benefits": string | null,
   "city": string | null,
   "state": string | null,
-  "work_model": "Presencial" | "HÃ­brido" | "Home Office" | null,
-  "contract_type": "CLT" | "PJ" | "EstÃ¡gio" | "TemporÃ¡rio" | "Freelancer" | "Outro" | null,
-  "seniority_level": "Operacional" | "JÃºnior" | "Pleno" | "SÃªnior" | "CoordenaÃ§Ã£o" | "GerÃªncia" | "Diretoria" | null,
+  "work_model": "Presencial" | "Híbrido" | "Home Office" | null,
+  "contract_type": "CLT" | "PJ" | "Estágio" | "Temporário" | "Freelancer" | "Outro" | null,
+  "seniority_level": "Operacional" | "Júnior" | "Pleno" | "Sênior" | "Coordenação" | "Gerência" | "Diretoria" | null,
   "education_level": string | null,
   "min_experience_years": number | null,
   "salary_min": number | null,
@@ -1774,10 +1778,10 @@ Retorne EXATAMENTE este JSON:
   "weight_soft_skills": number,
   "weight_culture": number,
   "confidence": {
-    "title": "Alta" | "MÃ©dia" | "Baixa",
-    "city": "Alta" | "MÃ©dia" | "Baixa",
-    "salary": "Alta" | "MÃ©dia" | "Baixa",
-    "requirements": "Alta" | "MÃ©dia" | "Baixa"
+    "title": "Alta" | "Média" | "Baixa",
+    "city": "Alta" | "Média" | "Baixa",
+    "salary": "Alta" | "Média" | "Baixa",
+    "requirements": "Alta" | "Média" | "Baixa"
   },
   "evidence": {
     "title": string | null,
@@ -1816,8 +1820,8 @@ Retorne EXATAMENTE este JSON:
         config: {
           responseMimeType: 'application/json',
           maxOutputTokens: 1800,
-          reasoningEffort: 'low',
-          operationLabel: 'anÃ¡lise de vaga importada',
+          reasoningEffort: 'medium',
+          operationLabel: 'análise de vaga importada',
         }
       });
       
@@ -1913,23 +1917,23 @@ Retorne EXATAMENTE este JSON:
       const ai = createGeminiClient();
 
       const prompt = `
-        VocÃƒÆ’Ã‚Âª ÃƒÆ’Ã‚Â© um especialista em recrutamento e seleÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o. Gere um texto para divulgaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o da vaga abaixo no canal ${channel}.
+        Você é um especialista em recrutamento e seleção. Gere um texto para divulgação da vaga abaixo no canal ${channel}.
         Tom desejado: ${tone}.
         
         Dados da Vaga:
-        TÃƒÆ’Ã‚Â­tulo: ${job.title}
+        Título: ${job.title}
         Departamento: ${job.department}
         Cidade/Estado: ${job.city}/${job.state}
         Modelo: ${job.work_model}
         Contrato: ${job.contract_type}
-        DescriÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o: ${job.description}
+        Descrição: ${job.description}
         Responsabilidades: ${job.responsibilities}
         Requisitos: ${job.technical_requirements}
-        BenefÃƒÆ’Ã‚Â­cios: ${job.benefits}
+        Benefícios: ${job.benefits}
 
         Formato de Resposta:
-        TÃƒÆ’Ã‚Â­tulo Sugerido: [TÃƒÆ’Ã‚Â­tulo]
-        Texto Completo: [DescriÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o detalhada]
+        Título Sugerido: [Título]
+        Texto Completo: [Descrição detalhada]
         Texto Curto: [Resumo para redes sociais]
         Hashtags: [Relevantes]
       `;
@@ -1939,9 +1943,9 @@ Retorne EXATAMENTE este JSON:
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         config: {
           maxOutputTokens: 1200,
-          reasoningEffort: 'low',
+          reasoningEffort: 'medium',
           verbosity: 'high',
-          operationLabel: 'geraÃ§Ã£o de texto de divulgaÃ§Ã£o',
+          operationLabel: 'geração de texto de divulgação',
         }
       });
       
@@ -1969,9 +1973,9 @@ Retorne EXATAMENTE este JSON:
           (SELECT COUNT(*) FROM jobs WHERE tenant_id = ? ${unitFilter()} AND deleted_at IS NULL AND status = 'Aberta') as active_jobs,
           (SELECT COUNT(*) FROM candidates WHERE tenant_id = ? ${unitFilter()} AND deleted_at IS NULL) as total_candidates,
           (SELECT COUNT(*) FROM candidates WHERE tenant_id = ? ${unitFilter()} AND deleted_at IS NULL AND created_at >= date('now', '-${p}')) as new_candidates,
-          (SELECT COUNT(*) FROM candidate_job_matches WHERE compatibility_score >= 80) as compatible_candidates,
+          (SELECT COUNT(*) FROM ai_search_results r JOIN ai_search_sessions s ON r.session_id = s.id WHERE s.tenant_id = ? AND r.compatibility_score >= 80) as compatible_candidates,
           (SELECT COUNT(*) FROM hr_tool_responses) as tool_responses
-      `).get(tenantId, ...unitParams, tenantId, ...unitParams, tenantId, ...unitParams) as any;
+      `).get(tenantId, ...unitParams, tenantId, ...unitParams, tenantId, ...unitParams, tenantId) as any;
 
       // 2. Funnel Data
       const funnel = await db.prepare(`
@@ -2040,7 +2044,7 @@ Retorne EXATAMENTE este JSON:
         alerts.push({
           type: 'danger',
           title: 'Vaga sem candidatos',
-          message: `A vaga "${j.title}" estÃƒÆ’Ã‚Â¡ aberta hÃƒÆ’Ã‚Â¡ ${Math.floor((Date.now() - new Date(j.created_at).getTime()) / (1000 * 60 * 60 * 24))} dias e nÃƒÆ’Ã‚Â£o possui candidatos.`,
+          message: `A vaga "${j.title}" está aberta há ${Math.floor((Date.now() - new Date(j.created_at).getTime()) / (1000 * 60 * 60 * 24))} dias e não possui candidatos.`,
           action: 'Revisar requisitos'
         });
       });
@@ -2050,7 +2054,7 @@ Retorne EXATAMENTE este JSON:
         alerts.push({
           type: 'success',
           title: 'Talentos detectados',
-          message: `Existem ${highMatches.length} candidatos com compatibilidade superior a 90% aguardando revisÃƒÆ’Ã‚Â£o.`,
+          message: `Existem ${highMatches.length} candidatos com compatibilidade superior a 90% aguardando revisão.`,
           action: 'Ver candidatos'
         });
       }
@@ -2131,32 +2135,32 @@ Retorne EXATAMENTE este JSON:
 
       const text = await extractResumeTextFromBuffer(file.buffer, file.originalname, file.mimetype);
       if (!text || text.trim().length === 0) {
-        console.warn('[PARSE] Nenhum texto extraÃ­do do arquivo');
+        console.warn('[PARSE] Nenhum texto extraído do arquivo');
       }
 
       console.log('[PARSE] Chamando OpenAI...');
       const ai = createGeminiClient();
       
       const prompt = `
-        VocÃª Ã© Aurora, assistente de recrutamento inteligente da Develoi.
-        Sua missÃ£o Ã© extrair ABSOLUTAMENTE TUDO do currÃ­culo abaixo.
-        NÃƒO PULE NENHUMA SEÃ‡ÃƒO. Leia CADA LINHA do currÃ­culo.
-        Se um campo nÃ£o existir no currÃ­culo, retorne null. Mas se existir, EXTRAIA.
+        Você é Aurora, assistente de recrutamento inteligente da Develoi.
+        Sua missão é extrair ABSOLUTAMENTE TUDO do currículo abaixo.
+        NÃƒO PULE NENHUMA SEÃ‡ÃƒO. Leia CADA LINHA do currículo.
+        Se um campo não existir no currículo, retorne null. Mas se existir, EXTRAIA.
 
         REGRAS:
-        - "experiences_list": ARRAY obrigatÃ³rio com CADA emprego/experiÃªncia. Inclua TODOS, mesmo estÃ¡gios e freelances. Campos: company, role, period, location, description (atividades resumidas em 1-2 frases).
+        - "experiences_list": ARRAY obrigatório com CADA emprego/experiência. Inclua TODOS, mesmo estágios e freelances. Campos: company, role, period, location, description (atividades resumidas em 1-2 frases).
         - "education_list": ARRAY com CADA formação. Inclua pós-graduação, MBA, graduação, técnico. Campos: course, institution, status ("Concluído", "Em andamento", "Trancado", "Incompleto"), degree_type (Bacharelado, Licenciatura, Tecnólogo, Especialização, MBA, Mestrado, Doutorado, Técnico, Outro), start_date (formato MM/YYYY se possível), end_date (formato MM/YYYY se possível).
-        - "certifications_list": ARRAY com CADA curso ou certificaÃ§Ã£o mencionada. Campos: name, institution, year.
-        - "projects_list": ARRAY com projetos relevantes/portfÃ³lio mencionados. Campos: name (nome do projeto), description (o que Ã©), technologies (tecnologias usadas, string separada por vÃ­rgula).
+        - "certifications_list": ARRAY com CADA curso ou certificação mencionada. Campos: name, institution, year.
+        - "projects_list": ARRAY com projetos relevantes/portfólio mencionados. Campos: name (nome do projeto), description (o que é), technologies (tecnologias usadas, string separada por vírgula).
         - "languages_list": ARRAY com idiomas. Campos: language, level.
-        - "hard_skills": String com TODAS as tecnologias, ferramentas e competÃªncias tÃ©cnicas. Separe por vÃ­rgula. Inclua frameworks, linguagens, bancos, ferramentas, etc.
-        - "soft_skills": String com habilidades comportamentais inferidas. Separe por vÃ­rgula.
-        - "professional_summary": Resumo profissional baseado no currÃ­culo (2-3 parÃ¡grafos).
+        - "hard_skills": String com TODAS as tecnologias, ferramentas e competências técnicas. Separe por vírgula. Inclua frameworks, linguagens, bancos, ferramentas, etc.
+        - "soft_skills": String com habilidades comportamentais inferidas. Separe por vírgula.
+        - "professional_summary": Resumo profissional baseado no currículo (2-3 parágrafos).
         - "highlights": String com os destaques/diferenciais do candidato, separados por " | ".
-        - "experience_years": NÃºmero com total de anos de experiÃªncia.
-        - "education_level": Um entre: "Ensino Fundamental", "Ensino MÃ©dio", "TÃ©cnico", "Ensino Superior Incompleto", "Ensino Superior Completo", "PÃ³s / MBA / Mestrado".
+        - "experience_years": Número com total de anos de experiência.
+        - "education_level": Um entre: "Ensino Fundamental", "Ensino Médio", "Técnico", "Ensino Superior Incompleto", "Ensino Superior Completo", "Pós / MBA / Mestrado".
 
-        Texto do CurrÃ­culo:
+        Texto do Currículo:
         ${text}
 
         JSON de resposta:
@@ -2201,26 +2205,26 @@ Retorne EXATAMENTE este JSON:
           responseMimeType: 'application/json',
           temperature: 0.1,
           maxOutputTokens: 2600,
-          reasoningEffort: 'low',
-          operationLabel: 'extraÃ§Ã£o completa de currÃ­culo',
+          reasoningEffort: 'medium',
+          operationLabel: 'extração completa de currículo',
         }
       });
 
       const data = parseJsonFromAiResponseSafe(result.text || '{}');
-      console.log('[PARSE] âœ… ExtraÃ§Ã£o completa:');
+      console.log('[PARSE] âœ… Extração completa:');
       console.log('  Nome:', data.full_name);
-      console.log('  ExperiÃªncias:', data.experiences_list?.length || 0);
-      console.log('  FormaÃ§Ãµes:', data.education_list?.length || 0);
-      console.log('  CertificaÃ§Ãµes:', data.certifications_list?.length || 0);
+      console.log('  Experiências:', data.experiences_list?.length || 0);
+      console.log('  Formações:', data.education_list?.length || 0);
+      console.log('  Certificações:', data.certifications_list?.length || 0);
       console.log('  Projetos:', data.projects_list?.length || 0);
       console.log('  Idiomas:', data.languages_list?.length || 0);
       console.log('  Hard Skills:', data.hard_skills?.substring(0, 80) || 'N/A');
       console.log('  Soft Skills:', data.soft_skills?.substring(0, 80) || 'N/A');
       res.json(data);
     } catch (error: any) {
-      console.error('[PARSE] Erro CrÃ­tico:', error);
+      console.error('[PARSE] Erro Crítico:', error);
       res.status(500).json({ 
-        error: error.message || 'Falha ao processar currÃ­culo',
+        error: error.message || 'Falha ao processar currículo',
         details: error.stack 
       });
     }
@@ -2444,39 +2448,39 @@ Retorne EXATAMENTE este JSON:
       const ai = createGeminiClient();
       
       const prompt = `
-        VocÃƒÆ’Ã‚Âª ÃƒÆ’Ã‚Â© um especialista em recrutamento e seleÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o com IA. Compare o candidato com a vaga e retorne um relatÃƒÆ’Ã‚Â³rio detalhado em JSON.
+        Você é um especialista em recrutamento e seleção com IA. Compare o candidato com a vaga e retorne um relatório detalhado em JSON.
         
         Vaga:
-        TÃƒÆ’Ã‚Â­tulo: ${job.title}
+        Título: ${job.title}
         Requisitos: ${job.technical_requirements}
-        MandatÃƒÆ’Ã‚Â³rios: ${job.mandatory_requirements}
-        EliminatÃƒÆ’Ã‚Â³rios: ${job.eliminatory_criteria}
+        Mandatórios: ${job.mandatory_requirements}
+        Eliminatórios: ${job.eliminatory_criteria}
         Local: ${job.city}/${job.state}
         Modelo: ${job.work_model}
-        Anos Exp MÃƒÆ’Ã‚Â­nimos: ${job.min_experience_years}
+        Anos Exp Mínimos: ${job.min_experience_years}
         
         Candidato:
         Nome: ${candidate.full_name}
-        ExperiÃƒÆ’Ã‚Âªncia: ${candidate.professional_experiences}
+        Experiência: ${candidate.professional_experiences}
         Resumo: ${candidate.professional_summary}
         Skills: ${candidate.hard_skills}
         Local: ${candidate.city}/${candidate.state}
         Modelo Desejado: ${candidate.desired_work_model}
         Tempo Exp: ${candidate.experience_years} anos
-        CNH: ${candidate.has_cnh ? 'Sim, cat ' + candidate.cnh_category : 'NÃƒÆ’Ã‚Â£o'}
+        CNH: ${candidate.has_cnh ? 'Sim, cat ' + candidate.cnh_category : 'Não'}
 
         JSON Schema:
         {
           "compatibility_score": number (0-100),
-          "compatibility_classification": "Alto Fit" | "MÃƒÆ’Ã‚Â©dio Fit" | "Baixo Fit" | "IncompatÃƒÆ’Ã‚Â­vel",
+          "compatibility_classification": "Alto Fit" | "Médio Fit" | "Baixo Fit" | "Incompatível",
           "compatibility_summary": string,
           "strengths": string[] (principais pontos fortes),
-          "attention_points": string[] (pontos de atenÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o),
+          "attention_points": string[] (pontos de atenção),
           "requirements_met": string[] (requisitos preenchidos),
           "requirements_partial": string[] (parcialmente atendidos),
           "requirements_missing": string[] (faltantes),
-          "eliminatory_flags": string[] (critÃƒÆ’Ã‚Â©rios eliminatÃƒÆ’Ã‚Â³rios feridos),
-          "interview_questions": string[] (sugestÃƒÆ’Ã‚Âµes de perguntas),
+          "eliminatory_flags": string[] (critérios eliminatórios feridos),
+          "interview_questions": string[] (sugestões de perguntas),
           "risk_analysis": string,
           "final_recommendation": string
         }
@@ -2488,8 +2492,8 @@ Retorne EXATAMENTE este JSON:
         config: {
           responseMimeType: 'application/json',
           maxOutputTokens: 2200,
-          reasoningEffort: 'low',
-          operationLabel: 'anÃ¡lise de compatibilidade candidato-vaga',
+          reasoningEffort: 'medium',
+          operationLabel: 'análise de compatibilidade candidato-vaga',
         }
       });
       
@@ -2536,7 +2540,7 @@ Retorne EXATAMENTE este JSON:
 
     // Log history
       await db.prepare('INSERT INTO candidate_history (candidate_id, job_id, event_type, title, description, created_at) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)')
-        .run(id, jobId, 'AI_ANALYSIS', 'AnÃƒÆ’Ã‚Â¡lise IA Realizada', `Score de compatibilidade: ${analysis.compatibility_score}%`);
+        .run(id, jobId, 'AI_ANALYSIS', 'Análise IA Realizada', `Score de compatibilidade: ${analysis.compatibility_score}%`);
 
       res.json(analysis);
     } catch (error) {
@@ -2595,6 +2599,31 @@ Retorne EXATAMENTE este JSON:
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ error: 'Failed to update settings' });
+    }
+  });
+
+  app.get('/api/aurora-ai/matches/:jobId', async (req, res) => {
+    try {
+      const results = await db.prepare(`
+        SELECT r.*, c.full_name, c.city, c.state
+        FROM ai_search_results r
+        JOIN candidates c ON r.candidate_id = c.id
+        WHERE r.job_id = ?
+        ORDER BY r.compatibility_score DESC, c.full_name ASC
+        LIMIT 50
+      `).all(req.params.jobId) as any[];
+      
+      const parsedResults = results.map((r: any) => ({
+        ...r,
+        has_disc: r.has_disc === 1,
+        strengths: typeof r.strengths === 'string' ? JSON.parse(r.strengths || '[]') : r.strengths,
+        attention_points: typeof r.attention_points === 'string' ? JSON.parse(r.attention_points || '[]') : r.attention_points
+      }));
+      
+      res.json(parsedResults);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: 'Failed to fetch matches' });
     }
   });
 
@@ -2659,32 +2688,49 @@ Retorne EXATAMENTE este JSON:
       const candidatesToProcess = candidates.slice(0, 50); 
 
       const prompt = `
-        VocÃƒÆ’Ã‚Âª ÃƒÆ’Ã‚Â© a Aurora AI, sistema de inteligÃƒÆ’Ã‚Âªncia de recrutamento.
-        Sua tarefa ÃƒÆ’Ã‚Â© comparar uma lista de candidatos com uma vaga especÃƒÆ’Ã‚Â­fica.
-        Avalie requisitos obrigatÃƒÆ’Ã‚Â³rios, desejÃƒÆ’Ã‚Â¡veis, experiÃƒÆ’Ã‚Âªncia, localizaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o, modelo de trabalho, formaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o, habilidades, DISC e critÃƒÆ’Ã‚Â©rios eliminatÃƒÆ’Ã‚Â³rios.
+        Você é a Aurora AI, um sistema extremamente crítico e analítico de recrutamento corporativo.
+        Sua tarefa é comparar rigorosamente uma lista de candidatos com uma vaga específica.
+        
+        CRITÉRIOS DE AVALIAÇÃO:
+        1. Aderência de Experiência (CRÍTICO): Verifique se a experiência passada (cargos anteriores) tem relação direta ou transferível com a vaga. Anos de experiência não importam se forem em áreas completamente não relacionadas (ex: 10 anos de Produção não qualificam para Coordenador Administrativo). Penalize o fit drasticamente se a área for incompatível.
+        2. Localização: Se presencial, deve estar na mesma cidade ou região viável.
+        3. Formação e Habilidades: Verifique aderência real.
         
         Vaga:
-        TÃƒÆ’Ã‚Â­tulo: ${job.title}
+        Título: ${job.title}
         Local: ${job.city}/${job.state}
         Modelo: ${job.work_model}
         Requisitos: ${job.mandatory_requirements}
-        DescriÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o: ${job.description}
-        ExperiÃƒÆ’Ã‚Âªncia MÃƒÆ’Ã‚Â­nima: ${job.min_experience_years} anos
+        Descrição: ${job.description}
+        Experiência Mínima Exigida: ${job.min_experience_years} anos
         
-        ConfiguraÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o de Busca:
-        PrecisÃƒÆ’Ã‚Â£o: ${precisionMode} (FlexÃƒÆ’Ã‚Â­vel, Equilibrada ou Rigorosa - siga o rigor solicitado)
-        Raio Max DistÃƒÆ’Ã‚Â¢ncia: ${radius} km
-        Regra LocalizaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o: ${locationRule} (Peso dado ÃƒÆ’Ã‚Â  proximidade)
+        Configuração de Busca:
+        Precisão: ${precisionMode} (Se "Rigorosa", zere o FIT de candidatos sem experiência na exata área solicitada)
+        Raio Max Distância: ${radius} km
+        Regra Localização: ${locationRule}
         
-        Candidatos:
-        ${candidatesToProcess.map(c => `ID: ${c.id}, Nome: ${c.full_name}, Local: ${c.city}/${c.state}, Exp: ${c.experience_years}y, Skills: ${c.hard_skills}, Modelo: ${c.desired_work_model}, DISC: ${c.disc?.predominant_profile || 'N/A'}`).join('\n')}
+        Candidatos a Avaliar:
+        ${candidatesToProcess.map(c => `
+          --- Candidato ID: ${c.id} ---
+          Nome: ${c.full_name}
+          Local: ${c.city}/${c.state}
+          Objetivo/Área: ${c.desired_position || ''} - ${c.desired_area || ''}
+          Formação: ${c.education_level || ''} | ${c.academic_education?.substring(0, 300) || ''}
+          Idiomas: ${c.languages || 'N/A'}
+          Resumo: ${c.professional_summary?.substring(0, 500) || ''}
+          Experiência Profissional (Detalhada): ${c.professional_experiences?.substring(0, 1500) || 'Não informado'}
+          Skills Técnicas: ${c.hard_skills || 'N/A'}
+          Skills Comportamentais: ${c.soft_skills || 'N/A'}
+          Perfil DISC: ${c.disc?.predominant_profile || 'N/A'}
+        `).join('\n')}
         
-        Regras de NegÃƒÆ’Ã‚Â³cio:
-        - Se Vaga Presencial, a localizaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o ÃƒÆ’Ã‚Â© crÃƒÆ’Ã‚Â­tica.
-        - Pontue de 0 a 100 baseando-se no FIT real.
-        - 90-100: AltÃƒÆ’Ã‚Â­ssimo Fit, 80-89: Alto Fit, 70-79: Fit Moderado.
+        Regras de Negócio de Fit (0-100):
+        - 0-40: Incompatível (ex: experiência de 10 anos mas em área totalmente diferente da exigida).
+        - 40-69: Fit Baixo/Moderado (Pode ser considerado mas não tem a vivência ideal).
+        - 70-89: Alto Fit (Experiência na área, competências batem).
+        - 90-100: Altíssimo Fit (Candidato perfeito, na mesma área, mesma cidade).
         
-        Retorne APENAS um JSON:
+        Retorne APENAS um JSON estrito no formato abaixo, sem markdown:
         {
           "results": [
             {
@@ -2700,7 +2746,7 @@ Retorne EXATAMENTE este JSON:
               "risk_reason": string
             }
           ],
-          "summary": string (resumo geral da busca)
+          "summary": string
         }
       `;
 
@@ -2710,13 +2756,16 @@ Retorne EXATAMENTE este JSON:
         config: {
           responseMimeType: 'application/json',
           maxOutputTokens: 2600,
-          reasoningEffort: 'low',
+          reasoningEffort: 'medium',
           operationLabel: 'match inteligente de vaga',
         }
       });
 
       const analysis = JSON.parse(aiResult.text || '{"results": [], "summary": ""}');
       
+      // Delete previous results for this job to avoid duplicates
+      await db.prepare('DELETE FROM ai_search_results WHERE job_id = ?').run(jobId);
+
       // Save results
       const insertResultStmt = db.prepare(`
         INSERT INTO ai_search_results
@@ -2746,7 +2795,24 @@ Retorne EXATAMENTE este JSON:
       // Update session summary
       await db.prepare('UPDATE ai_search_sessions SET summary = ? WHERE id = ?').run(analysis.summary, sessionId);
 
-      res.json({ sessionId, summary: analysis.summary, results: analysis.results });
+      let enhancedResults = analysis.results.map((resItem: any) => {
+        const candidate = candidates.find(c => Number(c.id) === Number(resItem.candidate_id));
+        return {
+          ...resItem,
+          full_name: candidate?.full_name || 'Candidato',
+          city: candidate?.city || 'Localidade',
+          state: candidate?.state || 'NI'
+        };
+      });
+
+      enhancedResults.sort((a: any, b: any) => {
+        if (b.compatibility_score !== a.compatibility_score) {
+          return b.compatibility_score - a.compatibility_score;
+        }
+        return a.full_name.localeCompare(b.full_name);
+      });
+
+      res.json({ sessionId, summary: analysis.summary, results: enhancedResults });
     } catch (error) {
       console.error(error);
       res.status(500).json({ error: 'Match job failed' });
@@ -2760,12 +2826,12 @@ Retorne EXATAMENTE este JSON:
     
     try {
       if (!message?.trim()) {
-        return res.status(400).json({ error: 'Mensagem obrigatÃƒÆ’Ã‚Â³ria' });
+        return res.status(400).json({ error: 'Mensagem obrigatória' });
       }
 
       const ai = createGeminiClient();
       const normalizedMessage = String(message).trim();
-      const wantsDetailedReply = /(detalh|explic|complet|passo a passo|relat[oÃ³]rio|aprofund|an[aÃ¡]lise completa)/i.test(normalizedMessage);
+      const wantsDetailedReply = /(detalh|explic|complet|passo a passo|relat[oó]rio|aprofund|an[aá]lise completa)/i.test(normalizedMessage);
       const wantsAction = /(cri(a|ar|e)|atualiz|modific|altera|remov|delet|exclu|abr(e|ir)|fech(a|ar)|reabr)/i.test(normalizedMessage);
 
       if (effectiveUnitId === 'master') {
@@ -2805,26 +2871,26 @@ Retorne EXATAMENTE este JSON:
       const candidatesList = candidates.map(c => `- Candidato #${c.id} ${c.full_name} | Cargo: ${c.desired_position || '-'} | Local: ${c.city || '-'} | Exp: ${c.experience_years || 0} anos | Skills: ${c.hard_skills?.substring(0, 50) || '-'} | Status: ${c.status}`).join('\n');
 
       const systemPrompt = `
-        VocÃª Ã© a Aurora AI, assistente de recrutamento inteligente da Develoi.
-        Sua missÃ£o Ã© responder perguntas do recrutador sobre o sistema, candidatos e vagas.
-        Responda sempre em portuguÃªs do Brasil, de forma clara e profissional.
+        Você é a Aurora AI, assistente de recrutamento inteligente da Develoi.
+        Sua missão é responder perguntas do recrutador sobre o sistema, candidatos e vagas.
+        Responda sempre em português do Brasil, de forma clara e profissional.
         
         Diretrizes:
         1. Baseie-se nos dados do sistema listados abaixo. NÃƒO invente candidatos ou vagas.
-        2. Responda curto e direto por padrÃ£o.
-        3. NÃ£o repita "Eu sou a Aurora" em toda mensagem.
+        2. Responda curto e direto por padrão.
+        3. Não repita "Eu sou a Aurora" em toda mensagem.
         4. CRIAÃ‡ÃƒO DE VAGA:
-           - Se o usuÃ¡rio pedir para criar uma vaga mas nÃ£o informar o tÃ­tulo, responda apenas: "Qual o tÃ­tulo da vaga e a cidade?"
-           - Se o usuÃ¡rio fornecer dados da vaga, use SOMENTE os campos que ele explicitamente informou.
-           - NUNCA invente campos como salÃ¡rio, benefÃ­cios, experiÃªncia ou qualquer informaÃ§Ã£o nÃ£o fornecida pelo usuÃ¡rio.
+           - Se o usuário pedir para criar uma vaga mas não informar o título, responda apenas: "Qual o título da vaga e a cidade?"
+           - Se o usuário fornecer dados da vaga, use SOMENTE os campos que ele explicitamente informou.
+           - NUNCA invente campos como salário, benefícios, experiência ou qualquer informação não fornecida pelo usuário.
            - Campos permitidos no data: title, city, state, department, status, description, work_model, employment_type, mandatory_requirements, hard_skills.
-           - Inclua apenas os campos que o usuÃ¡rio mencionou. Omita todos os outros.
-           - SEMPRE escreva UMA frase curta de confirmaÃ§Ã£o ANTES do bloco <action>:
+           - Inclua apenas os campos que o usuário mencionou. Omita todos os outros.
+           - SEMPRE escreva UMA frase curta de confirmação ANTES do bloco <action>:
            Vaga criada como rascunho!
            <action>
-           {"type":"create_job","data":{"title":"TÃ­tulo","city":"Cidade","status":"Rascunho"}}
+           {"type":"create_job","data":{"title":"Título","city":"Cidade","status":"Rascunho"}}
            </action>
-        5. Para atualizar vaga (apenas com campos que o usuÃ¡rio pediu alterar):
+        5. Para atualizar vaga (apenas com campos que o usuário pediu alterar):
            Vaga atualizada!
            <action>
            {"type":"update_job","job_id":123,"data":{"status":"Aberta"}}
@@ -2854,8 +2920,8 @@ Retorne EXATAMENTE este JSON:
         config: {
           temperature: 0.4,
           maxOutputTokens: wantsDetailedReply ? 800 : wantsAction ? 500 : 300,
-          reasoningEffort: 'low',
-          verbosity: wantsDetailedReply ? 'medium' : 'low',
+          reasoningEffort: 'medium',
+          verbosity: 'medium',
           instructions: systemPrompt,
           operationLabel: 'chat da Aurora',
         }
@@ -2863,7 +2929,7 @@ Retorne EXATAMENTE este JSON:
 
       if (!result.text?.trim()) {
         console.warn('[Aurora AI] Modelo retornou resposta vazia. Usando fallback.');
-        result.text = 'NÃ£o consegui processar sua solicitaÃ§Ã£o agora. Poderia reformular a pergunta?';
+        result.text = 'Não consegui processar sua solicitação agora. Poderia reformular a pergunta?';
       }
 
       let responseText = normalizeAuroraChatReply(result.text) || 'Como posso ajudar?';
@@ -2907,7 +2973,7 @@ Retorne EXATAMENTE este JSON:
       res.json({ message: responseText, sessionId: currentSessionId });
     } catch (error) {
       if (error instanceof GeminiTemporaryUnavailableError) {
-        const fallbackMessage = 'A Aurora estÃ¡ com alta demanda no provedor de IA no momento. Tente novamente em alguns instantes.';
+        const fallbackMessage = 'A Aurora está com alta demanda no provedor de IA no momento. Tente novamente em alguns instantes.';
 
         if (currentSessionId) {
           await db.prepare('INSERT INTO ai_chat_messages (tenant_id, unit_id, session_id, role, message, created_at) VALUES (?, ?, ?, "assistant", ?, CURRENT_TIMESTAMP)')
@@ -3218,7 +3284,7 @@ Retorne EXATAMENTE este JSON:
         config: {
           responseMimeType: 'application/json',
           maxOutputTokens: 1500,
-          reasoningEffort: 'low',
+          reasoningEffort: 'medium',
           operationLabel: 'parecer estruturado de ferramenta RH',
         }
       });
@@ -3293,7 +3359,7 @@ Retorne EXATAMENTE este JSON:
 
   app.get('/api/public/hr-tools/:slug', async (req, res) => {
     try {
-      const tool = await db.prepare("SELECT h.*, t.name as tenant_name, t.company_name, t.logo_url FROM hr_tools h JOIN tenants t ON h.tenant_id = t.id WHERE h.public_slug = ? AND h.status = 'Ativo'").get(req.params.slug);
+      const tool = await db.prepare("SELECT h.*, t.name as tenant_name FROM hr_tools h JOIN tenants t ON h.tenant_id = t.id WHERE h.public_slug = ? AND h.status = 'Ativo'").get(req.params.slug);
       if (!tool) return res.status(404).json({ error: 'Tool not found or inactive' });
 
       const questions = await db.prepare('SELECT * FROM hr_tool_questions WHERE tool_id = ? ORDER BY position ASC').all((tool as any).id);
@@ -3348,7 +3414,7 @@ Retorne EXATAMENTE este JSON:
 
       // 4. If it's a DISC tool, process DISC logic (simplified for demo)
       if (tool.type === 'DISC') {
-        const profiles = ['DominÃƒÆ’Ã‚Â¢ncia', 'InfluÃƒÆ’Ã‚Âªncia', 'Estabilidade', 'Conformidade'];
+        const profiles = ['Dominância', 'Influência', 'Estabilidade', 'Conformidade'];
         const randomProfile = profiles[Math.floor(Math.random() * profiles.length)];
 
         await db.prepare(`
@@ -3370,6 +3436,54 @@ Retorne EXATAMENTE este JSON:
     } catch (error) {
       console.error(error);
       res.status(500).json({ error: 'Submission failed' });
+    }
+  });
+
+  app.post('/api/public/jobs/:jobId/apply', upload.single('resume'), async (req, res) => {
+    const { jobId } = req.params;
+    const { full_name, email } = req.body;
+    
+    if (!req.file) return res.status(400).json({ error: 'Currículo é obrigatório' });
+    if (!full_name || !email) return res.status(400).json({ error: 'Nome e email são obrigatórios' });
+    
+    try {
+      const job = await db.prepare('SELECT tenant_id, unit_id FROM jobs WHERE id = ?').get(jobId) as any;
+      if (!job) return res.status(404).json({ error: 'Vaga não encontrada' });
+      
+      const tenantId = job.tenant_id;
+      
+      let candidateId;
+      const existingCandidate = await db.prepare('SELECT id FROM candidates WHERE email = ? AND tenant_id = ?').get(email, tenantId) as any;
+      
+      if (existingCandidate) {
+        candidateId = existingCandidate.id;
+        
+        // Check if already applied to this job
+        const existingHistory = await db.prepare('SELECT id FROM candidate_history WHERE candidate_id = ? AND job_id = ? AND event_type = ?').get(candidateId, jobId, 'APLICACAO') as any;
+        if (existingHistory) {
+          return res.status(400).json({ error: 'sua inscrição ja foi realizada para essa vaga' });
+        }
+      } else {
+        const newCandRes = await db.prepare(`
+          INSERT INTO candidates (tenant_id, unit_id, full_name, email, source, status)
+          VALUES (?, ?, ?, ?, 'Portal', 'Novo')
+        `).run(tenantId, job.unit_id, full_name, email);
+        candidateId = newCandRes.lastInsertRowid;
+      }
+      
+      // Add to history
+      await db.prepare('INSERT INTO candidate_history (candidate_id, job_id, event_type, title, description) VALUES (?, ?, ?, ?, ?)').run(
+        candidateId, 
+        jobId, 
+        'APLICACAO', 
+        'Candidatura via Portal', 
+        `O candidato enviou seu currículo para a vaga através do portal público.`
+      );
+      
+      res.json({ success: true, message: 'Candidatura enviada com sucesso!' });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: 'Erro ao processar inscrição' });
     }
   });
 
@@ -3465,13 +3579,13 @@ Retorne EXATAMENTE este JSON:
       if (uploadError instanceof multer.MulterError) {
         if (uploadError.code === 'LIMIT_FILE_SIZE') {
           return res.status(400).json({
-            error: `Cada currÃ­culo pode ter atÃ© ${bytesToMegabytes(CANDIDATE_BATCH_IMPORT_MAX_FILE_SIZE_BYTES)} MB.`,
+            error: `Cada currículo pode ter até ${bytesToMegabytes(CANDIDATE_BATCH_IMPORT_MAX_FILE_SIZE_BYTES)} MB.`,
           });
         }
 
         if (uploadError.code === 'LIMIT_FILE_COUNT') {
           return res.status(400).json({
-            error: `Cada lote aceita atÃ© ${CANDIDATE_BATCH_IMPORT_MAX_FILES} currÃ­culos.`,
+            error: `Cada lote aceita até ${CANDIDATE_BATCH_IMPORT_MAX_FILES} currículos.`,
           });
         }
 
@@ -3499,7 +3613,7 @@ Retorne EXATAMENTE este JSON:
         const existingSizeRow = await db.prepare('SELECT COALESCE(SUM(file_size), 0) as total_size FROM import_files WHERE batch_id = ?').get(batchId) as any;
         if (existingFilesCount + files.length > CANDIDATE_BATCH_IMPORT_MAX_FILES) {
           return res.status(400).json({
-            error: `O lote pode conter no mÃ¡ximo ${CANDIDATE_BATCH_IMPORT_MAX_FILES} currÃ­culos.`,
+            error: `O lote pode conter no máximo ${CANDIDATE_BATCH_IMPORT_MAX_FILES} currículos.`,
           });
         }
 
@@ -3507,7 +3621,7 @@ Retorne EXATAMENTE este JSON:
         const cumulativeBytes = Number(existingSizeRow?.total_size || 0) + totalBytes;
         if (cumulativeBytes > CANDIDATE_BATCH_IMPORT_MAX_TOTAL_SIZE_BYTES) {
           return res.status(400).json({
-            error: `O lote pode acumular atÃ© ${bytesToMegabytes(CANDIDATE_BATCH_IMPORT_MAX_TOTAL_SIZE_BYTES)} MB no total.`,
+            error: `O lote pode acumular até ${bytesToMegabytes(CANDIDATE_BATCH_IMPORT_MAX_TOTAL_SIZE_BYTES)} MB no total.`,
           });
         }
 
@@ -3546,7 +3660,7 @@ Retorne EXATAMENTE este JSON:
 
       await db.prepare("UPDATE import_batches SET status = 'processing', updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(batchId);
 
-      // Responder imediatamente para nÃ£o travar o cliente/servidor
+      // Responder imediatamente para não travar o cliente/servidor
       res.json({ success: true, message: 'Processamento iniciado em segundo plano' });
 
       // Processamento em Background
@@ -3573,7 +3687,7 @@ Retorne EXATAMENTE este JSON:
                     responseMimeType: 'application/json',
                     temperature: 0.2,
                     maxOutputTokens: 2600,
-                    reasoningEffort: 'low',
+                    reasoningEffort: 'medium',
                     operationLabel: 'pré-análise em lote',
                   }
                 });
@@ -3677,18 +3791,18 @@ Retorne EXATAMENTE este JSON:
       // In a real app we'd extract this to a service function
       res.json({ success: true, message: 'Reprocessamento iniciado' });
 
-      // Background process com prÃƒÆ’Ã‚Â©-anÃƒÆ’Ã‚Â¡lise real
+      // Background process com pré-análise real
       (async () => {
         const ai = createGeminiClient();
         await db.prepare("UPDATE import_files SET status = 'processing', progress = 10, duplicate_status = 'none', duplicate_candidate_id = NULL, error_message = NULL WHERE id = ?").run(fileId);
 
         const extractedText = await extractResumeTextFromStoredFile(file);
         let prompt = `
-          Extraia somente os dados realmente presentes no currÃƒÆ’Ã‚Â­culo abaixo.
-          Se um campo nÃƒÆ’Ã‚Â£o existir, retorne null ou [].
-          NÃƒÆ’Ã‚Â£o invente informaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Âµes.
+          Extraia somente os dados realmente presentes no currículo abaixo.
+          Se um campo não existir, retorne null ou [].
+          Não invente informações.
 
-          CurrÃƒÆ’Ã‚Â­culo:
+          Currículo:
           ${extractedText}
 
           Vaga:
@@ -3712,8 +3826,8 @@ Retorne EXATAMENTE este JSON:
               responseMimeType: 'application/json',
               temperature: 0.2,
               maxOutputTokens: 2600,
-              reasoningEffort: 'low',
-              operationLabel: 'reprocessamento de prÃ©-anÃ¡lise',
+              reasoningEffort: 'medium',
+              operationLabel: 'reprocessamento de pré-análise',
             }
           });
           const data = normalizeResumeParsedData(
@@ -3835,8 +3949,8 @@ Retorne EXATAMENTE este JSON:
       const ai = createGeminiClient();
 
       const prompt = `
-        OlÃƒÆ’Ã‚Â¡, eu sou Aurora, a InteligÃƒÆ’Ã‚Âªncia Artificial especialista em talentos da Develoi.
-        Minha missÃƒÆ’Ã‚Â£o hoje ÃƒÆ’Ã‚Â© analisar o perfil do candidato abaixo e encontrar as melhores oportunidades entre nossas vagas abertas.
+        Olá, eu sou Aurora, a Inteligência Artificial especialista em talentos da Develoi.
+        Minha missão hoje é analisar o perfil do candidato abaixo e encontrar as melhores oportunidades entre nossas vagas abertas.
         
         PERFIL DO CANDIDATO:
         ${JSON.stringify(candidateProfile)}
@@ -3844,11 +3958,11 @@ Retorne EXATAMENTE este JSON:
         VAGAS DISPONÃƒÆ’Ã‚ÂVEIS:
         ${JSON.stringify(activeJobs)}
 
-        Por favor, selecione as vagas com maior afinidade (mÃƒÆ’Ã‚Â­nimo de 60%) e justifique brevemente sua escolha.
+        Por favor, selecione as vagas com maior afinidade (mínimo de 60%) e justifique brevemente sua escolha.
         Retorne APENAS o JSON no seguinte formato:
         {
           "suggestions": [
-            { "job_id": number, "match_reason": "breve justificativa (mÃƒÆ’Ã‚Â¡x 15 palavras)", "score": number (0-100) }
+            { "job_id": number, "match_reason": "breve justificativa (máx 15 palavras)", "score": number (0-100) }
           ]
         }
       `;
@@ -3859,8 +3973,8 @@ Retorne EXATAMENTE este JSON:
         config: {
           responseMimeType: 'application/json',
           maxOutputTokens: 900,
-          reasoningEffort: 'low',
-          operationLabel: 'sugestÃ£o de vagas por IA',
+          reasoningEffort: 'medium',
+          operationLabel: 'sugestão de vagas por IA',
         }
       });
 
@@ -3908,7 +4022,7 @@ Retorne EXATAMENTE este JSON:
               UPDATE import_files
               SET error_message = ?, updated_at = CURRENT_TIMESTAMP
               WHERE id = ?
-            `).run('Revisar prÃƒÆ’Ã‚Â©-anÃƒÆ’Ã‚Â¡lise: nome e e-mail sÃƒÆ’Ã‚Â£o obrigatÃƒÆ’Ã‚Â³rios para concluir o cadastro.', file.id);
+            `).run('Revisar pré-análise: nome e e-mail são obrigatórios para concluir o cadastro.', file.id);
             continue;
           }
 
@@ -3920,7 +4034,7 @@ Retorne EXATAMENTE este JSON:
               tenant_id, unit_id, full_name, email, phone, city, state,
               desired_position, professional_summary, experience_years, hard_skills,
               education_level, languages, linkedin_url, portfolio_url, source, status
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ImportaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o em Massa', 'Novo')
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Importação em Massa', 'Novo')
           `).run(
             file.tenant_id, file.unit_id, data.name, data.email, data.phone, data.city, data.state,
             data.role,
@@ -4245,7 +4359,7 @@ Retorne EXATAMENTE este JSON:
 
   app.post('/api/tenants/:id/accesses', async (req, res) => {
     const { id: tenantId } = req.params;
-    // Esta rota ÃƒÆ’Ã‚Â© exclusiva do admin-root (Super Admin)
+    // Esta rota é exclusiva do admin-root (Super Admin)
     if (!isRootCaller(req)) {
       return res.status(403).json({ error: 'Only root admin can provision tenant accesses' });
     }
@@ -4265,7 +4379,7 @@ Retorne EXATAMENTE este JSON:
       const userId = 'user-' + Math.random().toString(36).substr(2, 9);
       const accessProfile = access_profile || tenant.access_profile || getDefaultAccessProfile(role);
       const resolvedPermissions = normalizeAccessPermissions(permissions_json, accessProfile);
-      // Nunca atribuir super_admin a usuÃƒÆ’Ã‚Â¡rios de tenant
+      // Nunca atribuir super_admin a usuários de tenant
       resolvedPermissions.super_admin = false;
       const masterUnitId = await db.prepare('SELECT id FROM units WHERE tenant_id = ? AND is_master = 1').get(tenantId) as any;
 
@@ -4566,13 +4680,13 @@ Retorne EXATAMENTE este JSON:
 
       const userCount = await db.prepare('SELECT COUNT(*) as count FROM users WHERE tenant_id = ?').get(tenantId) as any;
       if (tenant.max_users && Number(userCount?.count || 0) >= Number(tenant.max_users)) {
-        return res.status(400).json({ error: 'Limite de usuÃƒÆ’Ã‚Â¡rios do cliente atingido' });
+        return res.status(400).json({ error: 'Limite de usuários do cliente atingido' });
       }
 
       const id = 'user-' + Math.random().toString(36).substr(2, 9);
       const accessProfile = user.access_profile || getDefaultAccessProfile(user.role);
       const safePermissions = normalizeAccessPermissions(user.permissions_json, accessProfile);
-      // Nunca permitir super_admin para usuÃƒÆ’Ã‚Â¡rios de tenant
+      // Nunca permitir super_admin para usuários de tenant
       safePermissions.super_admin = false;
 
       await db.prepare(`
@@ -4603,29 +4717,93 @@ Retorne EXATAMENTE este JSON:
     try {
       const existing = await db.prepare('SELECT tenant_id FROM users WHERE id = ?').get(id) as any;
       if (!existing) return res.status(404).json({ error: 'User not found' });
-      if (!await assertTenantAccess(req, res, existing.tenant_id)) return;
+      
+      // If updating self, allow even if tenant check is complex (but usually it's same tenant)
+      const caller = await getCallerUser(req);
+      const isSelf = caller && caller.id === id;
+      
+      if (!isSelf && !await assertTenantAccess(req, res, existing.tenant_id)) return;
 
-      const accessProfile = user.access_profile || getDefaultAccessProfile(user.role);
-      const safePermissions = normalizeAccessPermissions(user.permissions_json, accessProfile);
-      safePermissions.super_admin = false;
+      const accessProfile = user.access_profile || existing.access_profile || 'rh-operacao';
+      const safePermissions = user.permissions_json 
+        ? normalizeAccessPermissions(user.permissions_json, accessProfile)
+        : null;
+      
+      if (safePermissions) {
+        safePermissions.super_admin = false;
+      }
 
       await db.prepare(`
         UPDATE users SET
-          full_name = ?, email = ?, role = ?, status = ?, unit_id = ?, access_profile = ?, permissions_json = ?
+          full_name = ?, 
+          email = ?, 
+          role = ?, 
+          status = ?, 
+          unit_id = ?, 
+          access_profile = ?, 
+          permissions_json = COALESCE(?, permissions_json)
         WHERE id = ?
       `).run(
         user.full_name,
         user.email,
-        user.role,
-        user.status,
-        user.unit_id,
+        user.role || existing.role,
+        user.status || existing.status,
+        user.unit_id || existing.unit_id,
         accessProfile,
-        stringifyAccessPermissions(safePermissions, accessProfile),
+        safePermissions ? stringifyAccessPermissions(safePermissions, accessProfile) : null,
         id
       );
       res.json({ success: true });
     } catch (error) {
+      console.error(error);
       res.status(500).json({ error: 'Failed to update user' });
+    }
+  });
+
+  app.post('/api/users/:id/photo', upload.single('file'), async (req, res) => {
+    const { id } = req.params;
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+
+    try {
+      const existing = await db.prepare('SELECT photo_url FROM users WHERE id = ?').get(id) as any;
+      if (!existing) return res.status(404).json({ error: 'User not found' });
+
+      // Delete old photo if exists
+      if (existing.photo_url) {
+        const oldPath = path.join(process.cwd(), existing.photo_url.replace(/^\//, ''));
+        if (fs.existsSync(oldPath)) {
+          fs.unlinkSync(oldPath);
+        }
+      }
+
+      const photoUrl = `/uploads/${req.file.filename}`;
+      await db.prepare('UPDATE users SET photo_url = ? WHERE id = ?').run(photoUrl, id);
+      
+      res.json({ success: true, photo_url: photoUrl });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: 'Failed to upload photo' });
+    }
+  });
+
+  app.delete('/api/users/:id/photo', async (req, res) => {
+    const { id } = req.params;
+    try {
+      const existing = await db.prepare('SELECT photo_url FROM users WHERE id = ?').get(id) as any;
+      if (!existing) return res.status(404).json({ error: 'User not found' });
+
+      if (existing.photo_url) {
+        const oldPath = path.join(process.cwd(), existing.photo_url.replace(/^\//, ''));
+        if (fs.existsSync(oldPath)) {
+          fs.unlinkSync(oldPath);
+        }
+      }
+
+      await db.prepare('UPDATE users SET photo_url = NULL WHERE id = ?').run(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: 'Failed to delete photo' });
     }
   });
 
