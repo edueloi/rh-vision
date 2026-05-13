@@ -324,255 +324,150 @@ function AppContent() {
         />
       )}
 
-      <aside
-        className={cn(
-          "fixed inset-y-0 left-0 z-[50] h-screen w-72 transition-transform duration-300 lg:sticky lg:translate-x-0 border-r",
-          isRootShell
-            ? "border-[#102647] bg-[#071325] text-white"
-            : theme === 'dark' 
-              ? "border-white/5 bg-develoi-navy text-white" 
-              : "border-zinc-200 bg-white text-zinc-900",
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        )}
-      >
-        <div className="flex h-full flex-col">
-          {/* Sticky Header Section */}
-          <div className={cn(
-            "sticky top-0 z-10 p-8 pb-4 transition-colors",
-            theme === 'dark' || isRootShell ? "bg-develoi-navy" : "bg-white"
-          )}>
-            <div className="mb-10 flex items-center gap-3">
-            {isRootShell ? (
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/10 shadow-lg shadow-black/20">
-                  <Brain size={22} strokeWidth={3} className="text-develoi-gold" />
-                </div>
-                <div>
-                  <h1 className="text-base font-bold uppercase leading-none tracking-tight text-white">Aurora Root</h1>
-                  <p className="mt-0.5 text-[9px] font-bold uppercase tracking-widest text-develoi-gold">Control Grid</p>
-                </div>
+      <aside className={cn(
+        "fixed inset-y-0 left-0 z-[50] flex h-screen w-64 flex-col transition-transform duration-300 lg:sticky lg:translate-x-0",
+        isRootShell ? "bg-[#040e1f]" : theme === 'dark' ? "bg-[#071325]" : "bg-develoi-navy",
+        sidebarOpen ? "translate-x-0" : "-translate-x-full"
+      )}>
+        {/* Logo */}
+        <div className="flex items-center justify-between px-5 py-5">
+          {isRootShell ? (
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-develoi-gold/15 border border-develoi-gold/20">
+                <Brain size={18} className="text-develoi-gold" />
               </div>
-            ) : (
-              <div className="flex items-center gap-3">
-                <img
-                  src="/icon_logo_recruteia.png"
-                  alt="Recrute IA"
-                  className="h-10 w-10 object-contain shrink-0"
-                />
-                <div>
-                  <h1 className={cn(
-                    "text-base font-bold leading-none tracking-tight transition-colors",
-                    theme === 'dark' ? "text-white" : "text-develoi-navy"
-                  )}>
-                    Recrute <span className="text-develoi-gold">IA</span>
-                  </h1>
-                  <p className="mt-0.5 text-[9px] font-bold uppercase tracking-widest text-develoi-gold">
-                    {user?.tenant_name || "Recruitment Hub"}
-                  </p>
-                </div>
+              <div>
+                <p className="text-[11px] font-black text-white uppercase tracking-widest leading-none">Aurora Root</p>
+                <p className="text-[9px] text-develoi-gold/70 font-bold uppercase tracking-widest mt-0.5">Control Grid</p>
               </div>
-            )}
-            <button
-              onClick={() => setSidebarOpen(false)}
-              className={cn(
-                "ml-auto p-2 lg:hidden rounded-xl transition-colors",
-                theme === 'dark' || isRootShell ? "text-white/60 hover:bg-white/5" : "text-zinc-400 hover:bg-zinc-50"
-              )}
-            >
-              <X size={20} />
-            </button>
-          </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3">
+              <img src="/icon_logo_recruteia.png" alt="Recrute IA" className="h-9 w-9 object-contain shrink-0" />
+              <div>
+                <p className="text-[13px] font-black text-white leading-none tracking-tight">Recrute <span className="text-develoi-gold">IA</span></p>
+                <p className="text-[9px] text-white/30 font-bold uppercase tracking-widest mt-0.5 truncate max-w-[110px]">{user?.tenant_name || "Plataforma"}</p>
+              </div>
+            </div>
+          )}
+          <button onClick={() => setSidebarOpen(false)} className="lg:hidden p-1.5 text-white/40 hover:text-white rounded-lg">
+            <X size={18} />
+          </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-8 py-4">
-            {!isRootShell && (
-            <div className="mb-8">
-              <p className={cn(
-                "mb-2 px-1 text-[9px] font-bold uppercase tracking-widest transition-colors",
-                theme === 'dark' || isRootShell ? "text-white/40" : "text-zinc-400"
-              )}>
-                Unidade
-              </p>
-              <div className="relative">
-                <button
-                  onClick={() => setUnitMenuOpen((current) => !current)}
-                  className={cn(
-                    "flex w-full items-center justify-between rounded-2xl border transition-all hover:border-develoi-gold p-3 text-xs font-bold",
-                    theme === 'dark' || isRootShell 
-                      ? "border-white/10 bg-white/5 text-white/90" 
-                      : "border-zinc-100 bg-zinc-50/50 text-zinc-700"
-                  )}
-                >
-                  <div className="flex items-center gap-2 overflow-hidden">
-                    <Globe size={14} className={cn("shrink-0", theme === 'dark' || isRootShell ? "text-develoi-gold" : "text-amber-500")} />
-                    <span className="truncate">{currentUnit.name}</span>
-                  </div>
-                  <ChevronDown
-                    size={14}
-                    className={cn("transition-transform", theme === 'dark' || isRootShell ? "text-white/40" : "text-zinc-400", unitMenuOpen && "rotate-180")}
-                  />
-                </button>
-
-                <AnimatePresence>
-                  {unitMenuOpen && (
-                    <div className="absolute left-0 right-0 top-full z-10 mt-2 overflow-hidden rounded-2xl border border-zinc-200 bg-white py-1 shadow-xl dark:bg-[#0d1b3e] dark:border-white/10">
-                      {units.map((unit) => (
-                        <button
-                          key={unit.id}
-                          onClick={() => handleUnitChange(unit)}
-                          className={cn(
-                            "w-full px-4 py-2.5 text-left text-xs font-bold transition-colors hover:bg-zinc-50 dark:hover:bg-white/5",
-                            currentUnit.id === unit.id
-                              ? "bg-amber-50/50 text-develoi-gold dark:bg-develoi-gold/10"
-                              : "text-zinc-600 dark:text-white/60"
-                          )}
-                        >
-                          {unit.name}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </AnimatePresence>
-              </div>
-            </div>
-          )}
-
-          {isRootShell && (
-            <div className="mb-8 rounded-[28px] border border-white/10 bg-white/5 p-5">
-              <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-develoi-gold">
-                Root Layer
-              </p>
-              <h2 className="mt-3 text-xl font-black tracking-tight text-white">Super Admin Shell</h2>
-              <p className="mt-2 text-sm font-medium leading-relaxed text-white/65">
-                Ambiente exclusivo para contratos, clientes, acessos e permissões globais.
-              </p>
-            </div>
-          )}
-
-          <nav className="flex-1 space-y-1.5">
-            {isRootShell ? (
-              <>
-                <button
-                  onClick={() => {
-                    navigate("/super-admin");
-                    setSidebarOpen(false);
-                  }}
-                  className="group flex w-full items-center justify-between rounded-2xl bg-white px-4 py-3 text-left font-bold text-[#071325] shadow-lg shadow-black/10"
-                >
-                  <div className="flex items-center gap-3">
-                    <ShieldCheck size={18} strokeWidth={2.5} className="text-develoi-gold" />
-                    <span className="text-[10px] uppercase tracking-[0.18em]">Central Root</span>
-                  </div>
-                  <ChevronRight size={14} strokeWidth={3} className="text-[#071325]/30" />
-                </button>
-
-                <div className="pt-4">
-                  <p className="mb-3 px-1 text-[9px] font-bold uppercase tracking-[0.22em] text-white/35">
-                    Navegação
-                  </p>
-                  <div className="space-y-2">
-                    {ROOT_SECTION_ITEMS.map((item) => {
-                      const Icon = item.icon;
-                      const active = (location.hash || "#superadmin-overview") === item.href;
-
-                      return (
-                        <a
-                          key={item.href}
-                          href={item.href}
-                          onClick={() => setSidebarOpen(false)}
-                          className={cn(
-                            "group flex w-full items-center justify-between rounded-2xl border px-4 py-3 text-left transition-all duration-200",
-                            active
-                              ? "border-develoi-gold/30 bg-develoi-gold/12 text-white"
-                              : "border-white/6 bg-white/[0.03] text-white/72 hover:border-white/12 hover:bg-white/[0.05]"
-                          )}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div
-                              className={cn(
-                                "flex h-9 w-9 items-center justify-center rounded-xl border transition-colors",
-                                active
-                                  ? "border-develoi-gold/20 bg-develoi-gold/15 text-develoi-gold"
-                                  : "border-white/10 bg-white/[0.04] text-white/60"
-                              )}
-                            >
-                              <Icon size={16} strokeWidth={2.3} />
-                            </div>
-                            <div>
-                              <p className="text-[11px] font-black uppercase tracking-[0.16em]">
-                                {item.label}
-                              </p>
-                              <p className="mt-1 text-[11px] font-semibold text-white/45">
-                                {item.helper}
-                              </p>
-                            </div>
-                          </div>
-                          {active && <ChevronRight size={14} strokeWidth={3} className="text-develoi-gold/70" />}
-                        </a>
-                      );
-                    })}
-                  </div>
+        {/* Unit selector */}
+        {!isRootShell && (
+          <div className="px-4 mb-2">
+            <div className="relative">
+              <button
+                onClick={() => setUnitMenuOpen(v => !v)}
+                className="flex w-full items-center gap-2.5 rounded-xl bg-white/5 border border-white/8 px-3 py-2.5 text-left hover:bg-white/10 transition-all"
+              >
+                <div className="w-6 h-6 rounded-lg bg-develoi-gold/20 flex items-center justify-center shrink-0">
+                  <Building2 size={11} className="text-develoi-gold" />
                 </div>
-              </>
-            ) : (
-              menuItems.map((item) => {
-                const Icon = item.icon;
-                const active =
-                  location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
-
-                return (
-                  <button
-                    key={item.path}
-                    onClick={() => {
-                      navigate(item.path);
-                      setSidebarOpen(false);
-                    }}
-                    className={cn(
-                      "group flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left transition-all duration-200",
-                      active
-                        ? "bg-develoi-gold font-bold text-white shadow-lg shadow-develoi-gold/20"
-                        : theme === 'dark' || isRootShell
-                          ? "font-medium text-white/50 hover:bg-white/5 hover:text-white"
-                          : "font-bold text-zinc-600 hover:bg-zinc-50 hover:text-develoi-navy"
-                    )}
-                  >
-                    <div className="flex items-center gap-3">
-                      <Icon
-                        size={18}
-                        strokeWidth={active ? 2.5 : 2}
+                <span className="flex-1 text-[10px] font-bold text-white/80 truncate uppercase tracking-wide">{currentUnit.name}</span>
+                <ChevronDown size={12} className={cn("text-white/30 transition-transform shrink-0", unitMenuOpen && "rotate-180")} />
+              </button>
+              <AnimatePresence>
+                {unitMenuOpen && (
+                  <div className="absolute left-0 right-0 top-full z-10 mt-1 rounded-xl border border-white/10 bg-[#0d1f3c] shadow-2xl overflow-hidden">
+                    {units.map(unit => (
+                      <button
+                        key={unit.id}
+                        onClick={() => handleUnitChange(unit)}
                         className={cn(
-                          "transition-colors",
-                          active
-                            ? "text-white"
-                            : theme === 'dark' || isRootShell
-                              ? "text-white/40 group-hover:text-white"
-                              : "text-zinc-400 group-hover:text-develoi-navy"
+                          "w-full px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wide transition-colors",
+                          currentUnit.id === unit.id ? "bg-develoi-gold/15 text-develoi-gold" : "text-white/50 hover:bg-white/5 hover:text-white"
                         )}
-                      />
-                      <span className="text-[10px] uppercase tracking-wider">{item.label}</span>
-                    </div>
-                    {active && <ChevronRight size={14} strokeWidth={3} className="text-white/40" />}
-                  </button>
-                );
-              })
-            )}
-          </nav>
-
+                      >
+                        {unit.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
+        )}
 
-          {/* Footer Section */}
-          <div className="mt-auto p-8 pt-4">
-            <button
-              onClick={handleLogout}
-              className={cn(
-                "flex w-full items-center justify-center gap-2 rounded-2xl border py-3 text-[10px] font-bold uppercase tracking-widest transition-all",
-                theme === 'dark' || isRootShell
-                  ? "border-white/10 bg-white/5 text-white hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/20"
-                  : "border-zinc-200 bg-white text-develoi-navy hover:bg-red-50 hover:text-red-600 hover:border-red-200 shadow-sm"
-              )}
-            >
+        {/* Nav */}
+        <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-0.5">
+          <p className="px-2 mb-2 text-[8px] font-black text-white/20 uppercase tracking-[0.25em]">Menu</p>
+          {isRootShell ? (
+            <>
+              <button
+                onClick={() => { navigate("/super-admin"); setSidebarOpen(false); }}
+                className="group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-all bg-white/10 text-white"
+              >
+                <div className="w-8 h-8 rounded-lg bg-develoi-gold/20 flex items-center justify-center shrink-0">
+                  <ShieldCheck size={15} className="text-develoi-gold" />
+                </div>
+                <span className="text-[10px] font-black uppercase tracking-widest">Central Root</span>
+              </button>
+              <div className="pt-3">
+                <p className="px-2 mb-2 text-[8px] font-black text-white/20 uppercase tracking-[0.25em]">Seções</p>
+                {ROOT_SECTION_ITEMS.map(item => {
+                  const Icon = item.icon;
+                  const active = (location.hash || "#superadmin-overview") === item.href;
+                  return (
+                    <a key={item.href} href={item.href} onClick={() => setSidebarOpen(false)}
+                      className={cn(
+                        "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 transition-all",
+                        active ? "bg-develoi-gold/15 text-white" : "text-white/40 hover:bg-white/5 hover:text-white"
+                      )}
+                    >
+                      <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border", active ? "bg-develoi-gold/20 border-develoi-gold/20 text-develoi-gold" : "bg-white/5 border-white/8 text-white/40")}>
+                        <Icon size={14} />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-wider leading-none">{item.label}</p>
+                        <p className="text-[9px] text-white/30 mt-0.5">{item.helper}</p>
+                      </div>
+                    </a>
+                  );
+                })}
+              </div>
+            </>
+          ) : (
+            menuItems.map(item => {
+              const Icon = item.icon;
+              const active = location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
+              return (
+                <button
+                  key={item.path}
+                  onClick={() => { navigate(item.path); setSidebarOpen(false); }}
+                  className={cn(
+                    "group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-all duration-150",
+                    active ? "bg-develoi-gold text-white shadow-lg shadow-develoi-gold/25" : "text-white/40 hover:bg-white/6 hover:text-white"
+                  )}
+                >
+                  <div className={cn(
+                    "w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-all",
+                    active ? "bg-white/20" : "bg-white/5 group-hover:bg-white/10"
+                  )}>
+                    <Icon size={15} strokeWidth={active ? 2.5 : 2} />
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-widest">{item.label}</span>
+                  {active && <div className="ml-auto w-1 h-4 rounded-full bg-white/40" />}
+                </button>
+              );
+            })
+          )}
+        </nav>
+
+        {/* User card footer */}
+        <div className="p-3 border-t border-white/5">
+          <div className="flex items-center gap-3 rounded-xl bg-white/5 px-3 py-2.5">
+            <div className="w-8 h-8 rounded-lg bg-develoi-gold/20 border border-develoi-gold/20 flex items-center justify-center shrink-0 text-[11px] font-black text-develoi-gold">
+              {(user?.full_name || "U").split(" ").slice(0, 2).map((n: string) => n[0]).join("").toUpperCase()}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[10px] font-black text-white truncate leading-none">{user?.full_name || "Usuário"}</p>
+              <p className="text-[9px] text-white/30 font-bold uppercase tracking-widest mt-0.5 truncate">{user?.access_profile || user?.role || "Membro"}</p>
+            </div>
+            <button onClick={handleLogout} title="Sair" className="p-1.5 text-white/20 hover:text-rose-400 transition-colors rounded-lg hover:bg-rose-500/10 shrink-0">
               <LogOut size={14} />
-              Encerrar Sessão
             </button>
           </div>
         </div>
@@ -735,10 +630,13 @@ function AppContent() {
                       theme === 'dark' ? "border-white/20 bg-white/5" : "border-zinc-200 bg-zinc-50"
                     )}
                   >
-                    <img
-                      src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.full_name}`}
-                      alt="avatar"
-                    />
+                    {user?.photo_url ? (
+                      <img src={user.photo_url} alt="avatar" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className={cn("text-[11px] font-black", theme === 'dark' ? "text-develoi-gold" : "text-develoi-navy")}>
+                        {(user?.full_name || "U").split(" ").slice(0, 2).map((n: string) => n[0]).join("").toUpperCase()}
+                      </span>
+                    )}
                     <div className="absolute inset-0 bg-white/0 transition-colors group-hover:bg-white/10" />
                   </div>
 
