@@ -741,12 +741,19 @@ export default function ImportResumes() {
                             <div className="w-3 h-3 rounded-full border-2 border-develoi-navy border-t-transparent animate-spin" />
                             <span className="text-[9px] font-black text-develoi-navy uppercase tracking-widest">{file.progress || 0}%</span>
                           </div>
+                        ) : file.status === "uploaded" || file.status === "pending" ? (
+                          <div className="flex items-center gap-2 px-3 py-1.5 bg-zinc-50 rounded-xl border border-zinc-100 w-fit">
+                            <div className="w-3 h-3 rounded-full border-2 border-zinc-300 border-t-transparent animate-spin" />
+                            <span className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Aguardando</span>
+                          </div>
                         ) : file.status === "completed" || file.status === "committed" ? (
                           <Badge color="success" size="sm">Sucesso</Badge>
                         ) : file.status === "duplicate" ? (
                           <Badge color="warning" size="sm">Duplicado</Badge>
-                        ) : (
+                        ) : file.status === "error" ? (
                           <Badge color="danger" size="sm">Falha</Badge>
+                        ) : (
+                          <Badge color="warning" size="sm">{file.status}</Badge>
                         )}
                       </td>
                       <td className="px-6 py-5">
