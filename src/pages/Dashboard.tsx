@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Briefcase,
   Users,
@@ -12,13 +12,15 @@ import {
   MessageSquare,
   Layers,
   FileText,
-  Zap,
   ChevronRight,
   MapPin,
   BarChart3,
   Building2,
   CheckCircle2,
   Circle,
+  Trash2,
+  X,
+  ClipboardList,
 } from "lucide-react";
 import {
   StatCard,
@@ -65,11 +67,36 @@ export default function Dashboard() {
   const [period, setPeriod] = useState("30d");
   const [data, setData] = useState<any>(null);
   const [selectedUnit, setSelectedUnit] = useState<string>(queryUnitId);
-  const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({});
+  // ── Checklist persistido por usuário ──
+  const storageKey = (() => {
+    try { const u = JSON.parse(localStorage.getItem("auth_user") || "{}"); return `checklist_${u.id || "guest"}`; } catch { return "checklist_guest"; }
+  })();
 
-  const toggleCheck = (key: string) => {
-    setCheckedItems(prev => ({ ...prev, [key]: !prev[key] }));
+  type CheckItem = { id: string; text: string; done: boolean };
+
+  const [checkItems, setCheckItems] = useState<CheckItem[]>(() => {
+    try { return JSON.parse(localStorage.getItem(storageKey) || "[]"); } catch { return []; }
+  });
+  const [checkInput, setCheckInput] = useState("");
+  const checkInputRef = useRef<HTMLInputElement>(null);
+
+  const saveCheck = (items: CheckItem[]) => {
+    setCheckItems(items);
+    localStorage.setItem(storageKey, JSON.stringify(items));
   };
+  const addCheckItem = () => {
+    const text = checkInput.trim();
+    if (!text) return;
+    saveCheck([...checkItems, { id: crypto.randomUUID(), text, done: false }]);
+    setCheckInput("");
+    checkInputRef.current?.focus();
+  };
+  const toggleCheckItem = (id: string) =>
+    saveCheck(checkItems.map(i => i.id === id ? { ...i, done: !i.done } : i));
+  const removeCheckItem = (id: string) =>
+    saveCheck(checkItems.filter(i => i.id !== id));
+  const clearDone = () =>
+    saveCheck(checkItems.filter(i => !i.done));
 
   useEffect(() => { setSelectedUnit(queryUnitId); }, [queryUnitId]);
 
@@ -532,131 +559,101 @@ export default function Dashboard() {
             </div>
           </PanelCard>
 
-          {/* Checklist */}
-          {(() => {
-            const jobsSemCandidatos = recentJobs.filter((j: any) => j.candidates_count === 0 && j.status === "Aberta").length;
-            const importacoesIncompletas = (recentImports || []).filter((i: any) => i.processed_files < i.total_files).length;
-            const topTalentos = recommendations.filter((r: any) => r.compatibility_score >= 90).length;
-
-            const items: { key: string; label: string; done: boolean; to?: string; icon: React.ElementType }[] = [
-              {
-                key: "vagas_ativas",
-                label: stats.active_jobs > 0 ? `${stats.active_jobs} vaga${stats.active_jobs > 1 ? "s" : ""} ativa${stats.active_jobs > 1 ? "s" : ""} publicada${stats.active_jobs > 1 ? "s" : ""}` : "Publicar ao menos 1 vaga",
-                done: stats.active_jobs > 0,
-                to: "/vagas",
-                icon: Briefcase,
-              },
-              {
-                key: "candidatos_cadastrados",
-                label: stats.total_candidates > 0 ? `${stats.total_candidates} candidato${stats.total_candidates > 1 ? "s" : ""} cadastrado${stats.total_candidates > 1 ? "s" : ""}` : "Importar candidatos",
-                done: stats.total_candidates > 0,
-                to: "/importar-cvs",
-                icon: Users,
-              },
-              {
-                key: "sem_candidatos",
-                label: jobsSemCandidatos > 0 ? `${jobsSemCandidatos} vaga${jobsSemCandidatos > 1 ? "s" : ""} sem candidatos — revisar` : "Todas as vagas têm candidatos",
-                done: jobsSemCandidatos === 0,
-                to: "/vagas",
-                icon: Target,
-              },
-              {
-                key: "importacoes",
-                label: importacoesIncompletas > 0 ? `${importacoesIncompletas} lote${importacoesIncompletas > 1 ? "s" : ""} com processamento pendente` : "Importações em dia",
-                done: importacoesIncompletas === 0,
-                to: "/importar-cvs",
-                icon: FileText,
-              },
-              {
-                key: "top_talentos",
-                label: topTalentos > 0 ? `${topTalentos} talento${topTalentos > 1 ? "s" : ""} +90% aguardando revisão` : "Rodar análise de compatibilidade",
-                done: topTalentos > 0,
-                to: "/candidatos",
-                icon: Brain,
-              },
-              {
-                key: "disc",
-                label: stats.tool_responses > 0 ? `${stats.tool_responses} avaliação DISC respondida${stats.tool_responses > 1 ? "s" : ""}` : "Enviar DISC aos candidatos",
-                done: stats.tool_responses > 0,
-                to: "/ferramentas",
-                icon: Zap,
-              },
-            ];
-
-            const doneCount = items.filter(i => i.done).length;
-
-            return (
-              <div className="rounded-3xl border border-zinc-100 dark:border-white/10 bg-white dark:bg-white/5 p-5">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-lg bg-amber-50 dark:bg-develoi-gold/10 flex items-center justify-center">
-                      <Zap size={13} className="text-amber-500 dark:text-develoi-gold" />
-                    </div>
-                    <h4 className="text-[10px] font-black text-zinc-900 dark:text-white uppercase tracking-widest">Checklist</h4>
-                  </div>
-                  <span className="text-[10px] font-black text-zinc-400 dark:text-white/30 tabular-nums">
-                    {doneCount}/{items.length}
-                  </span>
+          {/* ── Checklist interativo ── */}
+          <div className="rounded-3xl border border-zinc-100 dark:border-white/10 bg-white dark:bg-white/5 p-5">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-lg bg-amber-50 dark:bg-develoi-gold/10 flex items-center justify-center">
+                  <ClipboardList size={13} className="text-amber-500 dark:text-develoi-gold" />
                 </div>
-
-                {/* Barra de progresso */}
-                <div className="h-1.5 w-full bg-zinc-100 dark:bg-white/10 rounded-full mb-4 overflow-hidden">
-                  <div
-                    className="h-full bg-develoi-navy dark:bg-develoi-gold rounded-full transition-all duration-500"
-                    style={{ width: `${(doneCount / items.length) * 100}%` }}
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  {items.map((item) => {
-                    const Icon = item.icon;
-                    const content = (
-                      <div
-                        key={item.key}
-                        className={cn(
-                          "flex items-center gap-3 w-full px-3 py-2.5 rounded-xl transition-all group",
-                          item.done
-                            ? "opacity-50"
-                            : "hover:bg-zinc-50 dark:hover:bg-white/5 cursor-pointer"
-                        )}
-                      >
-                        <div className="shrink-0">
-                          {item.done ? (
-                            <CheckCircle2 size={16} className="text-emerald-500" />
-                          ) : (
-                            <Circle size={16} className="text-zinc-300 dark:text-white/20 group-hover:text-develoi-navy dark:group-hover:text-develoi-gold transition-colors" />
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 flex-1 min-w-0">
-                          <Icon size={12} className={cn(
-                            "shrink-0 transition-colors",
-                            item.done ? "text-emerald-400" : "text-zinc-400 dark:text-white/30 group-hover:text-develoi-navy dark:group-hover:text-develoi-gold"
-                          )} />
-                          <span className={cn(
-                            "text-[11px] font-semibold truncate transition-colors",
-                            item.done
-                              ? "line-through text-zinc-400 dark:text-white/30"
-                              : "text-zinc-700 dark:text-white/70 group-hover:text-zinc-900 dark:group-hover:text-white"
-                          )}>
-                            {item.label}
-                          </span>
-                        </div>
-                        {!item.done && (
-                          <ChevronRight size={12} className="shrink-0 text-zinc-300 dark:text-white/20 group-hover:text-zinc-500 transition-colors" />
-                        )}
-                      </div>
-                    );
-
-                    return item.to && !item.done ? (
-                      <Link key={item.key} to={item.to}>{content}</Link>
-                    ) : (
-                      <div key={item.key}>{content}</div>
-                    );
-                  })}
-                </div>
+                <h4 className="text-[10px] font-black text-zinc-900 dark:text-white uppercase tracking-widest">
+                  Checklist
+                </h4>
               </div>
-            );
-          })()}
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-black tabular-nums text-zinc-400 dark:text-white/30">
+                  {checkItems.filter(i => i.done).length}/{checkItems.length}
+                </span>
+                {checkItems.some(i => i.done) && (
+                  <button
+                    onClick={clearDone}
+                    title="Remover concluídos"
+                    className="text-[9px] font-black uppercase tracking-widest text-zinc-300 dark:text-white/20 hover:text-rose-400 transition-colors px-2 py-1 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-500/10"
+                  >
+                    Limpar feitos
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Barra de progresso */}
+            {checkItems.length > 0 && (
+              <div className="h-1.5 w-full bg-zinc-100 dark:bg-white/10 rounded-full mb-4 overflow-hidden">
+                <div
+                  className="h-full bg-develoi-navy dark:bg-develoi-gold rounded-full transition-all duration-500"
+                  style={{ width: `${checkItems.length > 0 ? (checkItems.filter(i => i.done).length / checkItems.length) * 100 : 0}%` }}
+                />
+              </div>
+            )}
+
+            {/* Lista */}
+            <div className="space-y-0.5 mb-3 max-h-64 overflow-y-auto">
+              {checkItems.length === 0 ? (
+                <p className="py-6 text-center text-[10px] font-bold text-zinc-300 dark:text-white/20 uppercase tracking-widest">
+                  Nenhuma tarefa ainda
+                </p>
+              ) : checkItems.map((item) => (
+                <div
+                  key={item.id}
+                  className="flex items-center gap-2.5 px-2 py-2 rounded-xl group hover:bg-zinc-50 dark:hover:bg-white/5 transition-all"
+                >
+                  <button
+                    onClick={() => toggleCheckItem(item.id)}
+                    className="shrink-0 transition-transform active:scale-90"
+                  >
+                    {item.done
+                      ? <CheckCircle2 size={16} className="text-emerald-500" />
+                      : <Circle size={16} className="text-zinc-300 dark:text-white/20 group-hover:text-develoi-navy dark:group-hover:text-develoi-gold transition-colors" />
+                    }
+                  </button>
+                  <span className={cn(
+                    "flex-1 text-[11px] font-semibold leading-snug transition-colors",
+                    item.done
+                      ? "line-through text-zinc-300 dark:text-white/20"
+                      : "text-zinc-700 dark:text-white/70"
+                  )}>
+                    {item.text}
+                  </span>
+                  <button
+                    onClick={() => removeCheckItem(item.id)}
+                    className="shrink-0 opacity-0 group-hover:opacity-100 p-1 rounded-lg text-zinc-300 dark:text-white/20 hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-all"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Input para nova tarefa */}
+            <div className="flex items-center gap-2 border-t border-zinc-50 dark:border-white/5 pt-3">
+              <input
+                ref={checkInputRef}
+                value={checkInput}
+                onChange={e => setCheckInput(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && addCheckItem()}
+                placeholder="Nova tarefa..."
+                className="flex-1 bg-zinc-50 dark:bg-white/5 border border-zinc-100 dark:border-white/10 rounded-xl px-3 py-2 text-[11px] font-semibold text-zinc-700 dark:text-white placeholder:text-zinc-300 dark:placeholder:text-white/20 outline-none focus:border-develoi-navy dark:focus:border-develoi-gold transition-colors"
+              />
+              <button
+                onClick={addCheckItem}
+                disabled={!checkInput.trim()}
+                className="w-8 h-8 rounded-xl bg-develoi-navy dark:bg-develoi-gold text-white dark:text-develoi-navy flex items-center justify-center hover:opacity-80 transition-all disabled:opacity-30 shrink-0"
+              >
+                <Plus size={14} />
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
