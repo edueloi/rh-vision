@@ -31,6 +31,10 @@ const OPENAI_RETRY_ATTEMPTS = Math.max(1, Number.parseInt(process.env.OPENAI_RET
 const OPENAI_RETRY_BASE_DELAY_MS = Math.max(250, Number.parseInt(process.env.OPENAI_RETRY_BASE_DELAY_MS?.trim() || '900', 10) || 900);
 const IMPORT_UPLOADS_DIR = path.join(__dirname, 'storage', 'imports');
 const CANDIDATE_UPLOADS_DIR = path.join(__dirname, 'storage', 'candidate-files');
+const CANDIDATE_BATCH_IMPORT_MAX_FILES = 30;
+const CANDIDATE_BATCH_IMPORT_MAX_FILE_SIZE_BYTES = 8 * 1024 * 1024;
+const CANDIDATE_BATCH_IMPORT_MAX_TOTAL_SIZE_BYTES = 96 * 1024 * 1024;
+const CANDIDATE_BATCH_IMPORT_EXTENSIONS = ['.pdf', '.docx', '.txt', '.csv', '.xls', '.xlsx'];
 
 type AIReasoningEffort = 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh';
 type AITextVerbosity = 'low' | 'medium' | 'high';
@@ -61,10 +65,10 @@ type GoogleGenAI = AIClient;
 const GEMINI_MODEL = OPENAI_MODEL;
 
 const AI_CORE_INSTRUCTIONS = [
-  'Você é Aurora AI, especialista sênior em recrutamento, seleção, people analytics e análise técnica de candidatos e vagas.',
-  'Responda sempre em português do Brasil com rigor, clareza e critério profissional.',
-  'Nunca invente informações ausentes. Quando faltarem dados, use null, [] ou declare a ausência conforme o formato solicitado.',
-  'Em análises de aderência, seja conservadora e baseie a conclusão apenas nas evidências fornecidas.',
+  'VocÃª Ã© Aurora AI, especialista sÃªnior em recrutamento, seleÃ§Ã£o, people analytics e anÃ¡lise tÃ©cnica de candidatos e vagas.',
+  'Responda sempre em portuguÃªs do Brasil com rigor, clareza e critÃ©rio profissional.',
+  'Nunca invente informaÃ§Ãµes ausentes. Quando faltarem dados, use null, [] ou declare a ausÃªncia conforme o formato solicitado.',
+  'Em anÃ¡lises de aderÃªncia, seja conservadora e baseie a conclusÃ£o apenas nas evidÃªncias fornecidas.',
 ].join(' ');
 
 class AITemporaryUnavailableError extends Error {
@@ -173,11 +177,11 @@ function convertGeminiLikeContentsToOpenAIInput(contents: string | AIMessage[]):
   }
 
   return normalizedMessages
-    .map((item) => `${item.role === 'assistant' ? 'Assistente' : 'Usuário'}:\n${item.text}`)
+    .map((item) => `${item.role === 'assistant' ? 'Assistente' : 'UsuÃ¡rio'}:\n${item.text}`)
     .join('\n\n');
 }
 
-async function executeAIRequestWithRetry<T>(request: () => Promise<T>, operationLabel = 'geração de conteúdo') {
+async function executeAIRequestWithRetry<T>(request: () => Promise<T>, operationLabel = 'geraÃ§Ã£o de conteÃºdo') {
   let lastError: unknown;
 
   for (let attempt = 1; attempt <= OPENAI_RETRY_ATTEMPTS; attempt += 1) {
@@ -192,7 +196,7 @@ async function executeAIRequestWithRetry<T>(request: () => Promise<T>, operation
 
       const delayMs = OPENAI_RETRY_BASE_DELAY_MS * attempt;
       const status = getAIErrorStatus(error) ?? 'sem status';
-      console.warn(`[OpenAI] ${operationLabel} temporariamente indisponível (${status}). Nova tentativa em ${delayMs}ms.`);
+      console.warn(`[OpenAI] ${operationLabel} temporariamente indisponÃ­vel (${status}). Nova tentativa em ${delayMs}ms.`);
       await wait(delayMs);
     }
   }
@@ -201,7 +205,7 @@ async function executeAIRequestWithRetry<T>(request: () => Promise<T>, operation
     const status = getAIErrorStatus(lastError) ?? 'sem status';
     const providerMessage = getAIErrorMessage(lastError);
     throw new AITemporaryUnavailableError(
-      `OpenAI indisponível temporariamente para ${operationLabel} (${status}): ${providerMessage}`,
+      `OpenAI indisponÃ­vel temporariamente para ${operationLabel} (${status}): ${providerMessage}`,
       lastError
     );
   }
@@ -212,14 +216,14 @@ async function executeAIRequestWithRetry<T>(request: () => Promise<T>, operation
 function createAIClient(): AIClient {
   if (!OPENAI_API_KEY) {
     if (LEGACY_GEMINI_API_KEY) {
-      throw new Error('OPENAI_API_KEY não configurada. O arquivo .env ainda está com GEMINI_API_KEY. Renomeie para OPENAI_API_KEY e use uma chave OpenAI válida com prefixo sk- ou sk-proj-.');
+      throw new Error('OPENAI_API_KEY nÃ£o configurada. O arquivo .env ainda estÃ¡ com GEMINI_API_KEY. Renomeie para OPENAI_API_KEY e use uma chave OpenAI vÃ¡lida com prefixo sk- ou sk-proj-.');
     }
 
-    throw new Error('OPENAI_API_KEY não configurada. Defina a chave no arquivo .env.');
+    throw new Error('OPENAI_API_KEY nÃ£o configurada. Defina a chave no arquivo .env.');
   }
 
   if (/^AIza[0-9A-Za-z_-]{20,}$/.test(OPENAI_API_KEY)) {
-    throw new Error('OPENAI_API_KEY está com uma chave do Google/Gemini (prefixo AIza). Remova a variável OPENAI_API_KEY do terminal atual e configure uma chave OpenAI válida com prefixo sk- ou sk-proj-.');
+    throw new Error('OPENAI_API_KEY estÃ¡ com uma chave do Google/Gemini (prefixo AIza). Remova a variÃ¡vel OPENAI_API_KEY do terminal atual e configure uma chave OpenAI vÃ¡lida com prefixo sk- ou sk-proj-.');
   }
 
   const client = new OpenAI({ apiKey: OPENAI_API_KEY });
@@ -235,15 +239,17 @@ function createAIClient(): AIClient {
               input: convertGeminiLikeContentsToOpenAIInput(contents) as any,
               instructions: buildAIInstructions(config?.instructions),
               max_output_tokens: config?.maxOutputTokens,
-              reasoning: {
-                effort: config?.reasoningEffort || normalizeReasoningEffort(process.env.OPENAI_REASONING_EFFORT, 'low'),
-              },
+              ...(model?.startsWith('o1') || model?.startsWith('o3') ? {
+                reasoning: {
+                  effort: config?.reasoningEffort || normalizeReasoningEffort(process.env.OPENAI_REASONING_EFFORT, 'low'),
+                }
+              } : {}),
               text: {
                 format: expectsJson ? { type: 'json_object' } : { type: 'text' },
                 verbosity: expectsJson ? 'low' : config?.verbosity || normalizeTextVerbosity(process.env.OPENAI_TEXT_VERBOSITY, 'low'),
               },
             }),
-          config?.operationLabel || 'geração de conteúdo'
+          config?.operationLabel || 'geraÃ§Ã£o de conteÃºdo'
         ) as any;
 
         return {
@@ -261,9 +267,9 @@ function normalizeAuroraChatReply(rawText: string) {
   return rawText
     .replace(/\r\n/g, '\n')
     .replace(/\*\*(.*?)\*\*/g, '$1')
-    .replace(/^OlÃƒÂ¡!? Eu sou a Aurora AI[^.]*\.\s*/i, '')
+    .replace(/^OlÃƒÆ’Ã‚Â¡!? Eu sou a Aurora AI[^.]*\.\s*/i, '')
     .replace(/^Eu sou a Aurora AI[^.]*\.\s*/i, '')
-    .replace(/^Minha missÃƒÂ£o ÃƒÂ©[^.]*\.\s*/i, '')
+    .replace(/^Minha missÃƒÆ’Ã‚Â£o ÃƒÆ’Ã‚Â©[^.]*\.\s*/i, '')
     .replace(/([.:])\s+(?=\d+\.\s)/g, '$1\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
@@ -287,6 +293,21 @@ function sanitizeUploadFileName(fileName: string) {
     .replace(/^-|-$/g, '');
 
   return normalized || 'arquivo';
+}
+
+function bytesToMegabytes(bytes: number) {
+  return Number((bytes / (1024 * 1024)).toFixed(1));
+}
+
+function getCandidateBatchImportCapacity() {
+  return {
+    max_files_per_batch: CANDIDATE_BATCH_IMPORT_MAX_FILES,
+    max_file_size_bytes: CANDIDATE_BATCH_IMPORT_MAX_FILE_SIZE_BYTES,
+    max_file_size_mb: bytesToMegabytes(CANDIDATE_BATCH_IMPORT_MAX_FILE_SIZE_BYTES),
+    max_total_size_bytes: CANDIDATE_BATCH_IMPORT_MAX_TOTAL_SIZE_BYTES,
+    max_total_size_mb: bytesToMegabytes(CANDIDATE_BATCH_IMPORT_MAX_TOTAL_SIZE_BYTES),
+    supported_extensions: CANDIDATE_BATCH_IMPORT_EXTENSIONS,
+  };
 }
 
 function normalizeExtractedResumeText(rawText: string) {
@@ -324,14 +345,14 @@ async function saveImportedJobFile(importId: number | string, tenantId: string, 
 }
 
 async function extractPdfTextFromBuffer(buffer: Buffer) {
-  console.log('[PDF] Iniciando extração de texto do buffer...');
+  console.log('[PDF] Iniciando extraÃ§Ã£o de texto do buffer...');
   try {
     const pdfModule = require('pdf-parse');
     const PDFParseClass = pdfModule.PDFParse || pdfModule.default?.PDFParse;
 
     if (!PDFParseClass) {
-      console.error('[PDF] Chaves disponíveis no módulo:', Object.keys(pdfModule));
-      throw new Error('Classe PDFParse não encontrada no módulo pdf-parse');
+      console.error('[PDF] Chaves disponÃ­veis no mÃ³dulo:', Object.keys(pdfModule));
+      throw new Error('Classe PDFParse nÃ£o encontrada no mÃ³dulo pdf-parse');
     }
 
     const parser = new PDFParseClass({ data: buffer });
@@ -339,7 +360,7 @@ async function extractPdfTextFromBuffer(buffer: Buffer) {
     const text = result?.text || '';
     await parser.destroy();
 
-    console.log('[PDF] Texto extraído com sucesso. Tamanho:', text.length);
+    console.log('[PDF] Texto extraÃ­do com sucesso. Tamanho:', text.length);
     return text;
   } catch (error: any) {
     console.error('[PDF] Erro ao ler PDF:', error);
@@ -369,12 +390,12 @@ async function extractResumeTextFromBuffer(buffer: Buffer, fileName: string, fil
   ) {
     text = buffer.toString('utf8');
   } else {
-    throw new Error(`Formato de currÃƒÂ­culo nÃƒÂ£o suportado: ${extension || fileType || 'desconhecido'}`);
+    throw new Error(`Formato de currÃƒÆ’Ã‚Â­culo nÃƒÆ’Ã‚Â£o suportado: ${extension || fileType || 'desconhecido'}`);
   }
 
   const normalizedText = normalizeExtractedResumeText(text);
   if (normalizedText.length < 20) {
-    throw new Error('NÃƒÂ£o foi possÃƒÂ­vel extrair texto suficiente do currÃƒÂ­culo.');
+    throw new Error('NÃƒÆ’Ã‚Â£o foi possÃƒÆ’Ã‚Â­vel extrair texto suficiente do currÃƒÆ’Ã‚Â­culo.');
   }
 
   return normalizedText;
@@ -382,7 +403,7 @@ async function extractResumeTextFromBuffer(buffer: Buffer, fileName: string, fil
 
 async function extractResumeTextFromStoredFile(file: any) {
   if (!file.file_path) {
-    throw new Error('Arquivo do currÃƒÂ­culo nÃƒÂ£o encontrado no armazenamento.');
+    throw new Error('Arquivo do currÃƒÆ’Ã‚Â­culo nÃƒÆ’Ã‚Â£o encontrado no armazenamento.');
   }
 
   const buffer = await fs.promises.readFile(file.file_path);
@@ -395,7 +416,7 @@ async function extractJobTextFromBuffer(buffer: Buffer, fileName: string, fileTy
 
 async function extractJobTextFromStoredFile(file: any) {
   if (!file.file_path) {
-    throw new Error('Arquivo da vaga não encontrado no armazenamento.');
+    throw new Error('Arquivo da vaga nÃ£o encontrado no armazenamento.');
   }
 
   const buffer = await fs.promises.readFile(file.file_path);
@@ -411,7 +432,7 @@ function normalizeStringList(value: unknown) {
 
   if (typeof value === 'string') {
     return value
-      .split(/[,;\nÃ¢â‚¬Â¢]/)
+      .split(/[,;\nÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢]/)
       .map((item) => item.trim())
       .filter(Boolean);
   }
@@ -469,7 +490,7 @@ function normalizeNullableBoolean(value: unknown) {
       return true;
     }
 
-    if (['nao', 'nÃƒÂ£o', 'n', 'false', '0', 'no'].includes(normalized)) {
+    if (['nao', 'nÃƒÆ’Ã‚Â£o', 'n', 'false', '0', 'no'].includes(normalized)) {
       return false;
     }
   }
@@ -496,7 +517,7 @@ function clampInteger(value: unknown, fallback: number, min = 0, max = 100) {
   return Math.max(min, Math.min(max, normalized));
 }
 
-function normalizeConfidenceLevel(value: unknown): 'Alta' | 'Média' | 'Baixa' {
+function normalizeConfidenceLevel(value: unknown): 'Alta' | 'MÃ©dia' | 'Baixa' {
   const normalized = String(value || '')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
@@ -504,7 +525,7 @@ function normalizeConfidenceLevel(value: unknown): 'Alta' | 'Média' | 'Baixa' {
     .toLowerCase();
 
   if (normalized === 'alta') return 'Alta';
-  if (normalized === 'media') return 'Média';
+  if (normalized === 'media') return 'MÃ©dia';
   return 'Baixa';
 }
 
@@ -573,8 +594,8 @@ function normalizeImportedJobParsedData(data: any, extractedText: string) {
     benefits: pickValue(normalizeNullableTextBlock(data?.benefits), evidence?.benefits),
     city: pickValue(normalizeNullableString(data?.city), evidence?.city),
     state: pickValue(normalizeBrazilianState(data?.state), evidence?.state),
-    work_model: ['Presencial', 'Híbrido', 'Home Office'].includes(workModel || '') ? workModel : null,
-    contract_type: ['CLT', 'PJ', 'Estágio', 'Temporário', 'Freelancer', 'Outro'].includes(contractType || '') ? contractType : null,
+    work_model: ['Presencial', 'HÃ­brido', 'Home Office'].includes(workModel || '') ? workModel : null,
+    contract_type: ['CLT', 'PJ', 'EstÃ¡gio', 'TemporÃ¡rio', 'Freelancer', 'Outro'].includes(contractType || '') ? contractType : null,
     seniority_level: pickValue(normalizeNullableString(data?.seniority_level), evidence?.seniority_level),
     education_level: pickValue(normalizeNullableString(data?.education_level), evidence?.education_level),
     min_experience_years: pickValue(normalizeNullableInteger(data?.min_experience_years), evidence?.min_experience_years),
@@ -624,11 +645,215 @@ function normalizeImportedJobParsedData(data: any, extractedText: string) {
   return normalized;
 }
 
+function buildResumePeriodLabel(startDate: string | null, endDate: string | null, fallback?: string | null) {
+  if (fallback) {
+    return fallback;
+  }
+
+  if (!startDate && !endDate) {
+    return null;
+  }
+
+  return [startDate || 'InÃ­cio nÃ£o informado', endDate || 'Atual'].join(' - ');
+}
+
+function normalizeResumeExperienceList(value: unknown) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item: any) => {
+      const company = normalizeNullableString(item?.company) || '';
+      const role = normalizeNullableString(item?.role) || '';
+      const period = normalizeNullableString(item?.period) || '';
+      const location = normalizeNullableString(item?.location);
+      const description = normalizeNullableTextBlock(item?.description) || '';
+
+      if (!company && !role && !period && !location && !description) {
+        return null;
+      }
+
+      return { company, role, period, location, description };
+    })
+    .filter(Boolean);
+}
+
+function normalizeResumeEducationList(value: unknown) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item: any) => {
+      const course = normalizeNullableString(item?.course) || '';
+      const institution = normalizeNullableString(item?.institution) || '';
+      const status = normalizeNullableString(item?.status) || 'NÃ£o informado';
+      const degree_type = normalizeNullableString(item?.degree_type);
+      const start_date = normalizeNullableString(item?.start_date);
+      const end_date = normalizeNullableString(item?.end_date);
+      const period = buildResumePeriodLabel(start_date, end_date, normalizeNullableString(item?.period));
+
+      if (!course && !institution && !status && !degree_type && !period) {
+        return null;
+      }
+
+      return {
+        course,
+        institution,
+        status,
+        degree_type,
+        start_date,
+        end_date,
+        period,
+      };
+    })
+    .filter(Boolean);
+}
+
+function normalizeResumeCertificationList(value: unknown) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item: any) => {
+      const name = normalizeNullableString(item?.name) || '';
+      const institution = normalizeNullableString(item?.institution);
+      const year = normalizeNullableString(item?.year);
+
+      if (!name && !institution && !year) {
+        return null;
+      }
+
+      return { name, institution, year };
+    })
+    .filter(Boolean);
+}
+
+function normalizeResumeProjectList(value: unknown) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item: any) => {
+      const name = normalizeNullableString(item?.name) || '';
+      const description = normalizeNullableTextBlock(item?.description) || '';
+      const technologies = normalizeNullableString(item?.technologies);
+
+      if (!name && !description && !technologies) {
+        return null;
+      }
+
+      return { name, description, technologies };
+    })
+    .filter(Boolean);
+}
+
+function normalizeResumeLanguageList(value: unknown) {
+  if (Array.isArray(value)) {
+    return value
+      .map((item: any) => {
+        if (typeof item === 'string') {
+          const language = normalizeNullableString(item) || '';
+          return language ? { language, level: 'NÃ£o informado' } : null;
+        }
+
+        const language = normalizeNullableString(item?.language) || '';
+        const level = normalizeNullableString(item?.level) || 'NÃ£o informado';
+
+        if (!language) {
+          return null;
+        }
+
+        return { language, level };
+      })
+      .filter(Boolean);
+  }
+
+  return normalizeStringList(value).map((language) => ({
+    language,
+    level: 'NÃ£o informado',
+  }));
+}
+
+function formatResumeExperienceList(value: Array<{ company?: string; role?: string; period?: string; location?: string | null; description?: string }>) {
+  if (!Array.isArray(value) || value.length === 0) {
+    return null;
+  }
+
+  const block = value
+    .map((item) => {
+      const header = [item.role, item.company].filter(Boolean).join(' | ');
+      const meta = [item.period, item.location].filter(Boolean).join(' | ');
+      return [header || null, meta || null, item.description || null].filter(Boolean).join('\n');
+    })
+    .filter(Boolean)
+    .join('\n\n');
+
+  return normalizeNullableTextBlock(block);
+}
+
+function formatResumeEducationList(value: Array<{ course?: string; institution?: string; status?: string; period?: string | null }>) {
+  if (!Array.isArray(value) || value.length === 0) {
+    return null;
+  }
+
+  const block = value
+    .map((item) => [item.course, item.institution, item.status, item.period].filter(Boolean).join(' | '))
+    .filter(Boolean)
+    .join('\n');
+
+  return normalizeNullableTextBlock(block);
+}
+
+function formatResumeCertificationList(value: Array<{ name?: string; institution?: string | null; year?: string | null }>) {
+  if (!Array.isArray(value) || value.length === 0) {
+    return null;
+  }
+
+  const block = value
+    .map((item) => [item.name, item.institution, item.year].filter(Boolean).join(' | '))
+    .filter(Boolean)
+    .join('\n');
+
+  return normalizeNullableTextBlock(block);
+}
+
+function stringifyStructuredListOrNull(value: unknown) {
+  return Array.isArray(value) && value.length > 0 ? JSON.stringify(value) : null;
+}
+
 function normalizeResumeParsedData(data: any, hasLinkedJob: boolean) {
   const compatibilityScore = Number(data?.compatibility_score);
+  const experiences_list = normalizeResumeExperienceList(data?.experiences_list);
+  const education_list = normalizeResumeEducationList(data?.education_list);
+  const certifications_list = normalizeResumeCertificationList(data?.certifications_list);
+  const projects_list = normalizeResumeProjectList(data?.projects_list);
+  const languages_list = normalizeResumeLanguageList(data?.languages_list ?? data?.languages);
+  const skills = normalizeStringList(data?.skills ?? data?.hard_skills);
+  const soft_skills = normalizeStringList(data?.soft_skills);
+  const strengths = normalizeStringList(data?.strengths);
+  const attention_points = normalizeStringList(data?.attention_points);
+  const objective = normalizeNullableString(data?.objective);
+  const objectives_list = normalizeStringList(data?.objectives);
+
+  if (objective && !objectives_list.includes(objective)) {
+    objectives_list.unshift(objective);
+  }
+
+  const current_title = normalizeNullableString(data?.current_title) || experiences_list[0]?.role || null;
+  const current_company = normalizeNullableString(data?.current_company) || experiences_list[0]?.company || null;
+  const role = normalizeNullableString(data?.role ?? data?.desired_position) || current_title || null;
+  const summary = normalizeNullableTextBlock(data?.summary ?? data?.professional_summary);
+  const highlights = normalizeStringList(data?.highlights);
+  const languages = languages_list.length > 0
+    ? languages_list.map((item) => item.level && item.level !== 'NÃ£o informado' ? `${item.language} (${item.level})` : item.language)
+    : normalizeStringList(data?.languages);
 
   return {
-    name: normalizeNullableString(data?.name),
+    name: normalizeNullableString(data?.name ?? data?.full_name),
     email: normalizeNullableString(data?.email),
     phone: normalizeNullableString(data?.phone),
     cpf: normalizeNullableString(data?.cpf),
@@ -639,19 +864,26 @@ function normalizeResumeParsedData(data: any, hasLinkedJob: boolean) {
     country: normalizeNullableString(data?.country),
     postal_code: normalizeNullableString(data?.postal_code),
     address: normalizeNullableString(data?.address),
-    role: normalizeNullableString(data?.role),
-    current_title: normalizeNullableString(data?.current_title),
-    current_company: normalizeNullableString(data?.current_company),
-    objective: normalizeNullableString(data?.objective),
-    summary: normalizeNullableString(data?.summary),
+    role,
+    current_title,
+    current_company,
+    objective,
+    objectives_list,
+    summary,
+    highlights,
     experience_years: normalizeNullableInteger(data?.experience_years),
-    skills: normalizeStringList(data?.skills),
-    soft_skills: normalizeStringList(data?.soft_skills),
+    skills,
+    soft_skills,
+    experiences_list,
+    education_list,
+    certifications_list,
+    projects_list,
+    languages_list,
     education_level: normalizeNullableString(data?.education_level),
-    academic_education: normalizeNullableString(data?.academic_education),
-    courses_certifications: normalizeNullableString(data?.courses_certifications),
-    professional_experiences: normalizeNullableString(data?.professional_experiences),
-    languages: normalizeStringList(data?.languages),
+    academic_education: normalizeNullableTextBlock(data?.academic_education) || formatResumeEducationList(education_list),
+    courses_certifications: normalizeNullableTextBlock(data?.courses_certifications) || formatResumeCertificationList(certifications_list),
+    professional_experiences: normalizeNullableTextBlock(data?.professional_experiences) || formatResumeExperienceList(experiences_list),
+    languages,
     linkedin_url: normalizeNullableString(data?.linkedin_url),
     portfolio_url: normalizeNullableString(data?.portfolio_url),
     desired_area: normalizeNullableString(data?.desired_area),
@@ -666,8 +898,8 @@ function normalizeResumeParsedData(data: any, hasLinkedJob: boolean) {
       ? Math.max(0, Math.min(100, Math.round(compatibilityScore)))
       : null,
     recommendation: hasLinkedJob ? normalizeNullableString(data?.recommendation) : null,
-    strengths: normalizeStringList(data?.strengths),
-    attention_points: normalizeStringList(data?.attention_points),
+    strengths,
+    attention_points,
   };
 }
 
@@ -675,28 +907,28 @@ function buildResumePreAnalysisPrompt(resumeText: string, linkedJob?: { job_titl
   const hasLinkedJob = Boolean(linkedJob?.job_title || linkedJob?.job_description);
 
   return `
-VocÃƒÂª ÃƒÂ© uma analista de RH especialista em leitura de currÃƒÂ­culos.
+VocÃƒÆ’Ã‚Âª ÃƒÆ’Ã‚Â© uma analista de RH especialista em leitura de currÃƒÆ’Ã‚Â­culos.
 
 Tarefa:
-- Ler o currÃƒÂ­culo abaixo.
-- Extrair somente os dados que realmente aparecem no currÃƒÂ­culo.
-- NÃƒÂ£o inventar informaÃƒÂ§ÃƒÂµes.
-- Se um campo nÃƒÂ£o existir ou nÃƒÂ£o puder ser confirmado com seguranÃƒÂ§a, retorne null.
+- Ler o currÃƒÆ’Ã‚Â­culo abaixo.
+- Extrair somente os dados que realmente aparecem no currÃƒÆ’Ã‚Â­culo.
+- NÃƒÆ’Ã‚Â£o inventar informaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Âµes.
+- Se um campo nÃƒÆ’Ã‚Â£o existir ou nÃƒÆ’Ã‚Â£o puder ser confirmado com seguranÃƒÆ’Ã‚Â§a, retorne null.
 - Para listas sem dados, retorne [].
-- O resumo deve ser curto, objetivo e baseado apenas no currÃƒÂ­culo.
+- O resumo deve ser curto, objetivo e baseado apenas no currÃƒÆ’Ã‚Â­culo.
 
 ${hasLinkedJob ? `
-HÃƒÂ¡ uma vaga vinculada. FaÃƒÂ§a tambÃƒÂ©m uma prÃƒÂ©-anÃƒÂ¡lise de aderÃƒÂªncia:
+HÃƒÆ’Ã‚Â¡ uma vaga vinculada. FaÃƒÆ’Ã‚Â§a tambÃƒÆ’Ã‚Â©m uma prÃƒÆ’Ã‚Â©-anÃƒÆ’Ã‚Â¡lise de aderÃƒÆ’Ã‚Âªncia:
 - compatibility_score: nota de 0 a 100
 - recommendation: parecer curto
 - strengths: pontos fortes para a vaga
-- attention_points: pontos de atenÃƒÂ§ÃƒÂ£o para a vaga
+- attention_points: pontos de atenÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o para a vaga
 
 Vaga vinculada:
-TÃƒÂ­tulo: ${linkedJob?.job_title || 'NÃƒÂ£o informado'}
-DescriÃƒÂ§ÃƒÂ£o: ${linkedJob?.job_description || 'NÃƒÂ£o informada'}
+TÃƒÆ’Ã‚Â­tulo: ${linkedJob?.job_title || 'NÃƒÆ’Ã‚Â£o informado'}
+DescriÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o: ${linkedJob?.job_description || 'NÃƒÆ’Ã‚Â£o informada'}
 ` : `
-NÃƒÂ£o hÃƒÂ¡ vaga vinculada neste lote.
+NÃƒÆ’Ã‚Â£o hÃƒÆ’Ã‚Â¡ vaga vinculada neste lote.
 Nesse caso, retorne:
 - compatibility_score: null
 - recommendation: null
@@ -704,7 +936,7 @@ Nesse caso, retorne:
 - attention_points: []
 `}
 
-CurrÃƒÂ­culo:
+CurrÃƒÆ’Ã‚Â­culo:
 ${resumeText}
 
 Retorne apenas JSON neste formato:
@@ -751,10 +983,103 @@ Retorne apenas JSON neste formato:
 `.trim();
 }
 
+function buildStructuredResumeBatchPrompt(resumeText: string, linkedJob?: { job_title?: string | null; job_description?: string | null } | null) {
+  const hasLinkedJob = Boolean(linkedJob?.job_title || linkedJob?.job_description);
+
+  return `
+VocÃª Ã© Aurora, especialista em leitura de currÃ­culos para recrutamento.
+
+Objetivo:
+- Ler o currÃ­culo completo abaixo.
+- Extrair somente informaÃ§Ãµes que realmente aparecem no currÃ­culo.
+- NÃ£o inventar dados.
+- Quando nÃ£o houver confirmaÃ§Ã£o suficiente, retorne null.
+- Para listas sem dados, retorne [].
+- Monte um JSON rico, com dados resumidos e tambÃ©m listas estruturadas para experiÃªncias, formaÃ§Ã£o, certificaÃ§Ãµes, projetos e idiomas.
+
+Regras de mapeamento:
+- "experiences_list": array com cada experiÃªncia profissional. Campos: company, role, period, location, description.
+- "education_list": array com cada formaÃ§Ã£o. Campos: course, institution, status, degree_type, start_date, end_date.
+- "certifications_list": array com cursos e certificaÃ§Ãµes. Campos: name, institution, year.
+- "projects_list": array com projetos ou portfÃ³lio. Campos: name, description, technologies.
+- "languages_list": array com idiomas. Campos: language, level.
+- "hard_skills": string com tecnologias, ferramentas e competÃªncias tÃ©cnicas separadas por vÃ­rgula.
+- "soft_skills": string com competÃªncias comportamentais separadas por vÃ­rgula.
+- "professional_summary": resumo profissional curto, objetivo e fiel ao currÃ­culo.
+- "highlights": string com destaques separados por " | ".
+
+${hasLinkedJob ? `
+HÃ¡ uma vaga vinculada. FaÃ§a tambÃ©m a anÃ¡lise de aderÃªncia:
+- compatibility_score: nota de 0 a 100
+- recommendation: parecer curto
+- strengths: pontos fortes para a vaga
+- attention_points: pontos de atenÃ§Ã£o para a vaga
+
+Vaga vinculada:
+TÃ­tulo: ${linkedJob?.job_title || 'NÃ£o informado'}
+DescriÃ§Ã£o: ${linkedJob?.job_description || 'NÃ£o informada'}
+` : `
+NÃ£o hÃ¡ vaga vinculada neste lote.
+Nesse caso, retorne:
+- compatibility_score: null
+- recommendation: null
+- strengths: []
+- attention_points: []
+`}
+
+CurrÃ­culo:
+${resumeText}
+
+Retorne apenas JSON neste formato:
+{
+  "full_name": string | null,
+  "email": string | null,
+  "phone": string | null,
+  "cpf": string | null,
+  "birth_date": string | null,
+  "age": number | null,
+  "city": string | null,
+  "state": string | null,
+  "country": string | null,
+  "postal_code": string | null,
+  "address": string | null,
+  "desired_position": string | null,
+  "current_title": string | null,
+  "current_company": string | null,
+  "objective": string | null,
+  "desired_area": string | null,
+  "desired_work_model": string | null,
+  "desired_contract_type": string | null,
+  "desired_salary": number | null,
+  "professional_summary": string | null,
+  "highlights": string | null,
+  "experience_years": number | null,
+  "education_level": string | null,
+  "hard_skills": string | null,
+  "soft_skills": string | null,
+  "linkedin_url": string | null,
+  "portfolio_url": string | null,
+  "has_cnh": boolean | null,
+  "cnh_category": string | null,
+  "available_to_travel": boolean | null,
+  "available_to_relocate": boolean | null,
+  "experiences_list": [{ "company": string, "role": string, "period": string, "location": string | null, "description": string }],
+  "education_list": [{ "course": string, "institution": string, "status": string, "degree_type": string | null, "start_date": string | null, "end_date": string | null }],
+  "certifications_list": [{ "name": string, "institution": string | null, "year": string | null }],
+  "projects_list": [{ "name": string, "description": string, "technologies": string | null }],
+  "languages_list": [{ "language": string, "level": string }],
+  "compatibility_score": number | null,
+  "recommendation": string | null,
+  "strengths": string[],
+  "attention_points": string[]
+}
+`.trim();
+}
+
 function parseJsonFromAiResponse(textResponse: string) {
   const jsonMatch = textResponse.match(/\{[\s\S]*\}/);
   if (!jsonMatch) {
-    throw new Error('A IA nÃƒÂ£o retornou um JSON vÃƒÂ¡lido.');
+    throw new Error('A IA nÃƒÆ’Ã‚Â£o retornou um JSON vÃƒÆ’Ã‚Â¡lido.');
   }
 
   return JSON.parse(jsonMatch[0]);
@@ -769,7 +1094,7 @@ function parseJsonFromAiResponseSafe(textResponse: string) {
 
   const jsonMatch = normalizedText.match(/\{[\s\S]*\}/);
   if (!jsonMatch) {
-    throw new Error('A IA não retornou um JSON válido.');
+    throw new Error('A IA nÃ£o retornou um JSON vÃ¡lido.');
   }
 
   const rawJson = jsonMatch[0];
@@ -802,20 +1127,20 @@ function parseJsonFromAiResponseSafe(textResponse: string) {
 
 async function runResumePreAnalysis(ai: GoogleGenAI, file: any, linkedJob?: { job_title?: string | null; job_description?: string | null } | null) {
   const extractedText = await extractResumeTextFromStoredFile(file);
-  const prompt = buildResumePreAnalysisPrompt(extractedText, linkedJob);
+  const prompt = buildStructuredResumeBatchPrompt(extractedText, linkedJob);
   const aiResult = await ai.models.generateContent({
     model: GEMINI_MODEL,
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
     config: {
       responseMimeType: 'application/json',
       temperature: 0.2,
-      maxOutputTokens: 900,
+      maxOutputTokens: 2600,
       reasoningEffort: 'low',
-      operationLabel: 'pré-análise de currículo',
+      operationLabel: 'prÃ©-anÃ¡lise de currÃ­culo',
     }
   });
 
-  const parsed = parseJsonFromAiResponse(aiResult.text || '{}');
+  const parsed = parseJsonFromAiResponseSafe(aiResult.text || '{}');
   const normalized = normalizeResumeParsedData(parsed, Boolean(linkedJob?.job_title || linkedJob?.job_description));
 
   return {
@@ -832,7 +1157,9 @@ function buildCandidateImportNotes(data: any) {
     data?.objective ? `Objetivo: ${data.objective}` : null,
     data?.current_title ? `Cargo atual: ${data.current_title}` : null,
     data?.current_company ? `Empresa atual: ${data.current_company}` : null,
-    data?.country ? `PaÃƒÂ­s: ${data.country}` : null,
+    Array.isArray(data?.highlights) && data.highlights.length > 0 ? `Destaques: ${data.highlights.join(' | ')}` : null,
+    Array.isArray(data?.projects_list) && data.projects_list.length > 0 ? `Projetos mapeados: ${data.projects_list.length}` : null,
+    data?.country ? `PaÃƒÆ’Ã‚Â­s: ${data.country}` : null,
     data?.postal_code ? `CEP: ${data.postal_code}` : null,
     data?.age ? `Idade informada: ${data.age}` : null,
   ].filter(Boolean);
@@ -876,6 +1203,22 @@ async function attachImportedResumeToCandidate(candidateId: number | string, fil
 }
 
 const upload = multer({ storage: multer.memoryStorage() });
+const candidateBatchUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    files: CANDIDATE_BATCH_IMPORT_MAX_FILES,
+    fileSize: CANDIDATE_BATCH_IMPORT_MAX_FILE_SIZE_BYTES,
+  },
+  fileFilter: (_req, file, cb) => {
+    const extension = path.extname(file.originalname || '').toLowerCase();
+    if (!CANDIDATE_BATCH_IMPORT_EXTENSIONS.includes(extension)) {
+      cb(new Error(`Formato de currÃ­culo nÃ£o suportado: ${extension || 'desconhecido'}`));
+      return;
+    }
+
+    cb(null, true);
+  },
+});
 
 function addDays(dateValue: string | Date, days: number) {
   const date = new Date(dateValue);
@@ -957,6 +1300,14 @@ async function startServer() {
     return true;
   }
 
+  function getTenantMasterUnitId(tenantId: string) {
+    return `master-${tenantId}`;
+  }
+
+  function getTenantOwnerUserId(tenantId: string) {
+    return `admin-${tenantId}`;
+  }
+
   // --- API Routes ---
 
   // Authentication
@@ -1032,9 +1383,9 @@ async function startServer() {
       const ai = createGeminiClient();
 
       const prompt = `
-        Extraia as informaÃƒÂ§ÃƒÂµes do candidato a partir do texto do currÃƒÂ­culo abaixo e retorne um JSON estruturado.
+        Extraia as informaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Âµes do candidato a partir do texto do currÃƒÆ’Ã‚Â­culo abaixo e retorne um JSON estruturado.
         
-        Texto do CurrÃƒÂ­culo:
+        Texto do CurrÃƒÆ’Ã‚Â­culo:
         ${text}
 
         JSON Schema:
@@ -1049,7 +1400,7 @@ async function startServer() {
           "experience_years": number (total estimado),
           "education_level": string,
           "professional_summary": string,
-          "hard_skills": string (lista separada por vÃƒÂ­rgula),
+          "hard_skills": string (lista separada por vÃƒÆ’Ã‚Â­rgula),
           "professional_experiences": string (texto formatado),
           "linkedin_url": string
         }
@@ -1062,7 +1413,7 @@ async function startServer() {
           responseMimeType: 'application/json',
           maxOutputTokens: 1100,
           reasoningEffort: 'low',
-          operationLabel: 'extração de currículo importado',
+          operationLabel: 'extraÃ§Ã£o de currÃ­culo importado',
         }
       });
       
@@ -1075,7 +1426,7 @@ async function startServer() {
       
       const insertQuery = `
         INSERT INTO candidates (${keys.join(',')}, tenant_id, unit_id, source, status, created_at, updated_at) 
-        VALUES (${placeholders}, ?, ?, 'ImportaÃƒÂ§ÃƒÂ£o', 'Novo', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        VALUES (${placeholders}, ?, ?, 'ImportaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o', 'Novo', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
       `;
 
       const insertResult = await db.prepare(insertQuery).run(...values, tenantId, unitId);
@@ -1100,7 +1451,7 @@ async function startServer() {
 
       // Log history
       await db.prepare('INSERT INTO candidate_history (candidate_id, event_type, title, description, created_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)')
-        .run(candidateId, 'IMPORT', 'CurrÃƒÂ­culo Importado', `Dados extraÃƒÂ­dos via IA a partir do arquivo ${req.file.originalname}`);
+        .run(candidateId, 'IMPORT', 'CurrÃƒÆ’Ã‚Â­culo Importado', `Dados extraÃƒÆ’Ã‚Â­dos via IA a partir do arquivo ${req.file.originalname}`);
 
       res.status(201).json({ id: candidateId, ...candidateData });
     } catch (error) {
@@ -1215,10 +1566,20 @@ async function startServer() {
   });
 
   app.delete('/api/jobs/:id', async (req, res) => {
+    const jobId = req.params.id;
     try {
-      await db.prepare('UPDATE jobs SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?').run(req.params.id);
+      // Physically delete associated job import files to avoid disk clutter
+      const jobImports = await db.prepare('SELECT file_path FROM job_imports WHERE job_id = ?').all(jobId) as any[];
+      for (const imp of jobImports) {
+        if (imp.file_path && fs.existsSync(imp.file_path)) {
+          await fs.promises.unlink(imp.file_path).catch(err => console.error(`Failed to delete job file: ${imp.file_path}`, err));
+        }
+      }
+
+      await db.prepare('UPDATE jobs SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?').run(jobId);
       res.json({ success: true });
     } catch (error) {
+      console.error('Failed to delete job:', error);
       res.status(500).json({ error: 'Failed to delete job' });
     }
   });
@@ -1294,6 +1655,7 @@ async function startServer() {
 
   app.post('/api/jobs/import/:id/analyze', async (req, res) => {
     const { id } = req.params;
+    console.log(`[DEBUG] Received analyze request for import ID: ${id}`);
     try {
       const importData = await db.prepare('SELECT * FROM job_imports WHERE id = ?').get(id) as any;
       if (!importData) return res.status(404).json({ error: 'Import not found' });
@@ -1303,17 +1665,18 @@ async function startServer() {
       // In a real app we'd extract text from the file.
       // Here we simulate it based on the file name if text is not provided.
       const actualExtractedText = importData.extracted_text || await extractJobTextFromStoredFile(importData);
-      const simulatedText = importData.extracted_text || `DescriÃƒÂ§ÃƒÂ£o da vaga importada do arquivo ${importData.file_name}. Esperamos um profissional com experiÃƒÂªncia em LogÃƒÂ­stica, CNH categoria E, residindo em TatuÃƒÂ­/SP. SalÃƒÂ¡rio entre R$ 3.500,00 e R$ 5.000,00. BenefÃƒÂ­cios: Vale transporte, plano de saÃƒÂºde, seguro de vida.`;
+      console.log(`[DEBUG] Extracted text length: ${actualExtractedText?.length || 0}`);
+      const simulatedText = importData.extracted_text || `DescriÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o da vaga importada do arquivo ${importData.file_name}. Esperamos um profissional com experiÃƒÆ’Ã‚Âªncia em LogÃƒÆ’Ã‚Â­stica, CNH categoria E, residindo em TatuÃƒÆ’Ã‚Â­/SP. SalÃƒÆ’Ã‚Â¡rio entre R$ 3.500,00 e R$ 5.000,00. BenefÃƒÆ’Ã‚Â­cios: Vale transporte, plano de saÃƒÆ’Ã‚Âºde, seguro de vida.`;
 
       const ai = createGeminiClient();
       
       const prompt = `
-        VocÃƒÂª ÃƒÂ© um especialista em recrutamento e seleÃƒÂ§ÃƒÂ£o. Analise o documento de descriÃƒÂ§ÃƒÂ£o de vaga abaixo e extraia as informaÃƒÂ§ÃƒÂµes em JSON estruturado. 
-        NÃƒÂ£o invente informaÃƒÂ§ÃƒÂµes. Quando um dado nÃƒÂ£o existir, retorne null. 
-        Identifique requisitos obrigatÃƒÂ³rios, desejÃƒÂ¡veis, responsabilidades, localizaÃƒÂ§ÃƒÂ£o, modelo de trabalho, tipo de contrato, experiÃƒÂªncia, formaÃƒÂ§ÃƒÂ£o, benefÃƒÂ­cios e critÃƒÂ©rios de compatibilidade para anÃƒÂ¡lise de candidatos. 
-        TambÃƒÂ©m sugira pesos para anÃƒÂ¡lise de compatibilidade com candidatos.
+        VocÃƒÆ’Ã‚Âª ÃƒÆ’Ã‚Â© um especialista em recrutamento e seleÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o. Analise o documento de descriÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o de vaga abaixo e extraia as informaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Âµes em JSON estruturado. 
+        NÃƒÆ’Ã‚Â£o invente informaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Âµes. Quando um dado nÃƒÆ’Ã‚Â£o existir, retorne null. 
+        Identifique requisitos obrigatÃƒÆ’Ã‚Â³rios, desejÃƒÆ’Ã‚Â¡veis, responsabilidades, localizaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o, modelo de trabalho, tipo de contrato, experiÃƒÆ’Ã‚Âªncia, formaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o, benefÃƒÆ’Ã‚Â­cios e critÃƒÆ’Ã‚Â©rios de compatibilidade para anÃƒÆ’Ã‚Â¡lise de candidatos. 
+        TambÃƒÆ’Ã‚Â©m sugira pesos para anÃƒÆ’Ã‚Â¡lise de compatibilidade com candidatos.
 
-        DescriÃƒÂ§ÃƒÂ£o da Vaga:
+        DescriÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o da Vaga:
         ${simulatedText}
 
         Retorne EXATAMENTE este JSON:
@@ -1329,9 +1692,9 @@ async function startServer() {
           "benefits": string,
           "city": string,
           "state": string,
-          "work_model": "Presencial" | "HÃƒÂ­brido" | "Home Office",
-          "contract_type": "CLT" | "PJ" | "EstÃƒÂ¡gio" | "TemporÃƒÂ¡rio" | "Freelancer" | "Outro",
-          "seniority_level": "Operacional" | "JÃƒÂºnior" | "Pleno" | "SÃƒÂªnior" | "CoordenaÃƒÂ§ÃƒÂ£o" | "GerÃƒÂªncia" | "Diretoria",
+          "work_model": "Presencial" | "HÃƒÆ’Ã‚Â­brido" | "Home Office",
+          "contract_type": "CLT" | "PJ" | "EstÃƒÆ’Ã‚Â¡gio" | "TemporÃƒÆ’Ã‚Â¡rio" | "Freelancer" | "Outro",
+          "seniority_level": "Operacional" | "JÃƒÆ’Ã‚Âºnior" | "Pleno" | "SÃƒÆ’Ã‚Âªnior" | "CoordenaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o" | "GerÃƒÆ’Ã‚Âªncia" | "Diretoria",
           "education_level": string,
           "min_experience_years": number,
           "salary_min": number,
@@ -1352,26 +1715,26 @@ async function startServer() {
           "weight_culture": number,
           "ai_summary": string,
           "confidence": {
-            "title": "Alta" | "MÃƒÂ©dia" | "Baixa",
-            "city": "Alta" | "MÃƒÂ©dia" | "Baixa",
-            "salary": "Alta" | "MÃƒÂ©dia" | "Baixa",
-            "requirements": "Alta" | "MÃƒÂ©dia" | "Baixa"
+            "title": "Alta" | "MÃƒÆ’Ã‚Â©dia" | "Baixa",
+            "city": "Alta" | "MÃƒÆ’Ã‚Â©dia" | "Baixa",
+            "salary": "Alta" | "MÃƒÆ’Ã‚Â©dia" | "Baixa",
+            "requirements": "Alta" | "MÃƒÆ’Ã‚Â©dia" | "Baixa"
           }
         }
       `;
 
       const strictPrompt = `
-Analise o texto de uma vaga e retorne apenas dados que existirem de forma explícita no documento.
+Analise o texto de uma vaga e retorne apenas dados que existirem de forma explÃ­cita no documento.
 
-Regras obrigatórias:
-- Não invente cidade, estado, salário, benefícios, experiência, contrato, senioridade ou qualquer outro campo.
-- Se um campo não aparecer claramente no texto, retorne null.
-- Preserve a redação original sempre que possível; só faça ajustes leves de ortografia ou concordância.
-- Não use o nome do arquivo como fonte de verdade.
+Regras obrigatÃ³rias:
+- NÃ£o invente cidade, estado, salÃ¡rio, benefÃ­cios, experiÃªncia, contrato, senioridade ou qualquer outro campo.
+- Se um campo nÃ£o aparecer claramente no texto, retorne null.
+- Preserve a redaÃ§Ã£o original sempre que possÃ­vel; sÃ³ faÃ§a ajustes leves de ortografia ou concordÃ¢ncia.
+- NÃ£o use o nome do arquivo como fonte de verdade.
 - Para cada campo preenchido, informe um trecho literal do documento em "evidence".
 - O trecho em "evidence" precisa existir exatamente no texto enviado.
-- Os pesos de IA podem ser sugeridos por você, mas nunca preencha dados da vaga sem evidência.
-- Retorne JSON válido no padrão RFC 8259, sem comentários, sem markdown, sem vírgulas finais e com todas as chaves entre aspas duplas.
+- Os pesos de IA podem ser sugeridos por vocÃª, mas nunca preencha dados da vaga sem evidÃªncia.
+- Retorne JSON vÃ¡lido no padrÃ£o RFC 8259, sem comentÃ¡rios, sem markdown, sem vÃ­rgulas finais e com todas as chaves entre aspas duplas.
 
 Texto da vaga:
 ${actualExtractedText}
@@ -1389,9 +1752,9 @@ Retorne EXATAMENTE este JSON:
   "benefits": string | null,
   "city": string | null,
   "state": string | null,
-  "work_model": "Presencial" | "Híbrido" | "Home Office" | null,
-  "contract_type": "CLT" | "PJ" | "Estágio" | "Temporário" | "Freelancer" | "Outro" | null,
-  "seniority_level": "Operacional" | "Júnior" | "Pleno" | "Sênior" | "Coordenação" | "Gerência" | "Diretoria" | null,
+  "work_model": "Presencial" | "HÃ­brido" | "Home Office" | null,
+  "contract_type": "CLT" | "PJ" | "EstÃ¡gio" | "TemporÃ¡rio" | "Freelancer" | "Outro" | null,
+  "seniority_level": "Operacional" | "JÃºnior" | "Pleno" | "SÃªnior" | "CoordenaÃ§Ã£o" | "GerÃªncia" | "Diretoria" | null,
   "education_level": string | null,
   "min_experience_years": number | null,
   "salary_min": number | null,
@@ -1411,10 +1774,10 @@ Retorne EXATAMENTE este JSON:
   "weight_soft_skills": number,
   "weight_culture": number,
   "confidence": {
-    "title": "Alta" | "Média" | "Baixa",
-    "city": "Alta" | "Média" | "Baixa",
-    "salary": "Alta" | "Média" | "Baixa",
-    "requirements": "Alta" | "Média" | "Baixa"
+    "title": "Alta" | "MÃ©dia" | "Baixa",
+    "city": "Alta" | "MÃ©dia" | "Baixa",
+    "salary": "Alta" | "MÃ©dia" | "Baixa",
+    "requirements": "Alta" | "MÃ©dia" | "Baixa"
   },
   "evidence": {
     "title": string | null,
@@ -1454,7 +1817,7 @@ Retorne EXATAMENTE este JSON:
           responseMimeType: 'application/json',
           maxOutputTokens: 1800,
           reasoningEffort: 'low',
-          operationLabel: 'análise de vaga importada',
+          operationLabel: 'anÃ¡lise de vaga importada',
         }
       });
       
@@ -1481,9 +1844,9 @@ Retorne EXATAMENTE este JSON:
 
       res.json({ success: true, data: parsedData });
     } catch (error) {
-      console.error(error);
-      await db.prepare('UPDATE job_imports SET status = \'error\', error_message = ? WHERE id = ?').run(String(error), id);
-      res.status(500).json({ error: 'AI analysis failed' });
+      console.error('[AI Analysis Error]:', error);
+      await db.prepare('UPDATE job_imports SET status = \'error\', error_message = ? WHERE id = ?').run(error instanceof Error ? error.message : String(error), id);
+      res.status(500).json({ error: 'AI analysis failed', detail: error instanceof Error ? error.message : String(error) });
     }
   });
 
@@ -1523,11 +1886,18 @@ Retorne EXATAMENTE este JSON:
   });
 
   app.delete('/api/jobs/import/:id', async (req, res) => {
+    const importId = req.params.id;
     try {
-      await db.prepare('DELETE FROM job_imports WHERE id = ?').run(req.params.id);
+      const imp = await db.prepare('SELECT file_path FROM job_imports WHERE id = ?').get(importId) as any;
+      if (imp?.file_path && fs.existsSync(imp.file_path)) {
+        await fs.promises.unlink(imp.file_path).catch(err => console.error(`Failed to delete job import file: ${imp.file_path}`, err));
+      }
+
+      await db.prepare('DELETE FROM job_imports WHERE id = ?').run(importId);
       res.json({ success: true });
     } catch (error) {
-      res.status(500).json({ error: 'Failed to delete import' });
+      console.error('Failed to delete job import:', error);
+      res.status(500).json({ error: 'Failed to delete job import' });
     }
   });
 
@@ -1543,23 +1913,23 @@ Retorne EXATAMENTE este JSON:
       const ai = createGeminiClient();
 
       const prompt = `
-        VocÃƒÂª ÃƒÂ© um especialista em recrutamento e seleÃƒÂ§ÃƒÂ£o. Gere um texto para divulgaÃƒÂ§ÃƒÂ£o da vaga abaixo no canal ${channel}.
+        VocÃƒÆ’Ã‚Âª ÃƒÆ’Ã‚Â© um especialista em recrutamento e seleÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o. Gere um texto para divulgaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o da vaga abaixo no canal ${channel}.
         Tom desejado: ${tone}.
         
         Dados da Vaga:
-        TÃƒÂ­tulo: ${job.title}
+        TÃƒÆ’Ã‚Â­tulo: ${job.title}
         Departamento: ${job.department}
         Cidade/Estado: ${job.city}/${job.state}
         Modelo: ${job.work_model}
         Contrato: ${job.contract_type}
-        DescriÃƒÂ§ÃƒÂ£o: ${job.description}
+        DescriÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o: ${job.description}
         Responsabilidades: ${job.responsibilities}
         Requisitos: ${job.technical_requirements}
-        BenefÃƒÂ­cios: ${job.benefits}
+        BenefÃƒÆ’Ã‚Â­cios: ${job.benefits}
 
         Formato de Resposta:
-        TÃƒÂ­tulo Sugerido: [TÃƒÂ­tulo]
-        Texto Completo: [DescriÃƒÂ§ÃƒÂ£o detalhada]
+        TÃƒÆ’Ã‚Â­tulo Sugerido: [TÃƒÆ’Ã‚Â­tulo]
+        Texto Completo: [DescriÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o detalhada]
         Texto Curto: [Resumo para redes sociais]
         Hashtags: [Relevantes]
       `;
@@ -1571,7 +1941,7 @@ Retorne EXATAMENTE este JSON:
           maxOutputTokens: 1200,
           reasoningEffort: 'low',
           verbosity: 'high',
-          operationLabel: 'geração de texto de divulgação',
+          operationLabel: 'geraÃ§Ã£o de texto de divulgaÃ§Ã£o',
         }
       });
       
@@ -1670,7 +2040,7 @@ Retorne EXATAMENTE este JSON:
         alerts.push({
           type: 'danger',
           title: 'Vaga sem candidatos',
-          message: `A vaga "${j.title}" estÃƒÂ¡ aberta hÃƒÂ¡ ${Math.floor((Date.now() - new Date(j.created_at).getTime()) / (1000 * 60 * 60 * 24))} dias e nÃƒÂ£o possui candidatos.`,
+          message: `A vaga "${j.title}" estÃƒÆ’Ã‚Â¡ aberta hÃƒÆ’Ã‚Â¡ ${Math.floor((Date.now() - new Date(j.created_at).getTime()) / (1000 * 60 * 60 * 24))} dias e nÃƒÆ’Ã‚Â£o possui candidatos.`,
           action: 'Revisar requisitos'
         });
       });
@@ -1680,7 +2050,7 @@ Retorne EXATAMENTE este JSON:
         alerts.push({
           type: 'success',
           title: 'Talentos detectados',
-          message: `Existem ${highMatches.length} candidatos com compatibilidade superior a 90% aguardando revisÃƒÂ£o.`,
+          message: `Existem ${highMatches.length} candidatos com compatibilidade superior a 90% aguardando revisÃƒÆ’Ã‚Â£o.`,
           action: 'Ver candidatos'
         });
       }
@@ -1761,32 +2131,32 @@ Retorne EXATAMENTE este JSON:
 
       const text = await extractResumeTextFromBuffer(file.buffer, file.originalname, file.mimetype);
       if (!text || text.trim().length === 0) {
-        console.warn('[PARSE] Nenhum texto extraído do arquivo');
+        console.warn('[PARSE] Nenhum texto extraÃ­do do arquivo');
       }
 
       console.log('[PARSE] Chamando OpenAI...');
       const ai = createGeminiClient();
       
       const prompt = `
-        Você é Aurora, assistente de recrutamento inteligente da Develoi.
-        Sua missão é extrair ABSOLUTAMENTE TUDO do currículo abaixo.
-        NÃO PULE NENHUMA SEÇÃO. Leia CADA LINHA do currículo.
-        Se um campo não existir no currículo, retorne null. Mas se existir, EXTRAIA.
+        VocÃª Ã© Aurora, assistente de recrutamento inteligente da Develoi.
+        Sua missÃ£o Ã© extrair ABSOLUTAMENTE TUDO do currÃ­culo abaixo.
+        NÃƒO PULE NENHUMA SEÃ‡ÃƒO. Leia CADA LINHA do currÃ­culo.
+        Se um campo nÃ£o existir no currÃ­culo, retorne null. Mas se existir, EXTRAIA.
 
         REGRAS:
-        - "experiences_list": ARRAY obrigatório com CADA emprego/experiência. Inclua TODOS, mesmo estágios e freelances. Campos: company, role, period, location, description (atividades resumidas em 1-2 frases).
+        - "experiences_list": ARRAY obrigatÃ³rio com CADA emprego/experiÃªncia. Inclua TODOS, mesmo estÃ¡gios e freelances. Campos: company, role, period, location, description (atividades resumidas em 1-2 frases).
         - "education_list": ARRAY com CADA formação. Inclua pós-graduação, MBA, graduação, técnico. Campos: course, institution, status ("Concluído", "Em andamento", "Trancado", "Incompleto"), degree_type (Bacharelado, Licenciatura, Tecnólogo, Especialização, MBA, Mestrado, Doutorado, Técnico, Outro), start_date (formato MM/YYYY se possível), end_date (formato MM/YYYY se possível).
-        - "certifications_list": ARRAY com CADA curso ou certificação mencionada. Campos: name, institution, year.
-        - "projects_list": ARRAY com projetos relevantes/portfólio mencionados. Campos: name (nome do projeto), description (o que é), technologies (tecnologias usadas, string separada por vírgula).
+        - "certifications_list": ARRAY com CADA curso ou certificaÃ§Ã£o mencionada. Campos: name, institution, year.
+        - "projects_list": ARRAY com projetos relevantes/portfÃ³lio mencionados. Campos: name (nome do projeto), description (o que Ã©), technologies (tecnologias usadas, string separada por vÃ­rgula).
         - "languages_list": ARRAY com idiomas. Campos: language, level.
-        - "hard_skills": String com TODAS as tecnologias, ferramentas e competências técnicas. Separe por vírgula. Inclua frameworks, linguagens, bancos, ferramentas, etc.
-        - "soft_skills": String com habilidades comportamentais inferidas. Separe por vírgula.
-        - "professional_summary": Resumo profissional baseado no currículo (2-3 parágrafos).
+        - "hard_skills": String com TODAS as tecnologias, ferramentas e competÃªncias tÃ©cnicas. Separe por vÃ­rgula. Inclua frameworks, linguagens, bancos, ferramentas, etc.
+        - "soft_skills": String com habilidades comportamentais inferidas. Separe por vÃ­rgula.
+        - "professional_summary": Resumo profissional baseado no currÃ­culo (2-3 parÃ¡grafos).
         - "highlights": String com os destaques/diferenciais do candidato, separados por " | ".
-        - "experience_years": Número com total de anos de experiência.
-        - "education_level": Um entre: "Ensino Fundamental", "Ensino Médio", "Técnico", "Ensino Superior Incompleto", "Ensino Superior Completo", "Pós / MBA / Mestrado".
+        - "experience_years": NÃºmero com total de anos de experiÃªncia.
+        - "education_level": Um entre: "Ensino Fundamental", "Ensino MÃ©dio", "TÃ©cnico", "Ensino Superior Incompleto", "Ensino Superior Completo", "PÃ³s / MBA / Mestrado".
 
-        Texto do Currículo:
+        Texto do CurrÃ­culo:
         ${text}
 
         JSON de resposta:
@@ -1832,25 +2202,25 @@ Retorne EXATAMENTE este JSON:
           temperature: 0.1,
           maxOutputTokens: 2600,
           reasoningEffort: 'low',
-          operationLabel: 'extração completa de currículo',
+          operationLabel: 'extraÃ§Ã£o completa de currÃ­culo',
         }
       });
 
-      const data = JSON.parse(result.text || '{}');
-      console.log('[PARSE] ✅ Extração completa:');
+      const data = parseJsonFromAiResponseSafe(result.text || '{}');
+      console.log('[PARSE] âœ… ExtraÃ§Ã£o completa:');
       console.log('  Nome:', data.full_name);
-      console.log('  Experiências:', data.experiences_list?.length || 0);
-      console.log('  Formações:', data.education_list?.length || 0);
-      console.log('  Certificações:', data.certifications_list?.length || 0);
+      console.log('  ExperiÃªncias:', data.experiences_list?.length || 0);
+      console.log('  FormaÃ§Ãµes:', data.education_list?.length || 0);
+      console.log('  CertificaÃ§Ãµes:', data.certifications_list?.length || 0);
       console.log('  Projetos:', data.projects_list?.length || 0);
       console.log('  Idiomas:', data.languages_list?.length || 0);
       console.log('  Hard Skills:', data.hard_skills?.substring(0, 80) || 'N/A');
       console.log('  Soft Skills:', data.soft_skills?.substring(0, 80) || 'N/A');
       res.json(data);
     } catch (error: any) {
-      console.error('[PARSE] Erro Crítico:', error);
+      console.error('[PARSE] Erro CrÃ­tico:', error);
       res.status(500).json({ 
-        error: error.message || 'Falha ao processar currículo',
+        error: error.message || 'Falha ao processar currÃ­culo',
         details: error.stack 
       });
     }
@@ -1992,10 +2362,28 @@ Retorne EXATAMENTE este JSON:
   });
 
   app.delete('/api/candidates/:id', async (req, res) => {
+    const candidateId = req.params.id;
     try {
-      await db.prepare('UPDATE candidates SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?').run(req.params.id);
+      // Physically delete candidate files (resumes, attachments)
+      const candFiles = await db.prepare('SELECT file_path FROM candidate_files WHERE candidate_id = ?').all(candidateId) as any[];
+      for (const f of candFiles) {
+        if (f.file_path && fs.existsSync(f.file_path)) {
+          await fs.promises.unlink(f.file_path).catch(err => console.error(`Failed to delete candidate file: ${f.file_path}`, err));
+        }
+      }
+
+      // Also delete files from imports linked to this candidate
+      const importFiles = await db.prepare('SELECT file_path FROM import_files WHERE candidate_id = ?').all(candidateId) as any[];
+      for (const f of importFiles) {
+        if (f.file_path && fs.existsSync(f.file_path)) {
+          await fs.promises.unlink(f.file_path).catch(err => console.error(`Failed to delete import file: ${f.file_path}`, err));
+        }
+      }
+
+      await db.prepare('UPDATE candidates SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?').run(candidateId);
       res.json({ success: true });
     } catch (error) {
+      console.error('Failed to delete candidate:', error);
       res.status(500).json({ error: 'Failed to delete candidate' });
     }
   });
@@ -2056,39 +2444,39 @@ Retorne EXATAMENTE este JSON:
       const ai = createGeminiClient();
       
       const prompt = `
-        VocÃƒÂª ÃƒÂ© um especialista em recrutamento e seleÃƒÂ§ÃƒÂ£o com IA. Compare o candidato com a vaga e retorne um relatÃƒÂ³rio detalhado em JSON.
+        VocÃƒÆ’Ã‚Âª ÃƒÆ’Ã‚Â© um especialista em recrutamento e seleÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o com IA. Compare o candidato com a vaga e retorne um relatÃƒÆ’Ã‚Â³rio detalhado em JSON.
         
         Vaga:
-        TÃƒÂ­tulo: ${job.title}
+        TÃƒÆ’Ã‚Â­tulo: ${job.title}
         Requisitos: ${job.technical_requirements}
-        MandatÃƒÂ³rios: ${job.mandatory_requirements}
-        EliminatÃƒÂ³rios: ${job.eliminatory_criteria}
+        MandatÃƒÆ’Ã‚Â³rios: ${job.mandatory_requirements}
+        EliminatÃƒÆ’Ã‚Â³rios: ${job.eliminatory_criteria}
         Local: ${job.city}/${job.state}
         Modelo: ${job.work_model}
-        Anos Exp MÃƒÂ­nimos: ${job.min_experience_years}
+        Anos Exp MÃƒÆ’Ã‚Â­nimos: ${job.min_experience_years}
         
         Candidato:
         Nome: ${candidate.full_name}
-        ExperiÃƒÂªncia: ${candidate.professional_experiences}
+        ExperiÃƒÆ’Ã‚Âªncia: ${candidate.professional_experiences}
         Resumo: ${candidate.professional_summary}
         Skills: ${candidate.hard_skills}
         Local: ${candidate.city}/${candidate.state}
         Modelo Desejado: ${candidate.desired_work_model}
         Tempo Exp: ${candidate.experience_years} anos
-        CNH: ${candidate.has_cnh ? 'Sim, cat ' + candidate.cnh_category : 'NÃƒÂ£o'}
+        CNH: ${candidate.has_cnh ? 'Sim, cat ' + candidate.cnh_category : 'NÃƒÆ’Ã‚Â£o'}
 
         JSON Schema:
         {
           "compatibility_score": number (0-100),
-          "compatibility_classification": "Alto Fit" | "MÃƒÂ©dio Fit" | "Baixo Fit" | "IncompatÃƒÂ­vel",
+          "compatibility_classification": "Alto Fit" | "MÃƒÆ’Ã‚Â©dio Fit" | "Baixo Fit" | "IncompatÃƒÆ’Ã‚Â­vel",
           "compatibility_summary": string,
           "strengths": string[] (principais pontos fortes),
-          "attention_points": string[] (pontos de atenÃƒÂ§ÃƒÂ£o),
+          "attention_points": string[] (pontos de atenÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o),
           "requirements_met": string[] (requisitos preenchidos),
           "requirements_partial": string[] (parcialmente atendidos),
           "requirements_missing": string[] (faltantes),
-          "eliminatory_flags": string[] (critÃƒÂ©rios eliminatÃƒÂ³rios feridos),
-          "interview_questions": string[] (sugestÃƒÂµes de perguntas),
+          "eliminatory_flags": string[] (critÃƒÆ’Ã‚Â©rios eliminatÃƒÆ’Ã‚Â³rios feridos),
+          "interview_questions": string[] (sugestÃƒÆ’Ã‚Âµes de perguntas),
           "risk_analysis": string,
           "final_recommendation": string
         }
@@ -2101,7 +2489,7 @@ Retorne EXATAMENTE este JSON:
           responseMimeType: 'application/json',
           maxOutputTokens: 2200,
           reasoningEffort: 'low',
-          operationLabel: 'análise de compatibilidade candidato-vaga',
+          operationLabel: 'anÃ¡lise de compatibilidade candidato-vaga',
         }
       });
       
@@ -2148,7 +2536,7 @@ Retorne EXATAMENTE este JSON:
 
     // Log history
       await db.prepare('INSERT INTO candidate_history (candidate_id, job_id, event_type, title, description, created_at) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)')
-        .run(id, jobId, 'AI_ANALYSIS', 'AnÃƒÂ¡lise IA Realizada', `Score de compatibilidade: ${analysis.compatibility_score}%`);
+        .run(id, jobId, 'AI_ANALYSIS', 'AnÃƒÆ’Ã‚Â¡lise IA Realizada', `Score de compatibilidade: ${analysis.compatibility_score}%`);
 
       res.json(analysis);
     } catch (error) {
@@ -2271,30 +2659,30 @@ Retorne EXATAMENTE este JSON:
       const candidatesToProcess = candidates.slice(0, 50); 
 
       const prompt = `
-        VocÃƒÂª ÃƒÂ© a Aurora AI, sistema de inteligÃƒÂªncia de recrutamento.
-        Sua tarefa ÃƒÂ© comparar uma lista de candidatos com uma vaga especÃƒÂ­fica.
-        Avalie requisitos obrigatÃƒÂ³rios, desejÃƒÂ¡veis, experiÃƒÂªncia, localizaÃƒÂ§ÃƒÂ£o, modelo de trabalho, formaÃƒÂ§ÃƒÂ£o, habilidades, DISC e critÃƒÂ©rios eliminatÃƒÂ³rios.
+        VocÃƒÆ’Ã‚Âª ÃƒÆ’Ã‚Â© a Aurora AI, sistema de inteligÃƒÆ’Ã‚Âªncia de recrutamento.
+        Sua tarefa ÃƒÆ’Ã‚Â© comparar uma lista de candidatos com uma vaga especÃƒÆ’Ã‚Â­fica.
+        Avalie requisitos obrigatÃƒÆ’Ã‚Â³rios, desejÃƒÆ’Ã‚Â¡veis, experiÃƒÆ’Ã‚Âªncia, localizaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o, modelo de trabalho, formaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o, habilidades, DISC e critÃƒÆ’Ã‚Â©rios eliminatÃƒÆ’Ã‚Â³rios.
         
         Vaga:
-        TÃƒÂ­tulo: ${job.title}
+        TÃƒÆ’Ã‚Â­tulo: ${job.title}
         Local: ${job.city}/${job.state}
         Modelo: ${job.work_model}
         Requisitos: ${job.mandatory_requirements}
-        DescriÃƒÂ§ÃƒÂ£o: ${job.description}
-        ExperiÃƒÂªncia MÃƒÂ­nima: ${job.min_experience_years} anos
+        DescriÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o: ${job.description}
+        ExperiÃƒÆ’Ã‚Âªncia MÃƒÆ’Ã‚Â­nima: ${job.min_experience_years} anos
         
-        ConfiguraÃƒÂ§ÃƒÂ£o de Busca:
-        PrecisÃƒÂ£o: ${precisionMode} (FlexÃƒÂ­vel, Equilibrada ou Rigorosa - siga o rigor solicitado)
-        Raio Max DistÃƒÂ¢ncia: ${radius} km
-        Regra LocalizaÃƒÂ§ÃƒÂ£o: ${locationRule} (Peso dado ÃƒÂ  proximidade)
+        ConfiguraÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o de Busca:
+        PrecisÃƒÆ’Ã‚Â£o: ${precisionMode} (FlexÃƒÆ’Ã‚Â­vel, Equilibrada ou Rigorosa - siga o rigor solicitado)
+        Raio Max DistÃƒÆ’Ã‚Â¢ncia: ${radius} km
+        Regra LocalizaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o: ${locationRule} (Peso dado ÃƒÆ’Ã‚Â  proximidade)
         
         Candidatos:
         ${candidatesToProcess.map(c => `ID: ${c.id}, Nome: ${c.full_name}, Local: ${c.city}/${c.state}, Exp: ${c.experience_years}y, Skills: ${c.hard_skills}, Modelo: ${c.desired_work_model}, DISC: ${c.disc?.predominant_profile || 'N/A'}`).join('\n')}
         
-        Regras de NegÃƒÂ³cio:
-        - Se Vaga Presencial, a localizaÃƒÂ§ÃƒÂ£o ÃƒÂ© crÃƒÂ­tica.
+        Regras de NegÃƒÆ’Ã‚Â³cio:
+        - Se Vaga Presencial, a localizaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o ÃƒÆ’Ã‚Â© crÃƒÆ’Ã‚Â­tica.
         - Pontue de 0 a 100 baseando-se no FIT real.
-        - 90-100: AltÃƒÂ­ssimo Fit, 80-89: Alto Fit, 70-79: Fit Moderado.
+        - 90-100: AltÃƒÆ’Ã‚Â­ssimo Fit, 80-89: Alto Fit, 70-79: Fit Moderado.
         
         Retorne APENAS um JSON:
         {
@@ -2372,12 +2760,12 @@ Retorne EXATAMENTE este JSON:
     
     try {
       if (!message?.trim()) {
-        return res.status(400).json({ error: 'Mensagem obrigatÃƒÂ³ria' });
+        return res.status(400).json({ error: 'Mensagem obrigatÃƒÆ’Ã‚Â³ria' });
       }
 
       const ai = createGeminiClient();
       const normalizedMessage = String(message).trim();
-      const wantsDetailedReply = /(detalh|explic|complet|passo a passo|relat[oó]rio|aprofund|an[aá]lise completa)/i.test(normalizedMessage);
+      const wantsDetailedReply = /(detalh|explic|complet|passo a passo|relat[oÃ³]rio|aprofund|an[aÃ¡]lise completa)/i.test(normalizedMessage);
       const wantsAction = /(cri(a|ar|e)|atualiz|modific|altera|remov|delet|exclu|abr(e|ir)|fech(a|ar)|reabr)/i.test(normalizedMessage);
 
       if (effectiveUnitId === 'master') {
@@ -2417,26 +2805,26 @@ Retorne EXATAMENTE este JSON:
       const candidatesList = candidates.map(c => `- Candidato #${c.id} ${c.full_name} | Cargo: ${c.desired_position || '-'} | Local: ${c.city || '-'} | Exp: ${c.experience_years || 0} anos | Skills: ${c.hard_skills?.substring(0, 50) || '-'} | Status: ${c.status}`).join('\n');
 
       const systemPrompt = `
-        Você é a Aurora AI, assistente de recrutamento inteligente da Develoi.
-        Sua missão é responder perguntas do recrutador sobre o sistema, candidatos e vagas.
-        Responda sempre em português do Brasil, de forma clara e profissional.
+        VocÃª Ã© a Aurora AI, assistente de recrutamento inteligente da Develoi.
+        Sua missÃ£o Ã© responder perguntas do recrutador sobre o sistema, candidatos e vagas.
+        Responda sempre em portuguÃªs do Brasil, de forma clara e profissional.
         
         Diretrizes:
-        1. Baseie-se nos dados do sistema listados abaixo. NÃO invente candidatos ou vagas.
-        2. Responda curto e direto por padrão.
-        3. Não repita "Eu sou a Aurora" em toda mensagem.
-        4. CRIAÇÃO DE VAGA:
-           - Se o usuário pedir para criar uma vaga mas não informar o título, responda apenas: "Qual o título da vaga e a cidade?"
-           - Se o usuário fornecer dados da vaga, use SOMENTE os campos que ele explicitamente informou.
-           - NUNCA invente campos como salário, benefícios, experiência ou qualquer informação não fornecida pelo usuário.
+        1. Baseie-se nos dados do sistema listados abaixo. NÃƒO invente candidatos ou vagas.
+        2. Responda curto e direto por padrÃ£o.
+        3. NÃ£o repita "Eu sou a Aurora" em toda mensagem.
+        4. CRIAÃ‡ÃƒO DE VAGA:
+           - Se o usuÃ¡rio pedir para criar uma vaga mas nÃ£o informar o tÃ­tulo, responda apenas: "Qual o tÃ­tulo da vaga e a cidade?"
+           - Se o usuÃ¡rio fornecer dados da vaga, use SOMENTE os campos que ele explicitamente informou.
+           - NUNCA invente campos como salÃ¡rio, benefÃ­cios, experiÃªncia ou qualquer informaÃ§Ã£o nÃ£o fornecida pelo usuÃ¡rio.
            - Campos permitidos no data: title, city, state, department, status, description, work_model, employment_type, mandatory_requirements, hard_skills.
-           - Inclua apenas os campos que o usuário mencionou. Omita todos os outros.
-           - SEMPRE escreva UMA frase curta de confirmação ANTES do bloco <action>:
+           - Inclua apenas os campos que o usuÃ¡rio mencionou. Omita todos os outros.
+           - SEMPRE escreva UMA frase curta de confirmaÃ§Ã£o ANTES do bloco <action>:
            Vaga criada como rascunho!
            <action>
-           {"type":"create_job","data":{"title":"Título","city":"Cidade","status":"Rascunho"}}
+           {"type":"create_job","data":{"title":"TÃ­tulo","city":"Cidade","status":"Rascunho"}}
            </action>
-        5. Para atualizar vaga (apenas com campos que o usuário pediu alterar):
+        5. Para atualizar vaga (apenas com campos que o usuÃ¡rio pediu alterar):
            Vaga atualizada!
            <action>
            {"type":"update_job","job_id":123,"data":{"status":"Aberta"}}
@@ -2475,7 +2863,7 @@ Retorne EXATAMENTE este JSON:
 
       if (!result.text?.trim()) {
         console.warn('[Aurora AI] Modelo retornou resposta vazia. Usando fallback.');
-        result.text = 'Não consegui processar sua solicitação agora. Poderia reformular a pergunta?';
+        result.text = 'NÃ£o consegui processar sua solicitaÃ§Ã£o agora. Poderia reformular a pergunta?';
       }
 
       let responseText = normalizeAuroraChatReply(result.text) || 'Como posso ajudar?';
@@ -2519,7 +2907,7 @@ Retorne EXATAMENTE este JSON:
       res.json({ message: responseText, sessionId: currentSessionId });
     } catch (error) {
       if (error instanceof GeminiTemporaryUnavailableError) {
-        const fallbackMessage = 'A Aurora está com alta demanda no provedor de IA no momento. Tente novamente em alguns instantes.';
+        const fallbackMessage = 'A Aurora estÃ¡ com alta demanda no provedor de IA no momento. Tente novamente em alguns instantes.';
 
         if (currentSessionId) {
           await db.prepare('INSERT INTO ai_chat_messages (tenant_id, unit_id, session_id, role, message, created_at) VALUES (?, ?, ?, "assistant", ?, CURRENT_TIMESTAMP)')
@@ -2574,15 +2962,20 @@ Retorne EXATAMENTE este JSON:
       const unitFilter = unitId && unitId !== 'master' ? 'AND unit_id = ?' : '';
       const params = unitId && unitId !== 'master' ? [tenantId, unitId] : [tenantId];
 
-      const totalSent = await db.prepare(`SELECT COUNT(*) as count FROM hr_tool_responses WHERE tenant_id = ? ${unitFilter}`).get(...params) as any || { count: 0 };
-      const totalReceived = await db.prepare(`SELECT COUNT(*) as count FROM hr_tool_responses WHERE tenant_id = ? AND status = 'ConcluÃƒÂ­do' ${unitFilter}`).get(...params) as any || { count: 0 };
+      const totalSentRaw = await db.prepare(`SELECT COUNT(*) as count FROM hr_tool_responses WHERE tenant_id = ? ${unitFilter}`).get(...params) as any;
+      const totalSent = { count: Number(totalSentRaw?.count || 0) };
+
+      const totalReceivedRaw = await db.prepare(`SELECT COUNT(*) as count FROM hr_tool_responses WHERE tenant_id = ? AND status = 'Concluído' ${unitFilter}`).get(...params) as any;
+      const totalReceived = { count: Number(totalReceivedRaw?.count || 0) };
 
       const candidatesWithDiscQuery = unitId && unitId !== 'master'
         ? 'SELECT COUNT(DISTINCT r.candidate_id) as count FROM candidate_disc_results r JOIN candidates c ON r.candidate_id = c.id WHERE c.tenant_id = ? AND c.unit_id = ?'
         : 'SELECT COUNT(DISTINCT r.candidate_id) as count FROM candidate_disc_results r JOIN candidates c ON r.candidate_id = c.id WHERE c.tenant_id = ?';
-      const candidatesWithDisc = await db.prepare(candidatesWithDiscQuery).get(...(unitId && unitId !== 'master' ? [tenantId, unitId] : [tenantId])) as any || { count: 0 };
+      const candidatesWithDiscRaw = await db.prepare(candidatesWithDiscQuery).get(...(unitId && unitId !== 'master' ? [tenantId, unitId] : [tenantId])) as any;
+      const candidatesWithDisc = { count: Number(candidatesWithDiscRaw?.count || 0) };
 
-      const activeForms = await db.prepare(`SELECT COUNT(*) as count FROM hr_tools WHERE tenant_id = ? AND status = 'Ativo' ${unitFilter}`).get(...params) as any || { count: 0 };
+      const activeFormsRaw = await db.prepare(`SELECT COUNT(*) as count FROM hr_tools WHERE tenant_id = ? AND status = 'Ativo' ${unitFilter}`).get(...params) as any;
+      const activeForms = { count: Number(activeFormsRaw?.count || 0) };
 
       // DISC Distribution
       const discDistributionQuery = unitId && unitId !== 'master'
@@ -2596,7 +2989,8 @@ Retorne EXATAMENTE este JSON:
            JOIN candidates c ON r.candidate_id = c.id
            WHERE c.tenant_id = ?
            GROUP BY r.predominant_profile`;
-      const discDistribution = await db.prepare(discDistributionQuery).all(...(unitId && unitId !== 'master' ? [tenantId, unitId] : [tenantId]));
+      const discDistribution = (await db.prepare(discDistributionQuery).all(...(unitId && unitId !== 'master' ? [tenantId, unitId] : [tenantId])))
+        .map((d: any) => ({ ...d, count: Number(d.count || 0) }));
 
       // Tool usage
       const toolUsage = await db.prepare(`
@@ -2752,70 +3146,6 @@ Retorne EXATAMENTE este JSON:
     }
   });
 
-  app.post('/api/hr-tools/responses/:responseId/analyze', async (req, res) => {
-    try {
-      const responseId = req.params.responseId;
-      const response = await db.prepare(`
-        SELECT r.*, t.name as tool_name, t.description as tool_description
-        FROM hr_tool_responses r
-        JOIN hr_tools t ON r.tool_id = t.id
-        WHERE r.id = ?
-      `).get(responseId) as any;
-
-      if (!response) return res.status(404).json({ error: 'Response not found' });
-
-      const answers = await db.prepare(`
-        SELECT a.*, q.question_text
-        FROM hr_tool_answers a
-        JOIN hr_tool_questions q ON a.question_id = q.id
-        WHERE a.response_id = ?
-      `).all(responseId) as any[];
-
-      const ai = createGeminiClient();
-      
-      const prompt = `
-        VocÃƒÂª ÃƒÂ© Aurora, a InteligÃƒÂªncia Artificial especialista em RH da Develoi.
-        Sua missÃƒÂ£o ÃƒÂ© analisar as respostas de um candidato para a ferramenta: "${response.tool_name}".
-        DescriÃƒÂ§ÃƒÂ£o da ferramenta: ${response.tool_description}
-
-        RESPOSTAS DO CANDIDATO:
-        ${answers.map(a => `Pergunta: ${a.question_text}\nResposta: ${a.answer_text}`).join('\n\n')}
-
-        Com base nessas respostas, forneÃƒÂ§a uma anÃƒÂ¡lise tÃƒÂ©cnica e comportamental profunda.
-        Retorne APENAS um JSON no seguinte formato:
-        {
-          "summary": "Resumo executivo do perfil (mÃƒÂ¡x 30 palavras)",
-          "score_estimate": 85, (0-100)
-          "recommendation": "Prosseguir" ou "AtenÃƒÂ§ÃƒÂ£o" ou "Reprovar",
-          "strengths": ["ponto forte 1", "ponto forte 2"],
-          "attention_points": ["ponto de atenÃƒÂ§ÃƒÂ£o 1", "ponto de atenÃƒÂ§ÃƒÂ£o 2"]
-        }
-      `;
-
-      const aiResponse = await ai.models.generateContent({
-        model: GEMINI_MODEL,
-        contents: prompt,
-        config: {
-          responseMimeType: 'application/json',
-          maxOutputTokens: 1200,
-          reasoningEffort: 'low',
-          operationLabel: 'análise de respostas de ferramenta RH',
-        }
-      });
-
-      const text = aiResponse.text || "{}";
-      const match = text.match(/\{[\s\S]*\}/);
-      const analysisData = match ? match[0] : "{}";
-
-      await db.prepare('UPDATE hr_tool_responses SET ai_analysis_json = ?, status = \'ConcluÃƒÂ­do\' WHERE id = ?')
-        .run(analysisData, responseId);
-
-      res.json({ success: true, analysis: JSON.parse(analysisData) });
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ error: 'AI Analysis failed' });
-    }
-  });
 
   app.get('/api/hr-tools/:id/responses', (req, res) => {
     try {
@@ -2835,39 +3165,50 @@ Retorne EXATAMENTE este JSON:
 
   app.post('/api/hr-tools/responses/:responseId/analyze', async (req, res) => {
     try {
-      const response = await db.prepare('SELECT * FROM hr_tool_responses WHERE id = ?').get(req.params.responseId) as any;
+      const responseId = req.params.responseId;
+      const response = await db.prepare(`
+        SELECT r.*, t.name as tool_name, t.description as tool_description, t.type as tool_type
+        FROM hr_tool_responses r
+        JOIN hr_tools t ON r.tool_id = t.id
+        WHERE r.id = ?
+      `).get(responseId) as any;
+
+      if (!response) return res.status(404).json({ error: 'Response not found' });
+
       const answers = await db.prepare(`
         SELECT a.*, q.question_text, q.question_type
         FROM hr_tool_answers a
         JOIN hr_tool_questions q ON a.question_id = q.id
         WHERE a.response_id = ?
-      `).all(req.params.responseId) as any[];
+      `).all(responseId) as any[];
 
       const candidate = response.candidate_id ? await db.prepare('SELECT * FROM candidates WHERE id = ?').get(response.candidate_id) as any : null;
+      const isDisc = response.tool_name.toLowerCase().includes('disc') || (response.tool_type && response.tool_type.toLowerCase().includes('disc'));
 
       const ai = createGeminiClient();
       
       const prompt = `
-        VocÃƒÂª ÃƒÂ© um especialista sÃƒÂªnior em Recrutamento e SeleÃƒÂ§ÃƒÂ£o. Analise as respostas deste formulÃƒÂ¡rio de RH aplicadas ao candidato ${candidate?.full_name || 'AnÃƒÂ´nimo'}.
+        Você é Aurora, especialista sênior em Recrutamento e Seleção. 
+        Analise as respostas do formulário "${response.tool_name}" para o candidato ${candidate?.full_name || 'Anônimo'}.
         
-        Respostas:
+        RESPOSTAS:
         ${answers.map(a => `Pergunta: ${a.question_text}\nResposta: ${a.answer_text}`).join('\n\n')}
         
-        Gere um parecer profissional estruturado:
-        1. Resumo Executivo das respostas.
-        2. Pontos Fortes identificados.
-        3. Pontos de AtenÃƒÂ§ÃƒÂ£o/DÃƒÂºvida.
-        4. RecomendaÃƒÂ§ÃƒÂ£o (Prosseguir, Avaliar com Cautela ou Reprovar).
-        5. SugestÃƒÂµes de perguntas para a prÃƒÂ³xima entrevista.
-        
-        Retorne um JSON:
+        ${isDisc ? `Como esta é uma avaliação DISC, você DEVE calcular e retornar as pontuações para os 4 perfis:
+        - Dominância (D): Foco em resultados, rapidez, competitividade.
+        - Influência (I): Foco em pessoas, comunicação, otimismo.
+        - Estabilidade (S): Foco em colaboração, persistência, ritmo constante.
+        - Conformidade (C): Foco em detalhes, precisão, regras.` : ''}
+
+        Gere um parecer profissional estruturado em JSON:
         {
-          "summary": string,
+          "summary": "Resumo executivo do perfil (máx 60 palavras)",
+          "score_estimate": number (0-100),
+          "recommendation": "Prosseguir" | "Atenção" | "Reprovar",
           "strengths": string[],
           "attention_points": string[],
-          "recommendation": string,
           "suggested_questions": string[],
-          "score_estimate": number (0-100)
+          ${isDisc ? `"disc_scores": { "D": number, "I": number, "S": number, "C": number }, "predominant_profile": "D" | "I" | "S" | "C"` : ''}
         }
       `;
 
@@ -2885,10 +3226,36 @@ Retorne EXATAMENTE este JSON:
       const analysis = JSON.parse(result.text || '{}');
 
       await db.prepare(`
-        UPDATE hr_tool_responses
-        SET ai_summary = ?, ai_analysis_json = ?, score = ?, classification = ?, updated_at = CURRENT_TIMESTAMP
+        UPDATE hr_tool_responses 
+        SET ai_summary = ?, ai_analysis_json = ?, score = ?, classification = ?, status = 'Concluído', updated_at = CURRENT_TIMESTAMP
         WHERE id = ?
-      `).run(analysis.summary, result.text, analysis.score_estimate, analysis.recommendation, req.params.responseId);
+      `).run(analysis.summary, result.text, analysis.score_estimate, analysis.recommendation, responseId);
+
+      // Persistência DISC
+      if (isDisc && analysis.disc_scores) {
+        try {
+          await db.prepare(`
+            INSERT INTO candidate_disc_results (candidate_id, response_id, predominant_profile, d_score, i_score, s_score, c_score)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(response_id) DO UPDATE SET
+              predominant_profile = excluded.predominant_profile,
+              d_score = excluded.d_score,
+              i_score = excluded.i_score,
+              s_score = excluded.s_score,
+              c_score = excluded.c_score
+          `).run(
+            response.candidate_id,
+            responseId,
+            analysis.predominant_profile || '?',
+            analysis.disc_scores.D || 0,
+            analysis.disc_scores.I || 0,
+            analysis.disc_scores.S || 0,
+            analysis.disc_scores.C || 0
+          );
+        } catch (e) {
+          console.error('DISC Save Error:', e);
+        }
+      }
 
       res.json({ success: true, analysis });
     } catch (error) {
@@ -2926,7 +3293,7 @@ Retorne EXATAMENTE este JSON:
 
   app.get('/api/public/hr-tools/:slug', async (req, res) => {
     try {
-      const tool = await db.prepare("SELECT h.*, t.name as tenant_name FROM hr_tools h JOIN tenants t ON h.tenant_id = t.id WHERE h.public_slug = ? AND h.status = 'Ativo'").get(req.params.slug);
+      const tool = await db.prepare("SELECT h.*, t.name as tenant_name, t.company_name, t.logo_url FROM hr_tools h JOIN tenants t ON h.tenant_id = t.id WHERE h.public_slug = ? AND h.status = 'Ativo'").get(req.params.slug);
       if (!tool) return res.status(404).json({ error: 'Tool not found or inactive' });
 
       const questions = await db.prepare('SELECT * FROM hr_tool_questions WHERE tool_id = ? ORDER BY position ASC').all((tool as any).id);
@@ -2945,7 +3312,7 @@ Retorne EXATAMENTE este JSON:
       if (!tool) return res.status(404).json({ error: 'Tool not found' });
 
       // 1. Find or create candidate
-      let candidateId: number | bigint;
+      let candidateId: number | bigint | any;
       const existingCandidate = await db.prepare('SELECT id FROM candidates WHERE email = ? AND tenant_id = ?').get(candidateInfo.email, tool.tenant_id) as any;
 
       if (existingCandidate) {
@@ -2961,7 +3328,7 @@ Retorne EXATAMENTE este JSON:
       // 2. Create response
       const responseRes = await db.prepare(`
         INSERT INTO hr_tool_responses (tenant_id, unit_id, tool_id, candidate_id, job_id, status, completed_at)
-        VALUES (?, ?, ?, ?, ?, 'ConcluÃƒÂ­do', CURRENT_TIMESTAMP)
+        VALUES (?, ?, ?, ?, ?, 'Concluído', CURRENT_TIMESTAMP)
       `).run(tool.tenant_id, tool.unit_id, tool.id, candidateId, jobId || null);
 
       const responseId = responseRes.lastInsertRowid;
@@ -2981,7 +3348,7 @@ Retorne EXATAMENTE este JSON:
 
       // 4. If it's a DISC tool, process DISC logic (simplified for demo)
       if (tool.type === 'DISC') {
-        const profiles = ['DominÃƒÂ¢ncia', 'InfluÃƒÂªncia', 'Estabilidade', 'Conformidade'];
+        const profiles = ['DominÃƒÆ’Ã‚Â¢ncia', 'InfluÃƒÆ’Ã‚Âªncia', 'Estabilidade', 'Conformidade'];
         const randomProfile = profiles[Math.floor(Math.random() * profiles.length)];
 
         await db.prepare(`
@@ -2995,8 +3362,8 @@ Retorne EXATAMENTE este JSON:
         );
 
         // Log in history
-        await db.prepare('INSERT INTO candidate_history (candidate_id, event_type, title, description) VALUES (?, "ASSESSMENT", "DISC ConcluÃƒÂ­do", ?)')
-          .run(candidateId, `Candidato concluiu a avaliaÃƒÂ§ÃƒÂ£o DISC: ${randomProfile}`);
+        await db.prepare('INSERT INTO candidate_history (candidate_id, event_type, title, description) VALUES (?, "ASSESSMENT", "DISC Concluído", ?)')
+          .run(candidateId, `Candidato concluiu a avaliação DISC: ${randomProfile}`);
       }
 
       res.json({ success: true, responseId });
@@ -3034,6 +3401,10 @@ Retorne EXATAMENTE este JSON:
     } catch (error) {
       res.status(500).json({ error: 'Failed to fetch import dashboard stats' });
     }
+  });
+
+  app.get('/api/imports/capacity', async (_req, res) => {
+    res.json(getCandidateBatchImportCapacity());
   });
 
   app.get('/api/imports', async (req, res) => {
@@ -3089,35 +3460,76 @@ Retorne EXATAMENTE este JSON:
     }
   });
 
-  app.post('/api/imports/:id/files', upload.array('files'), async (req, res) => {
-    try {
-      const batchId = req.params.id;
-      const batch = await db.prepare('SELECT id, tenant_id, unit_id FROM import_batches WHERE id = ?').get(batchId) as any;
-      const files = (req.files as any[]) || [];
+  app.post('/api/imports/:id/files', (req, res) => {
+    candidateBatchUpload.array('files', CANDIDATE_BATCH_IMPORT_MAX_FILES)(req, res, async (uploadError: any) => {
+      if (uploadError instanceof multer.MulterError) {
+        if (uploadError.code === 'LIMIT_FILE_SIZE') {
+          return res.status(400).json({
+            error: `Cada currÃ­culo pode ter atÃ© ${bytesToMegabytes(CANDIDATE_BATCH_IMPORT_MAX_FILE_SIZE_BYTES)} MB.`,
+          });
+        }
 
-      if (!batch) {
-        return res.status(404).json({ error: 'Batch not found' });
+        if (uploadError.code === 'LIMIT_FILE_COUNT') {
+          return res.status(400).json({
+            error: `Cada lote aceita atÃ© ${CANDIDATE_BATCH_IMPORT_MAX_FILES} currÃ­culos.`,
+          });
+        }
+
+        return res.status(400).json({ error: uploadError.message });
       }
 
-      if (files.length === 0) {
-        return res.status(400).json({ error: 'Nenhum arquivo enviado' });
+      if (uploadError) {
+        return res.status(400).json({ error: uploadError.message || 'Falha ao validar arquivos do lote.' });
       }
 
-      for (const file of files) {
-        const filePath = await saveImportedResumeFile(batchId, batch.tenant_id, file);
-        await db.prepare(`
-          INSERT INTO import_files (batch_id, tenant_id, unit_id, file_name, file_path, file_type, file_size, status)
-          VALUES (?, ?, ?, ?, ?, ?, ?, 'uploaded')
-        `).run(batchId, batch.tenant_id, batch.unit_id, file.originalname, filePath, file.mimetype, file.size);
+      try {
+        const batchId = req.params.id;
+        const batch = await db.prepare('SELECT id, tenant_id, unit_id, total_files FROM import_batches WHERE id = ?').get(batchId) as any;
+        const files = (req.files as any[]) || [];
+
+        if (!batch) {
+          return res.status(404).json({ error: 'Batch not found' });
+        }
+
+        if (files.length === 0) {
+          return res.status(400).json({ error: 'Nenhum arquivo enviado' });
+        }
+
+        const existingFilesCount = Number(batch.total_files || 0);
+        const existingSizeRow = await db.prepare('SELECT COALESCE(SUM(file_size), 0) as total_size FROM import_files WHERE batch_id = ?').get(batchId) as any;
+        if (existingFilesCount + files.length > CANDIDATE_BATCH_IMPORT_MAX_FILES) {
+          return res.status(400).json({
+            error: `O lote pode conter no mÃ¡ximo ${CANDIDATE_BATCH_IMPORT_MAX_FILES} currÃ­culos.`,
+          });
+        }
+
+        const totalBytes = files.reduce((sum, file) => sum + Number(file.size || 0), 0);
+        const cumulativeBytes = Number(existingSizeRow?.total_size || 0) + totalBytes;
+        if (cumulativeBytes > CANDIDATE_BATCH_IMPORT_MAX_TOTAL_SIZE_BYTES) {
+          return res.status(400).json({
+            error: `O lote pode acumular atÃ© ${bytesToMegabytes(CANDIDATE_BATCH_IMPORT_MAX_TOTAL_SIZE_BYTES)} MB no total.`,
+          });
+        }
+
+        for (const file of files) {
+          const filePath = await saveImportedResumeFile(batchId, batch.tenant_id, file);
+          await db.prepare(`
+            INSERT INTO import_files (batch_id, tenant_id, unit_id, file_name, file_path, file_type, file_size, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'uploaded')
+          `).run(batchId, batch.tenant_id, batch.unit_id, file.originalname, filePath, file.mimetype, file.size);
+        }
+
+        await db.prepare('UPDATE import_batches SET total_files = total_files + ? WHERE id = ?').run(files.length, batchId);
+
+        res.json({
+          success: true,
+          capacity: getCandidateBatchImportCapacity(),
+        });
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Failed to add files to batch' });
       }
-
-      await db.prepare('UPDATE import_batches SET total_files = total_files + ? WHERE id = ?').run(files.length, batchId);
-
-      res.json({ success: true });
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ error: 'Failed to add files to batch' });
-    }
+    });
   });
 
   app.post('/api/imports/:id/start', async (req, res) => {
@@ -3134,100 +3546,108 @@ Retorne EXATAMENTE este JSON:
 
       await db.prepare("UPDATE import_batches SET status = 'processing', updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(batchId);
 
-      // Responder imediatamente para não travar o cliente/servidor
+      // Responder imediatamente para nÃ£o travar o cliente/servidor
       res.json({ success: true, message: 'Processamento iniciado em segundo plano' });
 
       // Processamento em Background
       (async () => {
         const ai = createGeminiClient();
 
-        for (const file of files) {
-          try {
-            await db.prepare("UPDATE import_files SET status = 'processing', progress = 10, duplicate_status = 'none', duplicate_candidate_id = NULL, error_message = NULL WHERE id = ?").run(file.id);
-
-            const extractedText = await extractResumeTextFromStoredFile(file);
-            
-            const prompt = buildResumePreAnalysisPrompt(extractedText, {
-              job_title: batch.job_title,
-              job_description: batch.job_description,
-            });
-
+        try {
+          for (const file of files) {
             try {
-              const aiResult = await ai.models.generateContent({
-                model: GEMINI_MODEL,
-                contents: [{ role: 'user', parts: [{ text: prompt }] }],
-                config: {
-                  responseMimeType: 'application/json',
-                  temperature: 0.2,
-                  maxOutputTokens: 900,
-                  reasoningEffort: 'low',
-                  operationLabel: 'pré-análise em lote',
-                }
+              await db.prepare("UPDATE import_files SET status = 'processing', progress = 10, duplicate_status = 'none', duplicate_candidate_id = NULL, error_message = NULL WHERE id = ?").run(file.id);
+
+              const extractedText = await extractResumeTextFromStoredFile(file);
+              
+              const prompt = buildStructuredResumeBatchPrompt(extractedText, {
+                job_title: batch.job_title,
+                job_description: batch.job_description,
               });
-              
-              const textResponse = aiResult.text || "";
-              const jsonMatch = textResponse.match(/\{[\s\S]*\}/);
-              if (!jsonMatch) throw new Error("No JSON found in response");
-              const data = normalizeResumeParsedData(JSON.parse(jsonMatch[0]), Boolean(batch.job_title || batch.job_description));
 
-              const existing = data.email
-                ? await db.prepare('SELECT id FROM candidates WHERE email = ? AND tenant_id = ?').get(data.email, batch.tenant_id) as any
-                : null;
-              
-              let status = 'completed';
-              let duplicateStatus = 'none';
-              let duplicateCandidateId = null;
+              try {
+                const aiResult = await ai.models.generateContent({
+                  model: GEMINI_MODEL,
+                  contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                  config: {
+                    responseMimeType: 'application/json',
+                    temperature: 0.2,
+                    maxOutputTokens: 2600,
+                    reasoningEffort: 'low',
+                    operationLabel: 'pré-análise em lote',
+                  }
+                });
+                
+                const data = normalizeResumeParsedData(
+                  parseJsonFromAiResponseSafe(aiResult.text || '{}'),
+                  Boolean(batch.job_title || batch.job_description)
+                );
 
-              if (existing) {
-                status = 'duplicate';
-                duplicateStatus = 'email';
-                duplicateCandidateId = existing.id;
+                const existing = data.email
+                  ? await db.prepare('SELECT id FROM candidates WHERE email = ? AND tenant_id = ?').get(data.email, batch.tenant_id) as any
+                  : null;
+                
+                let status = 'completed';
+                let duplicateStatus = 'none';
+                let duplicateCandidateId = null;
+
+                if (existing) {
+                  status = 'duplicate';
+                  duplicateStatus = 'email';
+                  duplicateCandidateId = existing.id;
+                }
+
+                await db.prepare(`
+                  UPDATE import_files
+                  SET status = ?,
+                      progress = 100,
+                      extracted_text = ?,
+                      parsed_data_json = ?,
+                      ai_summary = ?,
+                      duplicate_status = ?,
+                      duplicate_candidate_id = ?,
+                      compatibility_score = ?,
+                      compatibility_classification = ?,
+                      updated_at = CURRENT_TIMESTAMP
+                  WHERE id = ?
+                `).run(
+                  status,
+                  extractedText,
+                  JSON.stringify(data),
+                  data.summary,
+                  duplicateStatus,
+                  duplicateCandidateId,
+                  data.compatibility_score,
+                  data.recommendation,
+                  file.id
+                );
+
+                await db.prepare(`
+                  UPDATE import_batches
+                  SET processed_files = processed_files + 1,
+                      duplicate_files = duplicate_files + ${duplicateStatus !== 'none' ? 1 : 0},
+                      updated_at = CURRENT_TIMESTAMP
+                  WHERE id = ?
+                `).run(batchId);
+
+              } catch (err: any) {
+                console.error(`AI Error for file ${file.id}:`, err);
+                await db.prepare("UPDATE import_files SET status = 'error', error_message = ? WHERE id = ?").run(err.message || String(err), file.id);
+                await db.prepare('UPDATE import_batches SET error_files = error_files + 1 WHERE id = ?').run(batchId);
+                // Also increment processed_files so the batch can complete
+                await db.prepare('UPDATE import_batches SET processed_files = processed_files + 1 WHERE id = ?').run(batchId);
               }
-
-              await db.prepare(`
-                UPDATE import_files
-                SET status = ?,
-                    progress = 100,
-                    extracted_text = ?,
-                    parsed_data_json = ?,
-                    ai_summary = ?,
-                    duplicate_status = ?,
-                    duplicate_candidate_id = ?,
-                    compatibility_score = ?,
-                    compatibility_classification = ?,
-                    updated_at = CURRENT_TIMESTAMP
-                WHERE id = ?
-              `).run(
-                status,
-                extractedText,
-                JSON.stringify(data),
-                data.summary,
-                duplicateStatus,
-                duplicateCandidateId,
-                data.compatibility_score,
-                data.recommendation,
-                file.id
-              );
-
-              await db.prepare(`
-                UPDATE import_batches
-                SET processed_files = processed_files + 1,
-                    duplicate_files = duplicate_files + ${duplicateStatus !== 'none' ? 1 : 0},
-                    updated_at = CURRENT_TIMESTAMP
-                WHERE id = ?
-              `).run(batchId);
-
-            } catch (err: any) {
-              console.error(`AI Error for file ${file.id}:`, err);
-              await db.prepare("UPDATE import_files SET status = 'error', error_message = ? WHERE id = ?").run(err.message || String(err), file.id);
-              await db.prepare('UPDATE import_batches SET error_files = error_files + 1 WHERE id = ?').run(batchId);
+            } catch (err) {
+              console.error(`Error extraction for file ${file.id}:`, err);
+              await db.prepare("UPDATE import_files SET status = 'error', error_message = ? WHERE id = ?").run(String(err), file.id);
+              await db.prepare('UPDATE import_batches SET processed_files = processed_files + 1, error_files = error_files + 1 WHERE id = ?').run(batchId);
             }
-          } catch (err) {
-            console.error(`Error extraction for file ${file.id}:`, err);
           }
+        } catch (criticalError) {
+          console.error("Critical background processing error:", criticalError);
+        } finally {
+          await db.prepare("UPDATE import_batches SET status = 'completed', updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(batchId);
         }
-
-        await db.prepare("UPDATE import_batches SET status = 'completed' WHERE id = ?").run(batchId);
       })().catch(err => console.error("Critical background error:", err));
 
     } catch (error) {
@@ -3257,18 +3677,18 @@ Retorne EXATAMENTE este JSON:
       // In a real app we'd extract this to a service function
       res.json({ success: true, message: 'Reprocessamento iniciado' });
 
-      // Background process com prÃƒÂ©-anÃƒÂ¡lise real
+      // Background process com prÃƒÆ’Ã‚Â©-anÃƒÆ’Ã‚Â¡lise real
       (async () => {
         const ai = createGeminiClient();
         await db.prepare("UPDATE import_files SET status = 'processing', progress = 10, duplicate_status = 'none', duplicate_candidate_id = NULL, error_message = NULL WHERE id = ?").run(fileId);
 
         const extractedText = await extractResumeTextFromStoredFile(file);
         let prompt = `
-          Extraia somente os dados realmente presentes no currÃƒÂ­culo abaixo.
-          Se um campo nÃƒÂ£o existir, retorne null ou [].
-          NÃƒÂ£o invente informaÃƒÂ§ÃƒÂµes.
+          Extraia somente os dados realmente presentes no currÃƒÆ’Ã‚Â­culo abaixo.
+          Se um campo nÃƒÆ’Ã‚Â£o existir, retorne null ou [].
+          NÃƒÆ’Ã‚Â£o invente informaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Âµes.
 
-          CurrÃƒÂ­culo:
+          CurrÃƒÆ’Ã‚Â­culo:
           ${extractedText}
 
           Vaga:
@@ -3279,7 +3699,7 @@ Retorne EXATAMENTE este JSON:
           education_level, languages, linkedin_url, portfolio_url,
           compatibility_score, recommendation, strengths, attention_points.
         `;
-        prompt = buildResumePreAnalysisPrompt(extractedText, {
+        prompt = buildStructuredResumeBatchPrompt(extractedText, {
           job_title: batch.job_title,
           job_description: batch.job_description,
         });
@@ -3291,15 +3711,15 @@ Retorne EXATAMENTE este JSON:
             config: {
               responseMimeType: 'application/json',
               temperature: 0.2,
-              maxOutputTokens: 900,
+              maxOutputTokens: 2600,
               reasoningEffort: 'low',
-              operationLabel: 'reprocessamento de pré-análise',
+              operationLabel: 'reprocessamento de prÃ©-anÃ¡lise',
             }
           });
-          const textResponse = aiResult.text || "";
-          const jsonMatch = textResponse.match(/\{[\s\S]*\}/);
-          if (!jsonMatch) throw new Error("No JSON found");
-          const data = normalizeResumeParsedData(JSON.parse(jsonMatch[0]), Boolean(batch.job_title || batch.job_description));
+          const data = normalizeResumeParsedData(
+            parseJsonFromAiResponseSafe(aiResult.text || '{}'),
+            Boolean(batch.job_title || batch.job_description)
+          );
 
           const existing = data.email
             ? await db.prepare('SELECT id FROM candidates WHERE email = ? AND tenant_id = ?').get(data.email, batch.tenant_id) as any
@@ -3415,20 +3835,20 @@ Retorne EXATAMENTE este JSON:
       const ai = createGeminiClient();
 
       const prompt = `
-        OlÃƒÂ¡, eu sou Aurora, a InteligÃƒÂªncia Artificial especialista em talentos da Develoi.
-        Minha missÃƒÂ£o hoje ÃƒÂ© analisar o perfil do candidato abaixo e encontrar as melhores oportunidades entre nossas vagas abertas.
+        OlÃƒÆ’Ã‚Â¡, eu sou Aurora, a InteligÃƒÆ’Ã‚Âªncia Artificial especialista em talentos da Develoi.
+        Minha missÃƒÆ’Ã‚Â£o hoje ÃƒÆ’Ã‚Â© analisar o perfil do candidato abaixo e encontrar as melhores oportunidades entre nossas vagas abertas.
         
         PERFIL DO CANDIDATO:
         ${JSON.stringify(candidateProfile)}
 
-        VAGAS DISPONÃƒÂVEIS:
+        VAGAS DISPONÃƒÆ’Ã‚ÂVEIS:
         ${JSON.stringify(activeJobs)}
 
-        Por favor, selecione as vagas com maior afinidade (mÃƒÂ­nimo de 60%) e justifique brevemente sua escolha.
+        Por favor, selecione as vagas com maior afinidade (mÃƒÆ’Ã‚Â­nimo de 60%) e justifique brevemente sua escolha.
         Retorne APENAS o JSON no seguinte formato:
         {
           "suggestions": [
-            { "job_id": number, "match_reason": "breve justificativa (mÃƒÂ¡x 15 palavras)", "score": number (0-100) }
+            { "job_id": number, "match_reason": "breve justificativa (mÃƒÆ’Ã‚Â¡x 15 palavras)", "score": number (0-100) }
           ]
         }
       `;
@@ -3440,7 +3860,7 @@ Retorne EXATAMENTE este JSON:
           responseMimeType: 'application/json',
           maxOutputTokens: 900,
           reasoningEffort: 'low',
-          operationLabel: 'sugestão de vagas por IA',
+          operationLabel: 'sugestÃ£o de vagas por IA',
         }
       });
 
@@ -3461,8 +3881,26 @@ Retorne EXATAMENTE este JSON:
       const files = await db.prepare("SELECT * FROM import_files WHERE batch_id = ? AND status IN ('completed', 'duplicate')").all(batchId) as any[];
       const batch = await db.prepare('SELECT * FROM import_batches WHERE id = ?').get(batchId) as any;
 
+      console.log(`Starting commit for batch ${batchId}. Files found to commit: ${files.length}`);
       for (const file of files) {
-        const data = JSON.parse(file.parsed_data_json);
+        try {
+          console.log(`Processing commit for file ${file.id}: ${file.file_name}`);
+          if (!file.parsed_data_json) {
+            console.warn(`File ${file.id} has no parsed data, skipping.`);
+            continue;
+          }
+          const data = JSON.parse(file.parsed_data_json);
+        const hardSkillsText = Array.isArray(data.skills) ? data.skills.join(', ') : null;
+        const softSkillsText = Array.isArray(data.soft_skills) ? data.soft_skills.join(', ') : null;
+        const languagesText = Array.isArray(data.languages) ? data.languages.join(', ') : null;
+        const experiencesJson = stringifyStructuredListOrNull(data.experiences_list);
+        const educationJson = stringifyStructuredListOrNull(data.education_list);
+        const certificationsJson = stringifyStructuredListOrNull(data.certifications_list);
+        const projectsJson = stringifyStructuredListOrNull(data.projects_list);
+        const languagesJson = stringifyStructuredListOrNull(data.languages_list);
+        const hardSkillsJson = stringifyStructuredListOrNull(data.skills);
+        const softSkillsJson = stringifyStructuredListOrNull(data.soft_skills);
+        const objectivesJson = stringifyStructuredListOrNull(data.objectives_list);
 
         if (file.status === 'completed') {
           if (!data?.name || !data?.email) {
@@ -3470,7 +3908,7 @@ Retorne EXATAMENTE este JSON:
               UPDATE import_files
               SET error_message = ?, updated_at = CURRENT_TIMESTAMP
               WHERE id = ?
-            `).run('Revisar prÃƒÂ©-anÃƒÂ¡lise: nome e e-mail sÃƒÂ£o obrigatÃƒÂ³rios para concluir o cadastro.', file.id);
+            `).run('Revisar prÃƒÆ’Ã‚Â©-anÃƒÆ’Ã‚Â¡lise: nome e e-mail sÃƒÆ’Ã‚Â£o obrigatÃƒÆ’Ã‚Â³rios para concluir o cadastro.', file.id);
             continue;
           }
 
@@ -3482,15 +3920,15 @@ Retorne EXATAMENTE este JSON:
               tenant_id, unit_id, full_name, email, phone, city, state,
               desired_position, professional_summary, experience_years, hard_skills,
               education_level, languages, linkedin_url, portfolio_url, source, status
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ImportaÃƒÂ§ÃƒÂ£o em Massa', 'Novo')
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ImportaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o em Massa', 'Novo')
           `).run(
             file.tenant_id, file.unit_id, data.name, data.email, data.phone, data.city, data.state,
             data.role,
             data.summary,
             data.experience_years,
-            Array.isArray(data.skills) ? data.skills.join(', ') : null,
+            hardSkillsText,
             data.education_level,
-            Array.isArray(data.languages) ? data.languages.join(', ') : null,
+            languagesText,
             data.linkedin_url,
             data.portfolio_url
           );
@@ -3508,6 +3946,14 @@ Retorne EXATAMENTE este JSON:
                 academic_education = ?,
                 courses_certifications = ?,
                 soft_skills = ?,
+                experiences_json = ?,
+                education_json = ?,
+                certifications_json = ?,
+                projects_json = ?,
+                languages_json = ?,
+                hard_skills_json = ?,
+                soft_skills_json = ?,
+                objectives_json = ?,
                 has_cnh = ?,
                 cnh_category = ?,
                 available_to_travel = ?,
@@ -3526,7 +3972,15 @@ Retorne EXATAMENTE este JSON:
             data.professional_experiences,
             data.academic_education,
             data.courses_certifications,
-            Array.isArray(data.soft_skills) ? data.soft_skills.join(', ') : null,
+            softSkillsText,
+            experiencesJson,
+            educationJson,
+            certificationsJson,
+            projectsJson,
+            languagesJson,
+            hardSkillsJson,
+            softSkillsJson,
+            objectivesJson,
             data.has_cnh === null ? false : Boolean(data.has_cnh),
             data.cnh_category,
             data.available_to_travel === null ? false : Boolean(data.available_to_travel),
@@ -3575,9 +4029,9 @@ Retorne EXATAMENTE este JSON:
             data.summary,
             data.role,
             data.experience_years,
-            Array.isArray(data.skills) ? data.skills.join(', ') : null,
+            hardSkillsText,
             data.education_level,
-            Array.isArray(data.languages) ? data.languages.join(', ') : null,
+            languagesText,
             data.linkedin_url,
             data.portfolio_url,
             file.duplicate_candidate_id
@@ -3594,6 +4048,14 @@ Retorne EXATAMENTE este JSON:
                 academic_education = COALESCE(?, academic_education),
                 courses_certifications = COALESCE(?, courses_certifications),
                 soft_skills = COALESCE(?, soft_skills),
+                experiences_json = COALESCE(?, experiences_json),
+                education_json = COALESCE(?, education_json),
+                certifications_json = COALESCE(?, certifications_json),
+                projects_json = COALESCE(?, projects_json),
+                languages_json = COALESCE(?, languages_json),
+                hard_skills_json = COALESCE(?, hard_skills_json),
+                soft_skills_json = COALESCE(?, soft_skills_json),
+                objectives_json = COALESCE(?, objectives_json),
                 has_cnh = COALESCE(?, has_cnh),
                 cnh_category = COALESCE(?, cnh_category),
                 available_to_travel = COALESCE(?, available_to_travel),
@@ -3612,7 +4074,15 @@ Retorne EXATAMENTE este JSON:
             data.professional_experiences,
             data.academic_education,
             data.courses_certifications,
-            Array.isArray(data.soft_skills) ? data.soft_skills.join(', ') : null,
+            softSkillsText,
+            experiencesJson,
+            educationJson,
+            certificationsJson,
+            projectsJson,
+            languagesJson,
+            hardSkillsJson,
+            softSkillsJson,
+            objectivesJson,
             data.has_cnh,
             data.cnh_category,
             data.available_to_travel,
@@ -3628,7 +4098,14 @@ Retorne EXATAMENTE este JSON:
           await db.prepare('UPDATE import_files SET candidate_id = ?, status = "committed", error_message = NULL WHERE id = ?').run(file.duplicate_candidate_id, file.id);
           await db.prepare('UPDATE import_batches SET updated_candidates = updated_candidates + 1 WHERE id = ?').run(batchId);
         }
+      } catch (fileError) {
+          console.error(`Error committing file ${file.id}:`, fileError);
+          await db.prepare('UPDATE import_files SET error_message = ? WHERE id = ?').run(String(fileError), file.id);
+        }
       }
+
+      // Update batch status to committed
+      await db.prepare("UPDATE import_batches SET status = 'committed', updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(batchId);
 
       res.json({ success: true });
     } catch (error) {
@@ -3768,7 +4245,7 @@ Retorne EXATAMENTE este JSON:
 
   app.post('/api/tenants/:id/accesses', async (req, res) => {
     const { id: tenantId } = req.params;
-    // Esta rota ÃƒÂ© exclusiva do admin-root (Super Admin)
+    // Esta rota ÃƒÆ’Ã‚Â© exclusiva do admin-root (Super Admin)
     if (!isRootCaller(req)) {
       return res.status(403).json({ error: 'Only root admin can provision tenant accesses' });
     }
@@ -3788,7 +4265,7 @@ Retorne EXATAMENTE este JSON:
       const userId = 'user-' + Math.random().toString(36).substr(2, 9);
       const accessProfile = access_profile || tenant.access_profile || getDefaultAccessProfile(role);
       const resolvedPermissions = normalizeAccessPermissions(permissions_json, accessProfile);
-      // Nunca atribuir super_admin a usuÃƒÂ¡rios de tenant
+      // Nunca atribuir super_admin a usuÃƒÆ’Ã‚Â¡rios de tenant
       resolvedPermissions.super_admin = false;
       const masterUnitId = await db.prepare('SELECT id FROM units WHERE tenant_id = ? AND is_master = 1').get(tenantId) as any;
 
@@ -4046,9 +4523,11 @@ Retorne EXATAMENTE este JSON:
 
   app.delete('/api/units/:id', async (req, res) => {
     try {
-      const existing = await db.prepare('SELECT tenant_id, is_master FROM units WHERE id = ?').get(req.params.id) as any;
+      const existing = await db.prepare('SELECT id, tenant_id, is_master FROM units WHERE id = ?').get(req.params.id) as any;
       if (!existing) return res.status(404).json({ error: 'Unit not found' });
-      if (existing.is_master) return res.status(403).json({ error: 'Cannot delete master unit' });
+      if (existing.is_master || existing.id === getTenantMasterUnitId(existing.tenant_id)) {
+        return res.status(403).json({ error: 'Cannot delete the initial master unit' });
+      }
       if (!await assertTenantAccess(req, res, existing.tenant_id)) return;
       await db.prepare('DELETE FROM units WHERE id = ?').run(req.params.id);
       res.json({ success: true });
@@ -4087,13 +4566,13 @@ Retorne EXATAMENTE este JSON:
 
       const userCount = await db.prepare('SELECT COUNT(*) as count FROM users WHERE tenant_id = ?').get(tenantId) as any;
       if (tenant.max_users && Number(userCount?.count || 0) >= Number(tenant.max_users)) {
-        return res.status(400).json({ error: 'Limite de usuÃƒÂ¡rios do cliente atingido' });
+        return res.status(400).json({ error: 'Limite de usuÃƒÆ’Ã‚Â¡rios do cliente atingido' });
       }
 
       const id = 'user-' + Math.random().toString(36).substr(2, 9);
       const accessProfile = user.access_profile || getDefaultAccessProfile(user.role);
       const safePermissions = normalizeAccessPermissions(user.permissions_json, accessProfile);
-      // Nunca permitir super_admin para usuÃƒÂ¡rios de tenant
+      // Nunca permitir super_admin para usuÃƒÆ’Ã‚Â¡rios de tenant
       safePermissions.super_admin = false;
 
       await db.prepare(`
@@ -4155,6 +4634,14 @@ Retorne EXATAMENTE este JSON:
       const existing = await db.prepare('SELECT tenant_id, id FROM users WHERE id = ?').get(req.params.id) as any;
       if (!existing) return res.status(404).json({ error: 'User not found' });
       if (existing.id === 'admin-root') return res.status(403).json({ error: 'Cannot delete root admin' });
+      const caller = await getCallerUser(req);
+      if (!caller) return res.status(401).json({ error: 'Unauthorized' });
+      if (existing.id === caller.id) {
+        return res.status(403).json({ error: 'Cannot delete your own user' });
+      }
+      if (existing.id === getTenantOwnerUserId(existing.tenant_id)) {
+        return res.status(403).json({ error: 'Cannot delete the initial tenant administrator' });
+      }
       if (!await assertTenantAccess(req, res, existing.tenant_id)) return;
       await db.prepare('DELETE FROM users WHERE id = ?').run(req.params.id);
       res.json({ success: true });

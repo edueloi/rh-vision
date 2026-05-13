@@ -45,6 +45,21 @@ function toMySQL(sql: string): string {
     .replace(/sqlite_master/gi, 'information_schema.tables');
 }
 
+function serializeBigInt(obj: any): any {
+  if (obj === null || obj === undefined) return obj;
+  if (typeof obj === 'bigint') return Number(obj);
+  if (obj instanceof Date) return obj;
+  if (Array.isArray(obj)) return obj.map(serializeBigInt);
+  if (typeof obj === 'object') {
+    const newObj: any = {};
+    for (const key in obj) {
+      newObj[key] = serializeBigInt(obj[key]);
+    }
+    return newObj;
+  }
+  return obj;
+}
+
 // ──────────────────────────────────────────────────────────────────────────────
 // Async prepare shim — mirrors better-sqlite3 API but returns Promises
 // ──────────────────────────────────────────────────────────────────────────────
@@ -54,11 +69,11 @@ export function prepare(sql: string) {
   return {
     /** Returns first matching row or null */
     get: (...params: any[]): Promise<any> =>
-      prisma.$queryRawUnsafe<any[]>(mysqlSql, ...params.flat()).then(r => r[0] ?? null),
+      prisma.$queryRawUnsafe<any[]>(mysqlSql, ...params.flat()).then(r => serializeBigInt(r[0] ?? null)),
 
     /** Returns all matching rows */
     all: (...params: any[]): Promise<any[]> =>
-      prisma.$queryRawUnsafe<any[]>(mysqlSql, ...params.flat()),
+      prisma.$queryRawUnsafe<any[]>(mysqlSql, ...params.flat()).then(r => serializeBigInt(r)),
 
     /** Executes a write query; returns { lastInsertRowid } */
     run: async (...params: any[]): Promise<{ lastInsertRowid: number | null; changes: number }> => {

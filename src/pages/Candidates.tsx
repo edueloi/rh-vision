@@ -19,7 +19,10 @@ import {
   UserPlus,
   Target,
   CheckCircle2,
-  Clock
+  Clock,
+  Upload,
+  Layers,
+  Database
 } from "lucide-react";
 import { 
   PanelCard, 
@@ -33,7 +36,9 @@ import {
   IconButton,
   Drawer,
   StatGrid,
-  StatCard
+  StatCard,
+  Input,
+  Select
 } from "@/src/components/ui";
 import { getTenantId } from "@/src/lib/auth";
 import { Candidate } from "@/src/types";
@@ -43,6 +48,7 @@ import CandidateForm from "./CandidateForm";
 import { motion, AnimatePresence } from "motion/react";
 import { cn } from "@/src/lib/utils";
 import { useMatch, useNavigate } from "react-router-dom";
+
 
 export default function Candidates() {
   const { currentUnit } = useUnit();
@@ -87,6 +93,8 @@ export default function Candidates() {
     }
   }, [filters, queryUnitId, tenantId, toast]);
 
+
+
   const fetchDetails = useCallback(async (id: number) => {
     setCandidateLoading(true);
     try {
@@ -116,6 +124,10 @@ export default function Candidates() {
     }
   };
 
+  const handleRefresh = useCallback(() => {
+    fetchCandidates();
+  }, [fetchCandidates]);
+
   const stats = useMemo(() => {
     return {
       total: candidates.length,
@@ -124,6 +136,20 @@ export default function Candidates() {
       approved: candidates.filter(c => c.status === 'Aprovado' || c.status === 'Contratado').length,
     };
   }, [candidates]);
+
+
+
+  const getCandidateSourceLabel = useCallback((source?: string | null) => {
+    if (!source) {
+      return "Origem não informada";
+    }
+
+    if (source === "Importação em Massa" || source === "Importação em Lote") {
+      return "Importação em Lote";
+    }
+
+    return source;
+  }, []);
 
   useEffect(() => {
     fetchCandidates();
@@ -172,13 +198,20 @@ export default function Candidates() {
           actions={
             <div className="flex items-center gap-3">
               <IconButton 
-                onClick={fetchCandidates}
+                onClick={handleRefresh}
                 variant="outline"
                 className="bg-white"
                 aria-label="Atualizar lista"
               >
                 <RefreshCcw size={16} />
               </IconButton>
+              <Button
+                variant="outline"
+                onClick={() => navigate("/importar-cvs")}
+                iconLeft={<Upload size={16} />}
+              >
+                Importação em Lote
+              </Button>
               <Button 
                 onClick={() => navigate("/candidatos/novo")}
                 iconLeft={<Plus size={16} />}
@@ -216,6 +249,8 @@ export default function Candidates() {
           />
         </StatGrid>
 
+
+
         <PanelCard 
           title="Listagem de Candidatos" 
           description="Filtre e gerencie o banco de talentos da sua unidade."
@@ -223,37 +258,40 @@ export default function Candidates() {
         >
           <div className="space-y-8">
             <div className="flex flex-col gap-4 md:flex-row md:items-center">
-              <div className="relative flex-1">
-                <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" />
-                <input 
-                  type="text" 
-                  placeholder="Pesquisar por nome, cargo ou skill..." 
+              <div className="flex-1">
+                <Input
+                  icon={<Search size={14} />}
+                  placeholder="Pesquisar por nome, cargo ou skill..."
                   value={filters.search}
-                  onChange={(e) => setFilters(f => ({ ...f, search: e.target.value }))}
-                  className="w-full pl-12 pr-4 py-3 bg-zinc-50 border border-zinc-100 rounded-2xl text-xs font-semibold outline-none focus:ring-2 focus:ring-develoi-navy/10 focus:bg-white transition-all"
+                  onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))}
+                  className="h-12 rounded-2xl bg-zinc-50"
                 />
               </div>
-              <div className="flex items-center gap-3">
-                <select 
-                  className="px-5 py-3 bg-zinc-50 border border-zinc-100 rounded-2xl text-[10px] font-black uppercase tracking-widest outline-none focus:ring-2 focus:ring-develoi-navy/10 focus:bg-white transition-all cursor-pointer"
+              <div className="grid gap-3 sm:grid-cols-2 md:min-w-[420px]">
+                <Select
                   value={filters.status}
-                  onChange={(e) => setFilters(f => ({ ...f, status: e.target.value }))}
+                  onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))}
+                  className="h-12 rounded-2xl bg-zinc-50 text-[10px] font-black uppercase tracking-widest"
                 >
                   <option value="">Status: Todos</option>
                   {['Novo', 'Em análise', 'Compatível', 'Entrevista', 'Aprovado', 'Reprovado', 'Banco de talentos', 'Contratado'].map(s => (
                     <option key={s} value={s}>{s}</option>
                   ))}
-                </select>
-                <select 
-                  className="px-5 py-3 bg-zinc-50 border border-zinc-100 rounded-2xl text-[10px] font-black uppercase tracking-widest outline-none focus:ring-2 focus:ring-develoi-navy/10 focus:bg-white transition-all cursor-pointer"
+                </Select>
+                <Select
                   value={filters.source}
-                  onChange={(e) => setFilters(f => ({ ...f, source: e.target.value }))}
+                  onChange={(e) => setFilters((f) => ({ ...f, source: e.target.value }))}
+                  className="h-12 rounded-2xl bg-zinc-50 text-[10px] font-black uppercase tracking-widest"
                 >
                   <option value="">Origem: Todas</option>
-                  {['Manual', 'Portal', 'LinkedIn', 'Indicação', 'Importação'].map(s => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
+                  <option value="Manual">Manual</option>
+                  <option value="Portal">Portal</option>
+                  <option value="LinkedIn">LinkedIn</option>
+                  <option value="Indicação">Indicação</option>
+                  <option value="Importação">Importação</option>
+                  <option value="Importação em Massa">Importação em Lote</option>
+                  <option value="Importação em Lote">Importação em Lote</option>
+                </Select>
               </div>
             </div>
 
@@ -320,7 +358,9 @@ export default function Candidates() {
                              } size="sm">
                                {c.status}
                              </Badge>
-                             <span className="text-[10px] font-black text-zinc-300 uppercase tracking-[0.15em]">{c.source}</span>
+                             <span className="text-[10px] font-black text-zinc-300 uppercase tracking-[0.15em]">
+                               {getCandidateSourceLabel(c.source)}
+                             </span>
                           </div>
                         </div>
                       </div>

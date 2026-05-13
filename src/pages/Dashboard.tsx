@@ -3,36 +3,29 @@ import {
   Users, 
   Briefcase, 
   UserCheck, 
-  Clock, 
   TrendingUp, 
-  Calendar, 
-  Filter, 
-  RefreshCw, 
   Plus, 
-  Search, 
-  Sparkles, 
-  Zap, 
+  RefreshCw, 
+  Brain, 
+  Target, 
+  BarChart3, 
   AlertCircle, 
   CheckCircle2, 
-  Info, 
-  ChevronRight, 
-  Brain, 
-  FileText, 
-  Layers, 
-  Target, 
-  Wand2, 
-  Building2,
-  PieChart as PieChartIcon,
-  BarChart3,
-  ExternalLink,
-  MessageSquare,
+  ArrowRight,
   MapPin,
+  ChevronRight,
+  Sparkles,
+  MessageSquare,
+  Layers,
+  FileText,
+  Zap,
   Table
 } from "lucide-react";
 import { 
   StatCard, 
   PanelCard, 
   Badge, 
+  Button,
   useToast 
 } from "@/src/components/ui";
 import { getTenantId } from "@/src/lib/auth";
@@ -47,13 +40,11 @@ import {
   Cell,
   PieChart,
   Pie,
-  Legend,
-  AreaChart,
-  Area
+  Legend
 } from 'recharts';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from "@/src/lib/utils";
-import { useUnit, Unit } from "@/src/lib/useUnit";
+import { useUnit } from "@/src/lib/useUnit";
 import { Link } from "react-router-dom";
 
 export default function Dashboard() {
@@ -107,12 +98,7 @@ export default function Dashboard() {
             {data?.error || "Ocorreu um erro ao carregar os dados do dashboard de inteligência."}
           </p>
         </div>
-        <button 
-          onClick={fetchDashboardData}
-          className="px-8 py-3 bg-develoi-navy text-white rounded-2xl text-[10px] font-bold uppercase tracking-widest hover:bg-black transition-all shadow-lg shadow-develoi-navy/20 cursor-pointer"
-        >
-          Tentar Novamente
-        </button>
+        <Button onClick={fetchDashboardData}>Tentar Novamente</Button>
       </div>
     );
   }
@@ -121,22 +107,22 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-8 pb-20 px-8 py-10">
-      {/* Header */}
+      {/* Header Section */}
       <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 px-1">
         <div>
-           <h1 className="text-xl font-bold text-develoi-navy tracking-tight">Dashboard</h1>
-           <p className="text-[9px] font-semibold text-zinc-400 uppercase tracking-widest mt-1">Visão Geral do Ecossistema</p>
+           <h1 className="text-xl font-bold text-develoi-navy dark:text-white tracking-tight">Dashboard</h1>
+           <p className="text-[9px] font-semibold text-zinc-400 dark:text-white/40 uppercase tracking-widest mt-1">Visão Geral do Ecossistema</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-           <div className="flex items-center gap-2 bg-white border border-zinc-200 p-1.5 rounded-2xl shadow-sm">
-              <div className="px-2 text-[9px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-1.5 border-r border-zinc-100">
-                <Filter size={12} /> Filtros
+           <div className="flex items-center gap-2 bg-white dark:bg-white/5 border border-zinc-200 dark:border-white/10 p-1.5 rounded-2xl shadow-sm transition-colors">
+              <div className="px-2 text-[9px] font-bold text-zinc-400 dark:text-white/30 uppercase tracking-widest flex items-center gap-1.5 border-r border-zinc-100 dark:border-white/5">
+                <TrendingUp size={12} /> Filtros
               </div>
               <select 
                 value={period}
                 onChange={(e) => setPeriod(e.target.value)}
-                className="bg-transparent border-none outline-none text-[10px] font-semibold text-zinc-900 pr-2 cursor-pointer"
+                className="bg-transparent border-none outline-none text-[10px] font-semibold text-zinc-900 dark:text-white pr-2 cursor-pointer"
               >
                 <option value="7d">7 dias</option>
                 <option value="30d">30 dias</option>
@@ -145,14 +131,14 @@ export default function Dashboard() {
               </select>
            </div>
 
-           <div className="flex items-center gap-2 bg-white border border-zinc-200 p-1.5 rounded-2xl shadow-sm">
-              <div className="px-2 text-[9px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-1.5 border-r border-zinc-100">
-                <Building2 size={12} /> Unidade
+           <div className="flex items-center gap-2 bg-white dark:bg-white/5 border border-zinc-200 dark:border-white/10 p-1.5 rounded-2xl shadow-sm transition-colors">
+              <div className="px-2 text-[9px] font-bold text-zinc-400 dark:text-white/30 uppercase tracking-widest flex items-center gap-1.5 border-r border-zinc-100 dark:border-white/5">
+                <Table size={12} /> Unidade
               </div>
               <select 
                 value={selectedUnit}
                 onChange={(e) => setSelectedUnit(e.target.value)}
-                className="bg-transparent border-none outline-none text-[10px] font-semibold text-zinc-900 pr-2 cursor-pointer"
+                className="bg-transparent border-none outline-none text-[10px] font-semibold text-zinc-900 dark:text-white pr-2 cursor-pointer"
               >
                 <option value="master">Todas</option>
                 {units.map(u => (
@@ -161,16 +147,16 @@ export default function Dashboard() {
               </select>
            </div>
 
-           <div className="flex items-center gap-2 w-full sm:w-auto">
+           <div className="flex items-center gap-2">
               <button 
                 onClick={fetchDashboardData}
-                className="p-3 bg-white border border-zinc-200 text-zinc-400 rounded-2xl hover:text-develoi-navy hover:border-develoi-navy transition-all shadow-sm cursor-pointer shrink-0"
+                className="p-3 bg-white dark:bg-white/5 border border-zinc-200 dark:border-white/10 text-zinc-400 rounded-2xl hover:text-develoi-navy transition-all shadow-sm cursor-pointer"
               >
                  <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
               </button>
               <Link 
                 to="/vagas/nova"
-                className="flex-1 sm:flex-none px-5 py-3 bg-develoi-navy text-white rounded-2xl text-[10px] font-bold uppercase tracking-widest hover:bg-black transition-all flex items-center justify-center gap-2 shadow-lg shadow-develoi-navy/10"
+                className="px-5 py-3 bg-develoi-navy dark:bg-develoi-gold text-white rounded-2xl text-[10px] font-bold uppercase tracking-widest hover:bg-black transition-all flex items-center justify-center gap-2 shadow-lg"
               >
                  <Plus size={16} /> Nova Vaga
               </Link>
@@ -178,7 +164,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Main Metrics Grid */}
+      {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         {[
           { label: 'Vagas Ativas', value: data.stats.active_jobs, icon: Briefcase, color: 'navy' as const, trend: '+12%' },
@@ -200,75 +186,40 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* Alertas Inteligentes */}
-      {data.alerts && data.alerts.length > 0 && (
-        <div className="grid md:grid-cols-2 gap-4">
-          {data.alerts.map((alert: any, i: number) => (
-            <motion.div 
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: i * 0.1 }}
-              key={i} 
-              className={cn(
-                "p-4 rounded-3xl border flex items-start gap-4 shadow-sm",
-                alert.type === 'danger' ? "bg-red-50 border-red-100 text-red-900" : "bg-emerald-50 border-emerald-100 text-emerald-900"
-              )}
-            >
-               <div className={cn(
-                 "p-2 rounded-xl mt-1 shrink-0",
-                 alert.type === 'danger' ? "bg-red-100 text-red-600" : "bg-emerald-100 text-emerald-600"
-               )}>
-                  {alert.type === 'danger' ? <AlertCircle size={18} /> : <CheckCircle2 size={18} />}
-               </div>
-                <div className="flex-1">
-                  <p className="text-[9px] font-bold uppercase tracking-widest mb-1 opacity-60">{alert.title}</p>
-                  <p className="text-[11px] font-semibold leading-relaxed">{alert.message}</p>
-                  <button className="mt-3 text-[9px] font-bold uppercase tracking-widest flex items-center gap-1 hover:opacity-70 transition-opacity cursor-pointer">
-                    {alert.action} <ArrowRight size={10} />
-                  </button>
-                </div>
-            </motion.div>
-          ))}
-        </div>
-      )}
-
-      {/* Main Content Area */}
+      {/* AI Insights - Using PanelCard and custom layouts */}
       <div className="grid lg:grid-cols-12 gap-8">
         
-        {/* Recruitment Funnel & Charts */}
         <div className="lg:col-span-8 space-y-8">
-           <PanelCard title="Funil de Recrutamento" icon={TrendingUp} description="Etapas do processo">
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 lg:gap-4 py-4">
+           {/* Funnel Section */}
+           <PanelCard title="Funil de Recrutamento" icon={TrendingUp} description="Etapas do processo seletivo em tempo real">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 py-4">
                  {[
-                   { label: 'Triagem', count: data.funnel.find((f: any) => f.status === 'Triagem')?.count || 0, color: 'bg-zinc-100' },
-                   { label: 'IA Match', count: data.funnel.find((f: any) => f.status === 'IA Match')?.count || 0, color: 'bg-blue-50 text-blue-600 border border-blue-100' },
-                   { label: 'Entrevista', count: data.funnel.find((f: any) => f.status === 'Entrevista')?.count || 0, color: 'bg-purple-50 text-purple-600 border border-purple-100' },
-                   { label: 'Finalista', count: data.funnel.find((f: any) => f.status === 'Finalista')?.count || 0, color: 'bg-develoi-navy/5 text-develoi-navy border border-develoi-navy/10' },
-                   { label: 'Aprovado', count: data.funnel.find((f: any) => f.status === 'Aprovado')?.count || 0, color: 'bg-emerald-50 text-emerald-600 border border-emerald-100' },
-                   { label: 'Contratado', count: data.funnel.find((f: any) => f.status === 'Contratado')?.count || 0, color: 'bg-develoi-navy text-white shadow-lg' },
+                   { label: 'Triagem', count: data.funnel.find((f: any) => f.status === 'Triagem')?.count || 0, color: 'bg-zinc-100 dark:bg-white/5' },
+                   { label: 'IA Match', count: data.funnel.find((f: any) => f.status === 'IA Match')?.count || 0, color: 'bg-blue-50 text-blue-600 border border-blue-100 dark:bg-blue-500/10 dark:border-blue-500/20' },
+                   { label: 'Entrevista', count: data.funnel.find((f: any) => f.status === 'Entrevista')?.count || 0, color: 'bg-purple-50 text-purple-600 border border-purple-100 dark:bg-purple-500/10 dark:border-purple-500/20' },
+                   { label: 'Finalista', count: data.funnel.find((f: any) => f.status === 'Finalista')?.count || 0, color: 'bg-develoi-navy/5 text-develoi-navy border border-develoi-navy/10 dark:bg-develoi-gold/10 dark:text-develoi-gold' },
+                   { label: 'Aprovado', count: data.funnel.find((f: any) => f.status === 'Aprovado')?.count || 0, color: 'bg-emerald-50 text-emerald-600 border border-emerald-100 dark:bg-emerald-500/10 dark:border-emerald-500/20' },
+                   { label: 'Contratado', count: data.funnel.find((f: any) => f.status === 'Contratado')?.count || 0, color: 'bg-develoi-navy text-white shadow-lg dark:bg-develoi-gold' },
                  ].map((stage, i) => (
                    <div key={i} className="text-center group">
                       <div className={cn("h-10 rounded-xl flex items-center justify-center font-bold text-sm mb-2 transition-all group-hover:scale-105", stage.color)}>
                         {stage.count}
                       </div>
-                      <p className="text-[8px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">{stage.label}</p>
+                      <p className="text-[8px] font-bold text-zinc-400 dark:text-white/40 uppercase tracking-widest">{stage.label}</p>
                    </div>
                  ))}
               </div>
            </PanelCard>
 
            <div className="grid md:grid-cols-2 gap-6">
-              <PanelCard title="Compatibilidade Média" icon={BarChart3} description="Desempenho da IA por vaga aberta">
+              <PanelCard title="Compatibilidade Média" icon={BarChart3} description="Score médio da IA por vaga">
                  <div className="h-[250px] w-full">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={data.charts.compatibilityMedia}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f4f4f5" />
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f4f4f5" className="dark:stroke-white/5" />
                         <XAxis dataKey="name" fontSize={8} fontWeight={700} axisLine={false} tickLine={false} tick={{ fill: '#a1a1aa' }} />
                         <YAxis fontSize={8} fontWeight={700} axisLine={false} tickLine={false} tick={{ fill: '#a1a1aa' }} unit="%" />
-                        <Tooltip 
-                           contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '10px', fontWeight: 'bold' }}
-                           cursor={{ fill: '#fafafa' }}
-                        />
+                        <Tooltip contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '10px', fontWeight: 'bold' }} />
                         <Bar dataKey="value" radius={[8, 8, 0, 0]}>
                            {data.charts.compatibilityMedia.map((entry: any, index: number) => (
                             <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -279,17 +230,11 @@ export default function Dashboard() {
                  </div>
               </PanelCard>
 
-              <PanelCard title="Perfis DISC" icon={Brain} description="Distribuição predominante de comportamento">
+              <PanelCard title="Perfis DISC" icon={Brain} description="Predominância comportamental">
                  <div className="h-[250px] w-full flex items-center justify-center">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
-                        <Pie
-                          data={data.charts.discDistribution}
-                          innerRadius={60}
-                          outerRadius={80}
-                          paddingAngle={5}
-                          dataKey="value"
-                        >
+                        <Pie data={data.charts.discDistribution} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
                           {data.charts.discDistribution.map((entry: any, index: number) => (
                             <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                           ))}
@@ -305,15 +250,15 @@ export default function Dashboard() {
            <PanelCard title="Vagas Recentes" icon={Briefcase}>
               <div className="space-y-4">
                  {data.recentJobs.map((job: any) => (
-                   <div key={job.id} className="bg-white border border-zinc-100 p-4 rounded-3xl hover:border-zinc-900 transition-all group flex items-center justify-between">
+                   <div key={job.id} className="bg-white dark:bg-white/5 border border-zinc-100 dark:border-white/5 p-4 rounded-3xl hover:border-zinc-900 transition-all group flex items-center justify-between">
                       <div className="flex items-center gap-4">
-                         <div className="w-12 h-12 bg-zinc-50 rounded-2xl flex items-center justify-center text-zinc-400 group-hover:bg-zinc-900 group-hover:text-white transition-all">
+                         <div className="w-12 h-12 bg-zinc-50 dark:bg-white/10 rounded-2xl flex items-center justify-center text-zinc-400 group-hover:bg-zinc-900 group-hover:text-white transition-all">
                             <Briefcase size={24} />
                          </div>
                          <div>
-                            <h4 className="text-sm font-bold text-zinc-900">{job.title}</h4>
+                            <h4 className="text-sm font-bold text-zinc-900 dark:text-white">{job.title}</h4>
                             <div className="flex items-center gap-3 mt-1">
-                               <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-1">
+                               <span className="text-[9px] font-bold text-zinc-400 dark:text-white/40 uppercase tracking-widest flex items-center gap-1">
                                  <MapPin size={10} /> {job.city}, {job.state}
                                </span>
                                <Badge color={job.status === 'Aberta' ? 'success' : 'default'} size="sm">{job.status}</Badge>
@@ -323,193 +268,118 @@ export default function Dashboard() {
 
                       <div className="flex items-center gap-6">
                          <div className="text-right">
-                            <p className="text-xs font-bold text-zinc-900">{job.candidates_count}</p>
+                            <p className="text-xs font-bold text-zinc-900 dark:text-white">{job.candidates_count}</p>
                             <p className="text-[8px] font-bold text-zinc-400 uppercase tracking-widest">Inscritos</p>
                          </div>
                          <div className="text-right">
                             <p className="text-xs font-bold text-emerald-600">{job.compatible_count}</p>
                             <p className="text-[8px] font-bold text-zinc-400 uppercase tracking-widest">Compatíveis</p>
                          </div>
-                         <Link to={`/vagas/${job.id}`} className="p-2 text-zinc-300 hover:text-zinc-900">
+                         <Link to={`/vagas/${job.id}`} className="p-2 text-zinc-300 hover:text-zinc-900 dark:hover:text-white">
                            <ChevronRight size={20} />
                          </Link>
                       </div>
                    </div>
                  ))}
-                 {data.recentJobs.length === 0 && (
-                   <div className="py-20 text-center opacity-30 flex flex-col items-center gap-3 border-2 border-dashed border-zinc-200 rounded-[40px]">
-                      <Briefcase size={40} />
-                      <span className="text-[10px] font-bold uppercase tracking-widest">Nenhuma vaga cadastrada</span>
-                      <Link to="/vagas/nova" className="text-blue-600 underline">Criar Vaga</Link>
-                   </div>
-                 )}
               </div>
            </PanelCard>
         </div>
 
-        {/* AI Insights & Recommended */}
         <div className="lg:col-span-4 space-y-8">
-           
-           <div className="bg-develoi-navy rounded-[32px] p-6 lg:p-8 text-white relative overflow-hidden shadow-2xl">
+           <div className="bg-develoi-navy dark:bg-[#0d1b3e] rounded-[32px] p-8 text-white relative overflow-hidden shadow-2xl">
               <div className="absolute top-0 right-0 w-48 h-48 bg-develoi-blue/10 rounded-full blur-3xl opacity-50 -mr-20 -mt-20" />
               <div className="relative z-10">
                  <div className="flex items-center gap-3 mb-6">
-                   <div className="w-10 h-10 bg-white/10 rounded-2xl flex items-center justify-center text-develoi-gold">
-                      <Sparkles size={20} />
-                   </div>
-                   <div>
-                      <h3 className="text-xs font-black uppercase tracking-[0.2em] text-develoi-gold">Aurora AI Advisor</h3>
-                      <p className="text-[9px] font-bold text-white/40">ANÁLISE EM TEMPO REAL</p>
-                   </div>
-                </div>
-                
-                <div className="space-y-6 mb-8">
-                   <div className="p-4 bg-white/5 rounded-2xl border border-white/10">
-                      <p className="text-xs font-bold leading-relaxed italic opacity-90 text-white">
-                        "Sua taxa de conversão de <span className="text-develoi-gold">Pendente</span> para <span className="text-develoi-gold">Entrevista</span> aumentou 15% após a última triagem automática."
-                      </p>
-                   </div>
-                   <div className="p-4 bg-white/5 rounded-2xl border border-white/10">
-                      <p className="text-xs font-bold leading-relaxed italic opacity-90 text-white">
-                        "A vaga <span className="text-develoi-gold">Analista Financeiro</span> está com excesso de candidatos abaixo de 60% de compatibilidade."
-                      </p>
-                   </div>
-                </div>
-
-                <Link to="/auroraai" className="w-full py-4 bg-white text-zinc-900 rounded-2xl text-[10px] font-bold uppercase tracking-widest hover:bg-zinc-100 transition-all flex items-center justify-center gap-2 shadow-lg">
-                  <MessageSquare size={16} /> Abrir Consultoria Completa
-                </Link>
+                    <div className="w-10 h-10 bg-white/10 rounded-2xl flex items-center justify-center text-develoi-gold">
+                       <Sparkles size={20} />
+                    </div>
+                    <div>
+                       <h3 className="text-xs font-black uppercase tracking-[0.2em] text-develoi-gold">Aurora AI Advisor</h3>
+                       <p className="text-[9px] font-bold text-white/40 uppercase">Inteligência Artificial</p>
+                    </div>
+                 </div>
+                 <div className="space-y-4 mb-8">
+                    <p className="text-xs font-bold leading-relaxed italic opacity-90">
+                      "Sua taxa de conversão de Pendente para Entrevista aumentou 15%."
+                    </p>
+                    <p className="text-xs font-bold leading-relaxed italic opacity-90">
+                      "Analista Financeiro com excesso de candidatos abaixo de 60%."
+                    </p>
+                 </div>
+                 <Button className="w-full bg-white text-zinc-900 hover:bg-zinc-100" iconLeft={<MessageSquare size={16} />}>
+                   Consultoria Completa
+                 </Button>
               </div>
            </div>
 
-           <PanelCard title="Talentos Recomendados" icon={Target} description="Top matchings recentes">
+           <PanelCard title="Talentos Recomendados" icon={Target}>
               <div className="space-y-4">
                  {data.recommendations.map((rec: any) => (
-                   <div key={rec.id} className="p-4 bg-zinc-50 border border-zinc-100 rounded-2xl hover:border-zinc-900 transition-all group">
+                   <div key={rec.id} className="p-4 bg-zinc-50 dark:bg-white/5 border border-zinc-100 dark:border-white/5 rounded-2xl hover:border-zinc-900 transition-all group">
                       <div className="flex justify-between items-start mb-3">
                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-white border border-zinc-200 flex items-center justify-center font-black text-zinc-400 group-hover:bg-zinc-900 group-hover:text-white transition-all text-[10px]">
+                            <div className="w-10 h-10 rounded-full bg-white dark:bg-white/10 border border-zinc-200 flex items-center justify-center font-black text-zinc-400 group-hover:bg-zinc-900 group-hover:text-white transition-all text-[10px]">
                                {rec.full_name.split(' ').map((n: string) => n[0]).join('')}
                             </div>
                             <div>
-                               <h5 className="text-[11px] font-black text-zinc-900">{rec.full_name}</h5>
+                               <h5 className="text-[11px] font-black text-zinc-900 dark:text-white">{rec.full_name}</h5>
                                <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">{rec.job_title}</p>
                             </div>
                          </div>
-                         <div className="text-right">
-                            <span className="text-xs font-black text-blue-600">{rec.compatibility_score}%</span>
-                         </div>
+                         <span className="text-xs font-black text-blue-600 dark:text-develoi-gold">{rec.compatibility_score}%</span>
                       </div>
                       <div className="flex items-center justify-between">
-                         <div className="flex items-center gap-1.5 grayscale opacity-60">
-                            {[1, 2, 3].map(tagId => (
-                               <React.Fragment key={tagId}>
-                                  <Badge size="sm" color="default">Tag {tagId}</Badge>
-                               </React.Fragment>
-                            ))}
+                         <div className="flex gap-1">
+                            <Badge size="sm">Tag 1</Badge>
+                            <Badge size="sm">Tag 2</Badge>
                          </div>
-                         <Link to={`/candidatos/${rec.id}`} className="text-[9px] font-bold uppercase tracking-widest text-zinc-400 hover:text-zinc-900 flex items-center gap-1">
+                         <Link to={`/candidatos/${rec.id}`} className="text-[9px] font-bold uppercase text-zinc-400 hover:text-zinc-900 flex items-center gap-1">
                             Perfil <ChevronRight size={10} />
-                         </Link>
+                          </Link>
                       </div>
                    </div>
                  ))}
-                 {data.recommendations.length === 0 && (
-                    <div className="py-12 text-center text-zinc-300 italic text-[10px]">
-                      Nenhum candidato de alto fit encontrado
-                    </div>
-                 )}
               </div>
            </PanelCard>
 
-           <PanelCard title="Importações Recentes" icon={Layers}>
-              <div className="space-y-4">
-                 {data.recentImports.map((imp: any) => (
-                   <div key={imp.id} className="flex items-center justify-between group cursor-pointer" onClick={() => window.location.href='/importar'}>
-                      <div className="flex items-center gap-3">
-                         <div className="p-2 bg-zinc-50 rounded-xl text-zinc-400 group-hover:bg-zinc-900 group-hover:text-white transition-all">
-                            <FileText size={16} />
-                         </div>
-                         <div>
-                            <h5 className="text-[11px] font-bold text-zinc-800 truncate max-w-[120px]">{imp.name}</h5>
-                            <p className="text-[8px] font-medium text-zinc-400 uppercase tracking-widest">{new Date(imp.created_at).toLocaleDateString()}</p>
-                         </div>
-                      </div>
-                      <div className="text-right">
-                         <p className="text-[10px] font-black text-zinc-900">{imp.processed_files}/{imp.total_files}</p>
-                         <div className="w-16 h-1 bg-zinc-100 rounded-full mt-1 overflow-hidden">
-                            <div 
-                              className="h-full bg-blue-500 transition-all" 
-                              style={{ width: `${(imp.processed_files / imp.total_files) * 100}%` }} 
-                            />
-                         </div>
-                      </div>
-                   </div>
-                 ))}
-                 <Link to="/importar" className="block text-center text-[9px] font-bold text-blue-600 uppercase tracking-widest hover:underline pt-2">
-                    Gerenciar Importações
-                 </Link>
-              </div>
-           </PanelCard>
-
-           <div className="p-6 bg-white border border-zinc-200 rounded-[32px]">
+           <div className="p-6 bg-white dark:bg-white/5 border border-zinc-200 dark:border-white/10 rounded-[32px]">
               <div className="flex items-center gap-2 mb-4">
                  <Zap size={14} className="text-amber-500" />
-                 <h4 className="text-[10px] font-bold text-zinc-900 uppercase tracking-widest">Próximas Ações</h4>
+                 <h4 className="text-[10px] font-bold text-zinc-900 dark:text-white uppercase tracking-widest">Próximas Ações</h4>
               </div>
               <ul className="space-y-3">
-                 {[
-                   "Revisar candidatos Caminhoneiro",
-                   "Confirmar 10 duplicidades em 'Lote Abril'",
-                   "Enviar DISC para 15 candidatos novos",
-                   "Atualizar requisitos da vaga CTO"
-                 ].map((todo, i) => (
+                 {["Revisar candidatos Caminhoneiro", "Confirmar duplicidades Lote Abril"].map((todo, i) => (
                    <li key={i} className="flex items-start gap-2 group cursor-pointer">
-                      <div className="w-4 h-4 rounded border border-zinc-200 mt-0.5 flex items-center justify-center group-hover:border-zinc-900 transition-all shrink-0">
-                         <Check size={10} className="text-zinc-900 opacity-0 group-hover:opacity-100" />
+                      <div className="w-4 h-4 rounded border border-zinc-200 dark:border-white/20 mt-0.5 flex items-center justify-center group-hover:border-zinc-900">
+                         <div className="w-2 h-2 bg-zinc-900 opacity-0 group-hover:opacity-100 rounded-sm" />
                       </div>
-                      <span className="text-[11px] font-medium text-zinc-600 group-hover:text-zinc-900">{todo}</span>
+                      <span className="text-[11px] font-medium text-zinc-600 dark:text-white/60">{todo}</span>
                    </li>
                  ))}
               </ul>
            </div>
-
         </div>
       </div>
 
-      {/* Unit Summary Table */}
       {data.unitSummary && data.unitSummary.length > 0 && (
-         <PanelCard title="Resumo por Unidade" icon={Table} description="Visão consolidada do ecossistema por unidade de negócio">
+         <PanelCard title="Resumo por Unidade" icon={Table}>
             <div className="overflow-x-auto">
                <table className="w-full text-left">
                   <thead>
-                     <tr className="border-b border-zinc-100">
-                        <th className="py-4 text-[9px] font-black uppercase tracking-widest text-zinc-400">Unidade</th>
-                        <th className="py-4 text-[9px] font-black uppercase tracking-widest text-zinc-400">Vagas Ativas</th>
-                        <th className="py-4 text-[9px] font-black uppercase tracking-widest text-zinc-400">Candidatos</th>
-                        <th className="py-4 text-[9px] font-black uppercase tracking-widest text-zinc-400">Contratações</th>
-                        <th className="py-4 text-[9px] font-black uppercase tracking-widest text-zinc-400">Status</th>
+                     <tr className="border-b border-zinc-100 dark:border-white/5">
+                        <th className="py-4 text-[9px] font-black uppercase text-zinc-400">Unidade</th>
+                        <th className="py-4 text-[9px] font-black uppercase text-zinc-400">Vagas</th>
+                        <th className="py-4 text-[9px] font-black uppercase text-zinc-400">Status</th>
                      </tr>
                   </thead>
-                  <tbody className="divide-y divide-zinc-50">
+                  <tbody>
                      {data.unitSummary.map((unit: any) => (
-                        <tr key={unit.id} className="group hover:bg-zinc-50 transition-colors">
+                        <tr key={unit.id} className="border-b border-zinc-50 dark:border-white/5">
                            <td className="py-4">
-                              <p className="text-xs font-black text-zinc-900">{unit.name}</p>
-                              <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">ID: {unit.id}</p>
+                              <p className="text-xs font-black text-zinc-900 dark:text-white">{unit.name}</p>
                            </td>
-                           <td className="py-4">
-                              <span className="text-xs font-bold text-zinc-600">{unit.active_jobs}</span>
-                           </td>
-                           <td className="py-4">
-                              <span className="text-xs font-bold text-zinc-600">{unit.total_candidates}</span>
-                           </td>
-                           <td className="py-4">
-                              <span className="text-xs font-bold text-emerald-600">+{unit.hires}</span>
-                           </td>
-                           <td className="py-4">
-                              <Badge color="success" size="sm">Ativa</Badge>
-                           </td>
+                           <td className="py-4 text-xs font-bold text-zinc-600 dark:text-white/60">{unit.active_jobs}</td>
+                           <td className="py-4"><Badge color="success" size="sm">Ativa</Badge></td>
                         </tr>
                      ))}
                   </tbody>
@@ -518,44 +388,5 @@ export default function Dashboard() {
          </PanelCard>
       )}
     </div>
-  );
-}
-
-function Check({ className, size = 16 }: { className?: string, size?: number }) {
-  return (
-    <svg 
-      xmlns="http://www.w3.org/2000/svg" 
-      width={size} 
-      height={size} 
-      viewBox="0 0 24 24" 
-      fill="none" 
-      stroke="currentColor" 
-      strokeWidth="4" 
-      strokeLinecap="round" 
-      strokeLinejoin="round" 
-      className={className}
-    >
-      <polyline points="20 6 9 17 4 12" />
-    </svg>
-  );
-}
-
-function ArrowRight({ className, size = 16 }: { className?: string, size?: number }) {
-  return (
-    <svg 
-      xmlns="http://www.w3.org/2000/svg" 
-      width={size} 
-      height={size} 
-      viewBox="0 0 24 24" 
-      fill="none" 
-      stroke="currentColor" 
-      strokeWidth="3" 
-      strokeLinecap="round" 
-      strokeLinejoin="round" 
-      className={className}
-    >
-      <path d="M5 12h14" />
-      <path d="m12 5 7 7-7 7" />
-    </svg>
   );
 }
