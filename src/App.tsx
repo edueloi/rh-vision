@@ -143,6 +143,7 @@ function AppContent() {
   }, [notifOpen]);
 
   const isSuperAdmin = isRootAdmin(user);
+  const isAdminMestre = user?.access_profile === "admin-mestre" || user?.role === "admin";
   const isRootShell = isSuperAdmin && location.pathname.startsWith("/super-admin");
   const permissions = useMemo(() => getPermissionsForUser(user), [user]);
   const legacyPortalMode = new URLSearchParams(location.search).get("mode") === "portal";
@@ -357,35 +358,77 @@ function AppContent() {
           </button>
         </div>
 
-        {/* Unit selector */}
-        {!isRootShell && (
+        {/* Unit selector — visível apenas para Admin Mestre */}
+        {!isRootShell && isAdminMestre && (
           <div className="px-4 mb-2">
+            <p className="text-[8px] font-black text-white/20 uppercase tracking-[0.2em] mb-1.5 px-1">Visualizando</p>
             <div className="relative">
               <button
                 onClick={() => setUnitMenuOpen(v => !v)}
-                className="flex w-full items-center gap-2.5 rounded-xl bg-white/5 border border-white/8 px-3 py-2.5 text-left hover:bg-white/10 transition-all"
+                className={cn(
+                  "flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left transition-all border",
+                  unitMenuOpen
+                    ? "bg-develoi-gold/10 border-develoi-gold/30"
+                    : "bg-white/5 border-white/8 hover:bg-white/10 hover:border-white/15"
+                )}
               >
-                <div className="w-6 h-6 rounded-lg bg-develoi-gold/20 flex items-center justify-center shrink-0">
-                  <Building2 size={11} className="text-develoi-gold" />
+                <div className={cn(
+                  "w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-colors",
+                  unitMenuOpen ? "bg-develoi-gold/25" : "bg-develoi-gold/15"
+                )}>
+                  <Building2 size={12} className="text-develoi-gold" />
                 </div>
-                <span className="flex-1 text-[10px] font-bold text-white/80 truncate uppercase tracking-wide">{currentUnit.name}</span>
-                <ChevronDown size={12} className={cn("text-white/30 transition-transform shrink-0", unitMenuOpen && "rotate-180")} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] font-black text-white truncate leading-none">{currentUnit.name}</p>
+                  {currentUnit.location && currentUnit.location !== "Todas" && (
+                    <p className="text-[9px] text-white/30 mt-0.5 truncate">{currentUnit.location}</p>
+                  )}
+                  {(currentUnit.is_master === 1 || currentUnit.id === "master") && (
+                    <p className="text-[9px] text-develoi-gold/60 mt-0.5">Todas as unidades</p>
+                  )}
+                </div>
+                <ChevronDown size={12} className={cn("text-white/30 transition-transform duration-200 shrink-0", unitMenuOpen && "rotate-180 text-develoi-gold/60")} />
               </button>
               <AnimatePresence>
                 {unitMenuOpen && (
-                  <div className="absolute left-0 right-0 top-full z-10 mt-1 rounded-xl border border-white/10 bg-[#0d1f3c] shadow-2xl overflow-hidden">
-                    {units.map(unit => (
-                      <button
-                        key={unit.id}
-                        onClick={() => handleUnitChange(unit)}
-                        className={cn(
-                          "w-full px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wide transition-colors",
-                          currentUnit.id === unit.id ? "bg-develoi-gold/15 text-develoi-gold" : "text-white/50 hover:bg-white/5 hover:text-white"
-                        )}
-                      >
-                        {unit.name}
-                      </button>
-                    ))}
+                  <div className="absolute left-0 right-0 top-full z-20 mt-1.5 rounded-xl border border-white/10 bg-[#091829] shadow-2xl shadow-black/40 overflow-hidden">
+                    <div className="p-1.5">
+                      <p className="px-3 py-1.5 text-[8px] font-black text-white/20 uppercase tracking-widest">Selecionar Unidade</p>
+                      {units.map(unit => {
+                        const isActive = currentUnit.id === unit.id;
+                        const isMasterUnit = unit.is_master === 1;
+                        return (
+                          <button
+                            key={unit.id}
+                            onClick={() => handleUnitChange(unit)}
+                            className={cn(
+                              "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all",
+                              isActive ? "bg-develoi-gold/15 text-develoi-gold" : "text-white/50 hover:bg-white/5 hover:text-white"
+                            )}
+                          >
+                            <div className={cn(
+                              "w-6 h-6 rounded-md flex items-center justify-center shrink-0",
+                              isActive ? "bg-develoi-gold/20" : "bg-white/5"
+                            )}>
+                              <Building2 size={10} className={isActive ? "text-develoi-gold" : "text-white/30"} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[10px] font-black uppercase tracking-wide truncate leading-none">{unit.name}</p>
+                              {isMasterUnit ? (
+                                <p className="text-[8px] mt-0.5 opacity-60">Todas as unidades</p>
+                              ) : unit.location && unit.location !== "Todas" ? (
+                                <p className="text-[8px] mt-0.5 opacity-60 truncate">{unit.location}</p>
+                              ) : null}
+                            </div>
+                            {isActive && (
+                              <div className="w-4 h-4 rounded-full bg-develoi-gold/20 flex items-center justify-center shrink-0">
+                                <div className="w-1.5 h-1.5 rounded-full bg-develoi-gold" />
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </AnimatePresence>
