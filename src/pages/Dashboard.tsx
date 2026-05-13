@@ -8,7 +8,6 @@ import {
   TrendingUp,
   Plus,
   RefreshCw,
-  AlertCircle,
   Sparkles,
   MessageSquare,
   Layers,
@@ -18,8 +17,8 @@ import {
   MapPin,
   BarChart3,
   Building2,
-  Filter,
-  ArrowUpRight,
+  CheckCircle2,
+  Circle,
 } from "lucide-react";
 import {
   StatCard,
@@ -40,12 +39,7 @@ import {
   PieChart,
   Pie,
   Legend,
-  LineChart,
-  Line,
-  Area,
-  AreaChart,
 } from "recharts";
-import { motion, AnimatePresence } from "motion/react";
 import { cn } from "@/src/lib/utils";
 import { useUnit } from "@/src/lib/useUnit";
 import { Link } from "react-router-dom";
@@ -71,6 +65,11 @@ export default function Dashboard() {
   const [period, setPeriod] = useState("30d");
   const [data, setData] = useState<any>(null);
   const [selectedUnit, setSelectedUnit] = useState<string>(queryUnitId);
+  const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({});
+
+  const toggleCheck = (key: string) => {
+    setCheckedItems(prev => ({ ...prev, [key]: !prev[key] }));
+  };
 
   useEffect(() => { setSelectedUnit(queryUnitId); }, [queryUnitId]);
 
@@ -107,7 +106,7 @@ export default function Dashboard() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6">
         <div className="w-16 h-16 bg-red-50 text-red-500 rounded-3xl flex items-center justify-center">
-          <AlertCircle size={32} />
+          <RefreshCw size={28} />
         </div>
         <div className="text-center space-y-1">
           <h2 className="text-sm font-black text-zinc-900 uppercase tracking-tight">
@@ -122,7 +121,7 @@ export default function Dashboard() {
     );
   }
 
-  const { stats, funnel, recentJobs, recommendations, recentImports, charts, alerts, unitSummary } = data;
+  const { stats, funnel, recentJobs, recommendations, recentImports, charts, unitSummary } = data;
   const funnelTotal = FUNNEL_STAGES.reduce(
     (sum, s) => sum + (funnel.find((f: any) => f.status === s.key)?.count || 0), 0
   );
@@ -197,41 +196,6 @@ export default function Dashboard() {
           </Link>
         </div>
       </div>
-
-      {/* ── ALERTAS ── */}
-      <AnimatePresence>
-        {alerts && alerts.length > 0 && (
-          <div className="grid sm:grid-cols-2 gap-3">
-            {alerts.map((alert: any, i: number) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, y: -8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.05 }}
-                className={cn(
-                  "flex items-start gap-3 rounded-2xl border p-4",
-                  alert.type === "danger"
-                    ? "bg-red-50 border-red-100 dark:bg-red-500/10 dark:border-red-500/20"
-                    : "bg-emerald-50 border-emerald-100 dark:bg-emerald-500/10 dark:border-emerald-500/20"
-                )}
-              >
-                <div className={cn(
-                  "w-8 h-8 rounded-xl flex items-center justify-center shrink-0",
-                  alert.type === "danger"
-                    ? "bg-red-100 text-red-600 dark:bg-red-500/20"
-                    : "bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20"
-                )}>
-                  <AlertCircle size={15} />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[9px] font-black uppercase tracking-widest text-zinc-400 mb-0.5">{alert.title}</p>
-                  <p className="text-[11px] font-semibold text-zinc-700 dark:text-white/80 leading-snug">{alert.message}</p>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        )}
-      </AnimatePresence>
 
       {/* ── STATS ── */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
@@ -568,37 +532,131 @@ export default function Dashboard() {
             </div>
           </PanelCard>
 
-          {/* Ações rápidas */}
-          <div className="rounded-3xl border border-zinc-100 dark:border-white/10 bg-white dark:bg-white/5 p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-6 h-6 rounded-lg bg-amber-50 dark:bg-develoi-gold/10 flex items-center justify-center">
-                <Zap size={13} className="text-amber-500 dark:text-develoi-gold" />
-              </div>
-              <h4 className="text-[10px] font-black text-zinc-900 dark:text-white uppercase tracking-widest">Ações Rápidas</h4>
-            </div>
-            <div className="space-y-2">
-              {[
-                { label: "Nova Vaga",          to: "/vagas/nova",    icon: Briefcase },
-                { label: "Importar CVs",        to: "/importar-cvs", icon: FileText },
-                { label: "Ver Candidatos",      to: "/candidatos",   icon: Users },
-                { label: "Abrir Aurora AI",     to: "/aurora-ai",    icon: Brain },
-              ].map((action) => (
-                <Link
-                  key={action.to}
-                  to={action.to}
-                  className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl hover:bg-zinc-50 dark:hover:bg-white/5 transition-all group"
-                >
-                  <div className="w-7 h-7 rounded-lg bg-zinc-100 dark:bg-white/10 flex items-center justify-center text-zinc-400 dark:text-white/30 group-hover:bg-develoi-navy group-hover:text-white dark:group-hover:bg-develoi-gold dark:group-hover:text-develoi-navy transition-all shrink-0">
-                    <action.icon size={13} />
+          {/* Checklist */}
+          {(() => {
+            const jobsSemCandidatos = recentJobs.filter((j: any) => j.candidates_count === 0 && j.status === "Aberta").length;
+            const importacoesIncompletas = (recentImports || []).filter((i: any) => i.processed_files < i.total_files).length;
+            const topTalentos = recommendations.filter((r: any) => r.compatibility_score >= 90).length;
+
+            const items: { key: string; label: string; done: boolean; to?: string; icon: React.ElementType }[] = [
+              {
+                key: "vagas_ativas",
+                label: stats.active_jobs > 0 ? `${stats.active_jobs} vaga${stats.active_jobs > 1 ? "s" : ""} ativa${stats.active_jobs > 1 ? "s" : ""} publicada${stats.active_jobs > 1 ? "s" : ""}` : "Publicar ao menos 1 vaga",
+                done: stats.active_jobs > 0,
+                to: "/vagas",
+                icon: Briefcase,
+              },
+              {
+                key: "candidatos_cadastrados",
+                label: stats.total_candidates > 0 ? `${stats.total_candidates} candidato${stats.total_candidates > 1 ? "s" : ""} cadastrado${stats.total_candidates > 1 ? "s" : ""}` : "Importar candidatos",
+                done: stats.total_candidates > 0,
+                to: "/importar-cvs",
+                icon: Users,
+              },
+              {
+                key: "sem_candidatos",
+                label: jobsSemCandidatos > 0 ? `${jobsSemCandidatos} vaga${jobsSemCandidatos > 1 ? "s" : ""} sem candidatos — revisar` : "Todas as vagas têm candidatos",
+                done: jobsSemCandidatos === 0,
+                to: "/vagas",
+                icon: Target,
+              },
+              {
+                key: "importacoes",
+                label: importacoesIncompletas > 0 ? `${importacoesIncompletas} lote${importacoesIncompletas > 1 ? "s" : ""} com processamento pendente` : "Importações em dia",
+                done: importacoesIncompletas === 0,
+                to: "/importar-cvs",
+                icon: FileText,
+              },
+              {
+                key: "top_talentos",
+                label: topTalentos > 0 ? `${topTalentos} talento${topTalentos > 1 ? "s" : ""} +90% aguardando revisão` : "Rodar análise de compatibilidade",
+                done: topTalentos > 0,
+                to: "/candidatos",
+                icon: Brain,
+              },
+              {
+                key: "disc",
+                label: stats.tool_responses > 0 ? `${stats.tool_responses} avaliação DISC respondida${stats.tool_responses > 1 ? "s" : ""}` : "Enviar DISC aos candidatos",
+                done: stats.tool_responses > 0,
+                to: "/ferramentas",
+                icon: Zap,
+              },
+            ];
+
+            const doneCount = items.filter(i => i.done).length;
+
+            return (
+              <div className="rounded-3xl border border-zinc-100 dark:border-white/10 bg-white dark:bg-white/5 p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-lg bg-amber-50 dark:bg-develoi-gold/10 flex items-center justify-center">
+                      <Zap size={13} className="text-amber-500 dark:text-develoi-gold" />
+                    </div>
+                    <h4 className="text-[10px] font-black text-zinc-900 dark:text-white uppercase tracking-widest">Checklist</h4>
                   </div>
-                  <span className="text-[11px] font-black text-zinc-600 dark:text-white/60 group-hover:text-zinc-900 dark:group-hover:text-white transition-colors uppercase tracking-widest">
-                    {action.label}
+                  <span className="text-[10px] font-black text-zinc-400 dark:text-white/30 tabular-nums">
+                    {doneCount}/{items.length}
                   </span>
-                  <ChevronRight size={12} className="ml-auto text-zinc-300 dark:text-white/20 group-hover:text-zinc-600 dark:group-hover:text-white/60 transition-colors" />
-                </Link>
-              ))}
-            </div>
-          </div>
+                </div>
+
+                {/* Barra de progresso */}
+                <div className="h-1.5 w-full bg-zinc-100 dark:bg-white/10 rounded-full mb-4 overflow-hidden">
+                  <div
+                    className="h-full bg-develoi-navy dark:bg-develoi-gold rounded-full transition-all duration-500"
+                    style={{ width: `${(doneCount / items.length) * 100}%` }}
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  {items.map((item) => {
+                    const Icon = item.icon;
+                    const content = (
+                      <div
+                        key={item.key}
+                        className={cn(
+                          "flex items-center gap-3 w-full px-3 py-2.5 rounded-xl transition-all group",
+                          item.done
+                            ? "opacity-50"
+                            : "hover:bg-zinc-50 dark:hover:bg-white/5 cursor-pointer"
+                        )}
+                      >
+                        <div className="shrink-0">
+                          {item.done ? (
+                            <CheckCircle2 size={16} className="text-emerald-500" />
+                          ) : (
+                            <Circle size={16} className="text-zinc-300 dark:text-white/20 group-hover:text-develoi-navy dark:group-hover:text-develoi-gold transition-colors" />
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <Icon size={12} className={cn(
+                            "shrink-0 transition-colors",
+                            item.done ? "text-emerald-400" : "text-zinc-400 dark:text-white/30 group-hover:text-develoi-navy dark:group-hover:text-develoi-gold"
+                          )} />
+                          <span className={cn(
+                            "text-[11px] font-semibold truncate transition-colors",
+                            item.done
+                              ? "line-through text-zinc-400 dark:text-white/30"
+                              : "text-zinc-700 dark:text-white/70 group-hover:text-zinc-900 dark:group-hover:text-white"
+                          )}>
+                            {item.label}
+                          </span>
+                        </div>
+                        {!item.done && (
+                          <ChevronRight size={12} className="shrink-0 text-zinc-300 dark:text-white/20 group-hover:text-zinc-500 transition-colors" />
+                        )}
+                      </div>
+                    );
+
+                    return item.to && !item.done ? (
+                      <Link key={item.key} to={item.to}>{content}</Link>
+                    ) : (
+                      <div key={item.key}>{content}</div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
         </div>
       </div>
     </div>
