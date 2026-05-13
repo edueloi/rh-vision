@@ -343,10 +343,12 @@ function AppContent() {
             </div>
           ) : (
             <div className="flex items-center gap-3">
-              <img src="/icon_logo_recruteia.png" alt="Recrute IA" className="h-9 w-9 object-contain shrink-0" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white shadow-md shrink-0 overflow-hidden">
+                <img src="/icon_logo_recruteia.png" alt="Recrute IA" className="h-7 w-7 object-contain" />
+              </div>
               <div>
                 <p className="text-[13px] font-black text-white leading-none tracking-tight">Recrute <span className="text-develoi-gold">IA</span></p>
-                <p className="text-[9px] text-white/30 font-bold uppercase tracking-widest mt-0.5 truncate max-w-[110px]">{user?.tenant_name || "Plataforma"}</p>
+                <p className="text-[9px] text-white/40 font-bold uppercase tracking-widest mt-0.5 truncate max-w-[110px]">{user?.tenant_name || "Develoi"}</p>
               </div>
             </div>
           )}
