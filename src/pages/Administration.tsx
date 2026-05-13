@@ -367,16 +367,16 @@ export default function Administration() {
                 padding={false}
                 color={isMasterUnit ? "#c59b4d" : "#2a74ac"}
               >
-                <div className="absolute right-0 top-0 h-24 w-24 -mr-12 -mt-12 rounded-full bg-develoi-navy/5 transition-all group-hover:bg-develoi-navy/10" />
+                <div className="absolute right-0 top-0 h-24 w-24 -mr-12 -mt-12 rounded-full bg-primary/5 transition-all group-hover:bg-primary/10" />
 
                 <div className="relative flex items-start justify-between gap-4">
                   <div
                     className={cn(
                       "flex h-14 w-14 items-center justify-center rounded-2xl",
                       isMasterUnit
-                        ? "bg-develoi-navy text-white"
+                        ? "bg-primary text-white"
                         : unit.parent_id
-                          ? "bg-develoi-navy/10 text-develoi-navy"
+                          ? "bg-primary/10 text-primary"
                           : "bg-zinc-100 text-zinc-700"
                     )}
                   >
@@ -574,7 +574,7 @@ export default function Administration() {
                 label="Nome de Exibição"
                 value={unitForm.name}
                 onChange={(e) => setUnitForm({ ...unitForm, name: e.target.value })}
-                placeholder="Ex: Develoi - Filial Sul"
+                placeholder="Ex: Matriz - São Paulo"
                 required
                 className="h-11 rounded-2xl bg-zinc-50 text-sm font-bold"
                 containerClassName="md:col-span-2"

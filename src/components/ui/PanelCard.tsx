@@ -37,7 +37,7 @@ export function PanelCard({
   return (
     <section
       className={cn(
-        "overflow-hidden rounded-3xl border border-zinc-200 bg-white shadow-sm",
+        "overflow-hidden rounded-3xl border border-zinc-200 bg-white shadow-sm dark:bg-[#0d1b3e]/40 dark:border-white/10 dark:backdrop-blur-sm",
         className
       )}
       style={color ? { borderTopColor: color, borderTopWidth: '4px' } : {}}
@@ -46,7 +46,7 @@ export function PanelCard({
       {hasHeader && (
         <div
           className={cn(
-            "flex flex-col gap-4 border-b border-zinc-100 px-4 py-5 sm:px-6 sm:py-6 lg:flex-row lg:items-center lg:justify-between",
+            "flex flex-col gap-4 border-b border-zinc-100 dark:border-white/5 px-4 py-5 sm:px-6 sm:py-6 lg:flex-row lg:items-center lg:justify-between",
             headerClassName
           )}
         >
@@ -54,21 +54,21 @@ export function PanelCard({
             {Icon && (
               <div
                 className={cn(
-                  "flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-develoi-navy/10 bg-develoi-navy/5",
+                  "flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-develoi-navy/10 bg-develoi-navy/5 dark:bg-white/5 dark:border-white/10",
                   iconWrapClassName
                 )}
               >
-                <Icon size={20} className={cn("text-develoi-navy", iconClassName)} />
+                <Icon size={20} className={cn("text-develoi-navy dark:text-develoi-gold", iconClassName)} />
               </div>
             )}
 
             {(title || description) && (
               <div className="min-w-0">
                 {title && (
-                  <h3 className="text-base font-bold tracking-tight text-zinc-900">{title}</h3>
+                  <h3 className="text-base font-bold tracking-tight text-zinc-900 dark:text-white">{title}</h3>
                 )}
                 {description && (
-                  <p className="mt-1 text-sm leading-relaxed text-zinc-500">{description}</p>
+                  <p className="mt-1 text-sm leading-relaxed text-zinc-500 dark:text-white/50">{description}</p>
                 )}
               </div>
             )}

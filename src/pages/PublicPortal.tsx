@@ -24,9 +24,15 @@ export default function PublicPortal() {
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [loading, setLoading] = useState(true);
   const [applied, setApplied] = useState(false);
+  const [tenantInfo, setTenantInfo] = useState<any>(null);
   const toast = useToast();
 
   useEffect(() => {
+    fetch(`/api/public/tenants/${tenantId}`)
+      .then(res => res.json())
+      .then(data => setTenantInfo(data))
+      .catch(() => console.warn("Tenant info not found"));
+
     fetch(`/api/jobs?tenantId=${tenantId}`)
       .then(res => res.json())
       .then(data => setJobs(data.filter((j: any) => j.is_public)))
@@ -72,12 +78,12 @@ export default function PublicPortal() {
               <Building2 size={22} strokeWidth={3} />
             </div>
             <div>
-              <h1 className="text-lg font-bold text-develoi-navy tracking-tighter leading-none uppercase">Develoi Carreiras</h1>
+              <h1 className="text-lg font-bold text-develoi-navy tracking-tighter leading-none uppercase">{tenantInfo?.name || "Carreiras"}</h1>
               <p className="text-[10px] text-develoi-gold font-bold uppercase tracking-widest mt-0.5">Portal de Oportunidades</p>
             </div>
           </div>
           <div className="hidden sm:flex items-center gap-6">
-            <a href="#" className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 hover:text-develoi-navy transition-colors">Sobre a Develoi</a>
+            <a href="#" className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 hover:text-develoi-navy transition-colors">Sobre a Empresa</a>
             <a href="#" className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 hover:text-develoi-navy transition-colors">Nossas Unidades</a>
             <button className="px-5 py-2 bg-develoi-navy text-white rounded-xl text-[10px] font-bold uppercase tracking-widest active:scale-95 transition-all">Área do Candidato</button>
           </div>
@@ -96,7 +102,7 @@ export default function PublicPortal() {
               className="space-y-8"
             >
               <div className="text-center space-y-4">
-                <h2 className="text-3xl font-bold text-develoi-navy tracking-tight">Encontre seu desafio na Develoi</h2>
+                <h2 className="text-3xl font-bold text-develoi-navy tracking-tight">Encontre seu desafio no {tenantInfo?.name || "Time"}</h2>
                 <p className="text-[11px] text-zinc-500 font-bold max-w-xl mx-auto leading-relaxed uppercase tracking-widest">
                   Otimizamos o recrutamento com inteligência artificial. Venha fazer parte do nosso ecossistema!
                 </p>
@@ -237,7 +243,7 @@ export default function PublicPortal() {
         <div className="w-12 h-12 bg-zinc-100 rounded-2xl flex items-center justify-center text-zinc-300 mx-auto">
           <Building2 size={24} />
         </div>
-        <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">© 2026 Develoi • Central de Recrutamento & Seleção</p>
+        <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">© 2026 {tenantInfo?.name || "Portal de Recrutamento"} • Central de Recrutamento & Seleção</p>
       </footer>
     </div>
   );

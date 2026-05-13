@@ -120,7 +120,7 @@ export default function Dashboard() {
   const COLORS = ['#07152B', '#C5A04D', '#6CB4E4', '#10B981', '#F5A623', '#8B5CF6'];
 
   return (
-    <div className="space-y-8 pb-20">
+    <div className="space-y-8 pb-20 px-8 py-10">
       {/* Header */}
       <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 px-1">
         <div>

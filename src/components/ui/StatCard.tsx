@@ -86,7 +86,7 @@ export function StatCard({
   className,
   delay = 0,
 }: StatCardProps) {
-  const c = colorMap[color];
+  const c = colorMap[color] || colorMap.default;
 
   return (
     <motion.div
@@ -94,7 +94,7 @@ export function StatCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay, duration: 0.3, ease: "easeOut" }}
       className={cn(
-        "bg-white rounded-2xl border border-zinc-200 shadow-sm",
+        "bg-white dark:bg-white/5 rounded-2xl border border-zinc-200 dark:border-white/10 shadow-sm",
         "hover:shadow-md transition-all duration-300 group",
         "relative overflow-hidden",
         // Padding responsivo: menor no mobile
@@ -147,15 +147,15 @@ export function StatCard({
 
       {/* Conteúdo */}
       <div className="relative z-10">
-        <p className="text-[9px] sm:text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-0.5 sm:mb-1 truncate">
+        <p className="text-[9px] sm:text-[10px] font-bold text-zinc-400 dark:text-white/40 uppercase tracking-widest mb-0.5 sm:mb-1 truncate">
           {title}
         </p>
-        <h3 className="text-xl sm:text-2xl font-bold text-zinc-900 tracking-tight leading-none">
+        <h3 className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-white tracking-tight leading-none">
           {value}
         </h3>
         {description && (
-          <p className="text-[9px] sm:text-[10px] text-zinc-400 mt-1 sm:mt-1.5 font-medium flex items-center gap-1">
-            <span className="w-1 h-1 rounded-full bg-zinc-300 shrink-0" />
+          <p className="text-[9px] sm:text-[10px] text-zinc-400 dark:text-white/30 mt-1 sm:mt-1.5 font-medium flex items-center gap-1">
+            <span className="w-1 h-1 rounded-full bg-zinc-300 dark:bg-white/20 shrink-0" />
             <span className="truncate">{description}</span>
           </p>
         )}

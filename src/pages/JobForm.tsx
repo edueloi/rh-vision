@@ -1,28 +1,44 @@
-import React, { useState, useEffect } from "react";
-import { 
-  Building2, 
-  MapPin, 
-  Briefcase, 
-  Target, 
-  ShieldCheck, 
-  FileText, 
-  Globe, 
-  Sparkles,
-  ArrowLeft,
-  ChevronRight,
-  Info,
-  Upload,
-  FileUp,
+import React, { useEffect, useRef, useState } from "react";
+import {
   AlertCircle,
+  ArrowLeft,
+  Briefcase,
+  Building2,
   CheckCircle2,
-  X,
-  RefreshCcw
+  FileSearch,
+  FileText,
+  FileUp,
+  Info,
+  MapPin,
+  RefreshCcw,
+  ShieldCheck,
+  Sparkles,
+  Upload,
 } from "lucide-react";
-import { PanelCard, RichTextEditor, useToast, Badge } from "@/src/components/ui";
+import {
+  Badge,
+  Button,
+  Combobox,
+  ComboboxOption,
+  ContentCard,
+  Divider,
+  FormRow,
+  IconButton,
+  Input,
+  Modal,
+  PageWrapper,
+  PanelCard,
+  RichTextEditor,
+  SectionTitle,
+  Select,
+  Switch,
+  Textarea,
+  useToast,
+} from "@/src/components/ui";
 import { getTenantId } from "@/src/lib/auth";
-import { Job } from "@/src/types";
 import { useUnit } from "@/src/lib/useUnit";
 import { cn } from "@/src/lib/utils";
+import { Job } from "@/src/types";
 
 interface JobFormProps {
   job?: Job | null;
@@ -31,649 +47,1455 @@ interface JobFormProps {
   onSuccess: () => void;
 }
 
-const SECTIONS = [
-  { id: 'info', label: 'Info Geral', icon: Building2 },
-  { id: 'content', label: 'Requisitos', icon: FileText },
-  { id: 'location', label: 'Local/Contrato', icon: MapPin },
-  { id: 'ia', label: 'Critérios IA', icon: Sparkles },
-  { id: 'internal', label: 'Interno', icon: ShieldCheck },
+interface ImportedJobReview {
+  importId: number;
+  fileName: string;
+  data: Partial<Job> & { confidence?: Record<string, string | null> };
+}
+
+type SectionId = "info" | "content" | "location" | "ia" | "internal";
+type ConfidenceLevel = "Alta" | "Média" | "Baixa";
+
+const MAX_BATCH_IMPORT_FILES = 10;
+
+const SECTION_META: Array<{
+  id: SectionId;
+  navLabel: string;
+  title: string;
+  description: string;
+  icon: React.ElementType;
+}> = [
+  {
+    id: "info",
+    navLabel: "Info Geral",
+    title: "Informações Gerais",
+    description: "Defina o posicionamento básico da vaga e o resumo público da oportunidade.",
+    icon: Building2,
+  },
+  {
+    id: "content",
+    navLabel: "Requisitos",
+    title: "Responsabilidades e Requisitos",
+    description: "Organize o texto que será usado pela Aurora AI para leitura, triagem e publicação.",
+    icon: FileText,
+  },
+  {
+    id: "location",
+    navLabel: "Local / Contrato",
+    title: "Localização e Contrato",
+    description: "Concentre os dados operacionais da vaga sem inventar informações que não existam no documento.",
+    icon: MapPin,
+  },
+  {
+    id: "ia",
+    navLabel: "Critérios IA",
+    title: "Critérios de Compatibilidade",
+    description: "Ajuste como a Aurora AI vai ponderar experiência, técnica, localização e aderência cultural.",
+    icon: Sparkles,
+  },
+  {
+    id: "internal",
+    navLabel: "Interno",
+    title: "Dados Internos do RH",
+    description: "Registre observações privadas e contexto interno da vaga para a equipe de recrutamento.",
+    icon: ShieldCheck,
+  },
 ];
+
+const STATE_OPTIONS: ComboboxOption[] = [
+  ["AC", "Acre"],
+  ["AL", "Alagoas"],
+  ["AP", "Amapá"],
+  ["AM", "Amazonas"],
+  ["BA", "Bahia"],
+  ["CE", "Ceará"],
+  ["DF", "Distrito Federal"],
+  ["ES", "Espírito Santo"],
+  ["GO", "Goiás"],
+  ["MA", "Maranhão"],
+  ["MT", "Mato Grosso"],
+  ["MS", "Mato Grosso do Sul"],
+  ["MG", "Minas Gerais"],
+  ["PA", "Pará"],
+  ["PB", "Paraíba"],
+  ["PR", "Paraná"],
+  ["PE", "Pernambuco"],
+  ["PI", "Piauí"],
+  ["RJ", "Rio de Janeiro"],
+  ["RN", "Rio Grande do Norte"],
+  ["RS", "Rio Grande do Sul"],
+  ["RO", "Rondônia"],
+  ["RR", "Roraima"],
+  ["SC", "Santa Catarina"],
+  ["SP", "São Paulo"],
+  ["SE", "Sergipe"],
+  ["TO", "Tocantins"],
+].map(([value, subtitle]) => ({
+  value,
+  label: value,
+  subtitle,
+  group: "Estados",
+}));
+
+const DEPARTMENT_OPTIONS: ComboboxOption[] = [
+  { value: "Administrativo", label: "Administrativo", group: "Corporativo" },
+  { value: "Comercial", label: "Comercial", group: "Corporativo" },
+  { value: "Financeiro", label: "Financeiro", group: "Corporativo" },
+  { value: "Fiscal", label: "Fiscal", group: "Corporativo" },
+  { value: "Jurídico", label: "Jurídico", group: "Corporativo" },
+  { value: "Marketing", label: "Marketing", group: "Corporativo" },
+  { value: "Recursos Humanos", label: "Recursos Humanos", group: "Corporativo" },
+  { value: "Tecnologia", label: "Tecnologia", group: "Corporativo" },
+  { value: "Logística", label: "Logística", group: "Operações" },
+  { value: "Manutenção", label: "Manutenção", group: "Operações" },
+  { value: "Produção", label: "Produção", group: "Operações" },
+  { value: "Qualidade", label: "Qualidade", group: "Operações" },
+  { value: "Transportes", label: "Transportes", group: "Operações" },
+];
+
+const SENIORITY_OPTIONS = [
+  "Não informado",
+  "Operacional",
+  "Auxiliar",
+  "Júnior",
+  "Pleno",
+  "Sênior",
+  "Coordenação",
+  "Gerência",
+  "Diretoria",
+];
+
+const WORK_MODEL_OPTIONS = ["Não informado", "Presencial", "Híbrido", "Home Office"];
+const CONTRACT_TYPE_OPTIONS = ["Não informado", "CLT", "PJ", "Estágio", "Temporário", "Freelancer", "Outro"];
+const EDUCATION_OPTIONS = [
+  "Não informado",
+  "Fundamental",
+  "Ensino Médio",
+  "Técnico",
+  "Superior Incompleto",
+  "Superior Completo",
+  "Pós/MBA",
+  "Mestrado/Doutorado",
+];
+
+const IA_WEIGHT_FIELDS: Array<{ field: keyof Job; label: string; description: string }> = [
+  {
+    field: "weight_technical",
+    label: "Requisitos Técnicos",
+    description: "Peso para conhecimentos e ferramentas obrigatórias.",
+  },
+  {
+    field: "weight_experience",
+    label: "Experiência",
+    description: "Peso para tempo de atuação e histórico profissional.",
+  },
+  {
+    field: "weight_education",
+    label: "Formação Acadêmica",
+    description: "Peso para escolaridade e certificações formais.",
+  },
+  {
+    field: "weight_location",
+    label: "Localização",
+    description: "Peso para cidade, estado e disponibilidade geográfica.",
+  },
+  {
+    field: "weight_soft_skills",
+    label: "Soft Skills",
+    description: "Peso para competências comportamentais.",
+  },
+  {
+    field: "weight_culture",
+    label: "Aderência Cultural",
+    description: "Peso para fit cultural e postura esperada.",
+  },
+];
+
+function normalizeLegacyOptionValue(value?: string | null) {
+  if (!value) return "";
+
+  const legacyMap: Record<string, string> = {
+    "Híbrido": "Híbrido",
+    "HÃ­brido": "Híbrido",
+    "HÃƒÂ­brido": "Híbrido",
+    "Estágio": "Estágio",
+    "EstÃ¡gio": "Estágio",
+    "EstÃƒÂ¡gio": "Estágio",
+    "Temporário": "Temporário",
+    "TemporÃ¡rio": "Temporário",
+    "TemporÃƒÂ¡rio": "Temporário",
+    "Júnior": "Júnior",
+    "JÃºnior": "Júnior",
+    "JÃƒÂºnior": "Júnior",
+    "Sênior": "Sênior",
+    "SÃªnior": "Sênior",
+    "SÃƒÂªnior": "Sênior",
+    "Coordenação": "Coordenação",
+    "CoordenaÃ§Ã£o": "Coordenação",
+    "CoordenaÃƒÂ§ÃƒÂ£o": "Coordenação",
+    "Gerência": "Gerência",
+    "GerÃªncia": "Gerência",
+    "GerÃƒÂªncia": "Gerência",
+    "Ensino Médio": "Ensino Médio",
+    "Ensino MÃ©dio": "Ensino Médio",
+    "Ensino MÃƒÂ©dio": "Ensino Médio",
+    "Técnico": "Técnico",
+    "TÃ©cnico": "Técnico",
+    "TÃƒÂ©cnico": "Técnico",
+    "Pós/MBA": "Pós/MBA",
+    "PÃ³s/MBA": "Pós/MBA",
+    "PÃƒÂ³s/MBA": "Pós/MBA",
+  };
+
+  return legacyMap[value] ?? value;
+}
+
+function normalizeConfidenceLevel(value?: string | null): ConfidenceLevel | null {
+  if (!value) return null;
+
+  const lower = value.toLowerCase();
+  if (lower.includes("alta")) return "Alta";
+  if (lower.includes("baixa")) return "Baixa";
+  if (lower.includes("dia")) return "Média";
+
+  return null;
+}
+
+function toOptionalInteger(value: string) {
+  if (value.trim() === "") return undefined;
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function toOptionalFloat(value: string) {
+  if (value.trim() === "") return undefined;
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function FieldHeader({
+  label,
+  required = false,
+  badge,
+}: {
+  label: string;
+  required?: boolean;
+  badge?: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">
+        {label} {required && <span className="text-red-500">*</span>}
+      </label>
+      {badge}
+    </div>
+  );
+}
 
 export default function JobForm({ job, initialData, onBack, onSuccess }: JobFormProps) {
   const { currentUnit } = useUnit();
   const tenantId = getTenantId();
-  const isMasterUnit = currentUnit.is_master === 1;
   const toast = useToast();
-  const [activeSection, setActiveSection] = useState('info');
-  const [loading, setLoading] = useState(false);
-  const [importMode, setImportMode] = useState<boolean>(!!initialData?.["_importMode" as any]);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [confidence, setConfidence] = useState<any>(null);
+  const isMasterUnit = currentUnit.is_master === 1;
+  const startsInImportMode = Boolean(initialData?.["_importMode" as keyof typeof initialData]);
+  const unitCity = isMasterUnit ? "" : currentUnit.location.split(",")[0] || "";
+  const unitState = isMasterUnit ? "" : currentUnit.location.split(",")[1]?.trim() || "";
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [formData, setFormData] = useState<Partial<Job>>({
-    title: "",
-    department: "",
-    description: "",
-    responsibilities: "",
-    technical_requirements: "",
-    mandatory_requirements: "",
-    desirable_requirements: "",
-    eliminatory_criteria: "",
-    benefits: "",
-    city: isMasterUnit ? "" : currentUnit.location.split(',')[0],
-    state: isMasterUnit ? "" : currentUnit.location.split(',')[1]?.trim(),
-    work_model: "Presencial" as any,
-    contract_type: "CLT" as any,
-    seniority_level: "Pleno",
-    education_level: "Superior Completo",
-    min_experience_years: 0,
-    salary_min: 0,
-    salary_max: 0,
-    workload: "",
-    work_schedule: "",
-    requires_cnh: false,
-    cnh_category: "",
-    requires_travel: false,
-    requires_relocation: false,
-    status: "Rascunho" as any,
-    compatibility_threshold: 80,
-    max_compatible_candidates: 20,
-    weight_technical: 20,
-    weight_experience: 20,
-    weight_education: 20,
-    weight_location: 10,
-    weight_soft_skills: 15,
-    weight_culture: 15,
-    internal_notes: "",
-    tags: "",
-    ...job,
-    ...initialData
+  const createBaseFormData = (
+    mode: "manual" | "import",
+    source?: Partial<Job> | null
+  ): Partial<Job> => {
+    const safeSource = Object.fromEntries(
+      Object.entries(source || {}).filter(([key]) => !key.startsWith("_"))
+    ) as Partial<Job>;
+
+    return {
+      title: "",
+      department: "",
+      description: "",
+      responsibilities: "",
+      technical_requirements: "",
+      mandatory_requirements: "",
+      desirable_requirements: "",
+      eliminatory_criteria: "",
+      benefits: "",
+      city: mode === "manual" ? unitCity : "",
+      state: mode === "manual" ? unitState : "",
+      work_model: mode === "manual" ? "Presencial" : "",
+      contract_type: mode === "manual" ? "CLT" : "",
+      seniority_level: mode === "manual" ? "Pleno" : "",
+      education_level: mode === "manual" ? "Superior Completo" : "",
+      min_experience_years: mode === "manual" ? 0 : undefined,
+      salary_min: undefined,
+      salary_max: undefined,
+      workload: "",
+      work_schedule: "",
+      requires_cnh: false,
+      cnh_category: "",
+      requires_travel: false,
+      requires_relocation: false,
+      status: "Rascunho" as any,
+      compatibility_threshold: 80,
+      max_compatible_candidates: 20,
+      weight_technical: 20,
+      weight_experience: 20,
+      weight_education: 20,
+      weight_location: 10,
+      weight_soft_skills: 15,
+      weight_culture: 15,
+      internal_notes: "",
+      tags: "",
+      ...safeSource,
+    };
+  };
+
+  const normalizeImportedJobData = (data: Partial<Job> & { confidence?: Record<string, string | null> }) =>
+    createBaseFormData("import", {
+      title: data.title ?? "",
+      department: data.department ?? "",
+      description: data.description ?? "",
+      responsibilities: data.responsibilities ?? "",
+      technical_requirements: data.technical_requirements ?? "",
+      mandatory_requirements: data.mandatory_requirements ?? "",
+      desirable_requirements: data.desirable_requirements ?? "",
+      eliminatory_criteria: data.eliminatory_criteria ?? "",
+      benefits: data.benefits ?? "",
+      city: data.city ?? "",
+      state: data.state ?? "",
+      work_model: normalizeLegacyOptionValue(data.work_model),
+      contract_type: normalizeLegacyOptionValue(data.contract_type),
+      seniority_level: normalizeLegacyOptionValue(data.seniority_level),
+      education_level: normalizeLegacyOptionValue(data.education_level),
+      min_experience_years: data.min_experience_years ?? undefined,
+      salary_min: data.salary_min ?? undefined,
+      salary_max: data.salary_max ?? undefined,
+      workload: data.workload ?? "",
+      work_schedule: data.work_schedule ?? "",
+      requires_cnh: Boolean(data.requires_cnh),
+      cnh_category: data.cnh_category ?? "",
+      requires_travel: Boolean(data.requires_travel),
+      requires_relocation: Boolean(data.requires_relocation),
+      status: "Rascunho" as any,
+      compatibility_threshold: data.compatibility_threshold ?? 80,
+      max_compatible_candidates: 20,
+      weight_technical: data.weight_technical ?? 20,
+      weight_experience: data.weight_experience ?? 20,
+      weight_education: data.weight_education ?? 20,
+      weight_location: data.weight_location ?? 10,
+      weight_soft_skills: data.weight_soft_skills ?? 15,
+      weight_culture: data.weight_culture ?? 15,
+      internal_notes: "",
+      tags: data.tags ?? "",
+      ai_summary: data.ai_summary ?? "",
+    });
+
+  const buildJobPayload = (data: Partial<Job>) => ({
+    title: data.title ?? "",
+    department: data.department ?? "",
+    description: data.description ?? "",
+    responsibilities: data.responsibilities ?? "",
+    technical_requirements: data.technical_requirements ?? "",
+    mandatory_requirements: data.mandatory_requirements ?? "",
+    desirable_requirements: data.desirable_requirements ?? "",
+    eliminatory_criteria: data.eliminatory_criteria ?? "",
+    benefits: data.benefits ?? "",
+    city: data.city ?? "",
+    state: data.state ?? "",
+    work_model: data.work_model ?? "",
+    contract_type: data.contract_type ?? "",
+    seniority_level: data.seniority_level ?? "",
+    education_level: data.education_level ?? "",
+    min_experience_years: data.min_experience_years ?? null,
+    salary_min: data.salary_min ?? null,
+    salary_max: data.salary_max ?? null,
+    workload: data.workload ?? "",
+    work_schedule: data.work_schedule ?? "",
+    requires_cnh: Boolean(data.requires_cnh),
+    cnh_category: data.cnh_category ?? "",
+    requires_travel: Boolean(data.requires_travel),
+    requires_relocation: Boolean(data.requires_relocation),
+    status: data.status ?? "Rascunho",
+    compatibility_threshold: data.compatibility_threshold ?? 80,
+    max_compatible_candidates: data.max_compatible_candidates ?? 20,
+    weight_technical: data.weight_technical ?? 20,
+    weight_experience: data.weight_experience ?? 20,
+    weight_education: data.weight_education ?? 20,
+    weight_location: data.weight_location ?? 10,
+    weight_soft_skills: data.weight_soft_skills ?? 15,
+    weight_culture: data.weight_culture ?? 15,
+    internal_notes: data.internal_notes ?? "",
+    tags: data.tags ?? "",
   });
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const [activeSection, setActiveSection] = useState<SectionId>("info");
+  const [loading, setLoading] = useState(false);
+  const [importMode, setImportMode] = useState<boolean>(startsInImportMode);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isDropActive, setIsDropActive] = useState(false);
+  const [confidence, setConfidence] = useState<Record<string, string | null> | null>(null);
+  const [importedReviews, setImportedReviews] = useState<ImportedJobReview[]>([]);
+  const [currentImportId, setCurrentImportId] = useState<number | null>(null);
+  const [rawImportOpen, setRawImportOpen] = useState(false);
+  const [rawImportLoading, setRawImportLoading] = useState(false);
+  const [rawImportError, setRawImportError] = useState("");
+  const [rawImportTexts, setRawImportTexts] = useState<Record<number, string>>({});
+  const [formData, setFormData] = useState<Partial<Job>>(() =>
+    createBaseFormData(startsInImportMode ? "import" : "manual", { ...job, ...initialData })
+  );
 
-    setIsAnalyzing(true);
-    try {
-       // 1. Create Import Record
-       const res = await fetch('/api/jobs/import', {
-         method: 'POST',
-         headers: { 'Content-Type': 'application/json' },
-         body: JSON.stringify({
-           tenant_id: tenantId,
-           unit_id: currentUnit.id,
-           file_name: file.name,
-           file_type: file.type,
-           file_size: file.size
-         })
-       });
-       const { id } = await res.json();
+  const currentImportedReview =
+    importedReviews.find((review) => review.importId === currentImportId) || null;
 
-       // 2. Analyze with AI
-       const analyzeRes = await fetch(`/api/jobs/import/${id}/analyze`, { method: 'POST' });
-       const { data } = await analyzeRes.json();
+  useEffect(() => {
+    if (job || initialData) {
+      setFormData(createBaseFormData(startsInImportMode ? "import" : "manual", { ...job, ...initialData }));
+    }
+  }, [job, initialData, startsInImportMode]);
 
-       // 3. Update Form
-       setFormData(prev => ({
-         ...prev,
-         ...data
-       }));
-       setConfidence(data.confidence);
-       setImportMode(false);
-       toast.success("Vaga interpretada com sucesso! Verifique os campos highlighted.");
-    } catch (err) {
-       toast.error("Erro ao analisar arquivo.");
-    } finally {
-       setIsAnalyzing(false);
+  const loadImportedReview = (review: ImportedJobReview) => {
+    setCurrentImportId(review.importId);
+    setConfidence(review.data.confidence || null);
+    setFormData(normalizeImportedJobData(review.data));
+    setImportMode(false);
+    setActiveSection("info");
+  };
+
+  const hasImportedValueForField = (field: string) => {
+    const sourceData = currentImportedReview?.data || formData;
+
+    switch (field) {
+      case "title":
+        return Boolean(sourceData.title?.trim());
+      case "city":
+        return Boolean(sourceData.city?.trim() || sourceData.state?.trim());
+      case "salary":
+        return (
+          (sourceData.salary_min !== undefined && sourceData.salary_min !== null) ||
+          (sourceData.salary_max !== undefined && sourceData.salary_max !== null)
+        );
+      case "requirements":
+        return Boolean(
+          sourceData.technical_requirements?.trim() ||
+            sourceData.mandatory_requirements?.trim() ||
+            sourceData.desirable_requirements?.trim() ||
+            sourceData.tags?.trim()
+        );
+      default:
+        return Boolean((sourceData as any)?.[field]);
     }
   };
 
-  const renderConfidenceBadge = (field: string) => {
-    if (!confidence || !confidence[field]) return null;
-    const level = confidence[field];
+  const getConfidenceBadge = (field: string) => {
+    const level = normalizeConfidenceLevel(confidence?.[field]);
+    if (!level || !hasImportedValueForField(field)) {
+      return null;
+    }
+
+    const color =
+      level === "Alta" ? "success" : level === "Média" ? "warning" : "danger";
+    const icon =
+      level === "Alta" ? <CheckCircle2 size={10} /> : level === "Média" ? <Info size={10} /> : <AlertCircle size={10} />;
+
     return (
-       <div className={cn(
-         "flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest",
-         level === 'Alta' ? "bg-emerald-50 text-emerald-600" :
-         level === 'Média' ? "bg-develoi-gold/5 text-develoi-gold" :
-         "bg-red-50 text-red-600 border border-red-100"
-       )}>
-          {level === 'Alta' ? <CheckCircle2 size={10} /> : level === 'Média' ? <Info size={10} /> : <AlertCircle size={10} />}
-          {level} Confiança
-       </div>
+      <Badge color={color} icon={icon} pill className="tracking-[0.16em]">
+        {level} confiança
+      </Badge>
     );
   };
 
+  const fieldHasLowConfidence = (field: string) =>
+    normalizeConfidenceLevel(confidence?.[field]) === "Baixa" && hasImportedValueForField(field);
+
+  const getFieldClassName = (field: string) =>
+    cn(fieldHasLowConfidence(field) && "border-red-300 bg-red-50/50 focus-visible:border-red-500 focus-visible:ring-red-500/20");
+
   const handleChange = (field: keyof Job, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleSave = async (isPublic: boolean = false) => {
+  const handleComboboxChange = (field: keyof Job, value: string | string[]) => {
+    handleChange(field, Array.isArray(value) ? value[0] || "" : value);
+  };
+
+  const processImportedFiles = async (files: File[]) => {
+    if (files.length === 0) return;
+
+    setIsAnalyzing(true);
+    try {
+      const filesToProcess = files.slice(0, MAX_BATCH_IMPORT_FILES);
+      if (files.length > MAX_BATCH_IMPORT_FILES) {
+        toast.info(`Limite de ${MAX_BATCH_IMPORT_FILES} arquivos por lote. Os demais foram ignorados.`);
+      }
+
+      const batchResults: ImportedJobReview[] = [];
+
+      for (const file of filesToProcess) {
+        const body = new FormData();
+        body.append("file", file);
+        body.append("tenant_id", String(tenantId));
+        body.append("unit_id", String(currentUnit.id));
+
+        const importRes = await fetch("/api/jobs/import", {
+          method: "POST",
+          body,
+        });
+        const importResponse = await importRes.json();
+        if (!importRes.ok) {
+          throw new Error(importResponse.error || `Erro ao enviar o arquivo ${file.name}.`);
+        }
+
+        const analyzeRes = await fetch(`/api/jobs/import/${importResponse.id}/analyze`, {
+          method: "POST",
+        });
+        const analyzeResponse = await analyzeRes.json();
+        if (!analyzeRes.ok) {
+          throw new Error(analyzeResponse.error || `Erro ao interpretar o arquivo ${file.name}.`);
+        }
+
+        batchResults.push({
+          importId: importResponse.id,
+          fileName: file.name,
+          data: analyzeResponse.data,
+        });
+      }
+
+      if (batchResults.length === 0) {
+        throw new Error("Nenhuma vaga foi importada.");
+      }
+
+      setImportedReviews((prev) => [...prev, ...batchResults]);
+      if (!currentImportId) {
+        loadImportedReview(batchResults[0]);
+      }
+
+      toast.success(
+        batchResults.length === 1
+          ? "Vaga importada com sucesso. Revise os campos antes de salvar."
+          : `${batchResults.length} vagas importadas para revisão no lote atual.`
+      );
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Erro ao analisar arquivo.");
+    } finally {
+      setIsAnalyzing(false);
+      setIsDropActive(false);
+    }
+  };
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    await processImportedFiles(files);
+    event.target.value = "";
+  };
+
+  const handleDrop = async (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setIsDropActive(false);
+    const files = Array.from(event.dataTransfer.files || []);
+    await processImportedFiles(files);
+  };
+
+  const openRawImportModal = async () => {
+    if (!currentImportId) return;
+
+    setRawImportOpen(true);
+    setRawImportError("");
+
+    if (rawImportTexts[currentImportId] !== undefined) {
+      return;
+    }
+
+    setRawImportLoading(true);
+    try {
+      const response = await fetch(`/api/jobs/import/${currentImportId}`);
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Não foi possível carregar o texto importado.");
+      }
+
+      setRawImportTexts((prev) => ({
+        ...prev,
+        [currentImportId]: data.extracted_text || "",
+      }));
+    } catch (error) {
+      setRawImportError(error instanceof Error ? error.message : "Não foi possível carregar o texto importado.");
+    } finally {
+      setRawImportLoading(false);
+    }
+  };
+
+  const handleSave = async (isPublic = false) => {
     if (!formData.title || !formData.city || !formData.state) {
       toast.error("Preencha os campos obrigatórios: Título, Cidade e Estado.");
-      setActiveSection('info');
+      setActiveSection("info");
       return;
     }
 
     setLoading(true);
     try {
-      const url = job ? `/api/jobs/${job.id}` : '/api/jobs';
-      const method = job ? 'PUT' : 'POST';
-      
+      const basePayload = {
+        ...buildJobPayload(formData),
+        is_public: isPublic ? 1 : formData.is_public ? 1 : 0,
+        status: isPublic && formData.status === "Rascunho" ? "Aberta" : formData.status,
+      };
+
+      const isImportedDraft = !job && currentImportId !== null;
+      const payload = isImportedDraft
+        ? basePayload
+        : {
+            ...basePayload,
+            tenant_id: tenantId,
+            unit_id: currentUnit.id,
+          };
+
+      const url = isImportedDraft
+        ? `/api/jobs/import/${currentImportId}/create-job`
+        : job
+          ? `/api/jobs/${job.id}`
+          : "/api/jobs";
+
+      const method = job ? "PUT" : "POST";
+
       const response = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...formData,
-          is_public: isPublic ? 1 : (formData.is_public ? 1 : 0),
-          status: isPublic && formData.status === 'Rascunho' ? 'Aberta' : formData.status,
-          tenant_id: tenantId,
-          unit_id: currentUnit.id
-        })
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
 
-      if (!response.ok) throw new Error("Erro ao salvar vaga");
-      
+      if (!response.ok) {
+        throw new Error("Erro ao salvar vaga");
+      }
+
+      if (isImportedDraft) {
+        const remainingReviews = importedReviews.filter((review) => review.importId !== currentImportId);
+        setImportedReviews(remainingReviews);
+        setRawImportOpen(false);
+
+        if (remainingReviews.length > 0) {
+          loadImportedReview(remainingReviews[0]);
+          toast.success("Vaga salva. A próxima vaga do lote foi carregada para revisão.");
+        } else {
+          setCurrentImportId(null);
+          setConfidence(null);
+          toast.success("Lote finalizado. Todas as vagas importadas foram salvas.");
+          onSuccess();
+        }
+        return;
+      }
+
       toast.success(job ? "Vaga atualizada!" : "Vaga criada com sucesso!");
       onSuccess();
     } catch (error) {
-      toast.error("Ocorreu um erro ao salvar os dados.");
+      toast.error(error instanceof Error ? error.message : "Ocorreu um erro ao salvar os dados.");
     } finally {
       setLoading(false);
     }
   };
 
-  return (
-    <div className="space-y-6">
-      {/* Top Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <button 
-            onClick={onBack}
-            className="p-2 hover:bg-zinc-100 rounded-xl transition-all text-zinc-500"
+  const renderImportSummary = () => {
+    if (!currentImportedReview) return null;
+
+    return (
+      <PanelCard
+        title="Documento importado"
+        description={currentImportedReview.fileName}
+        icon={FileSearch}
+        action={
+          <Button
+            variant="outline"
+            size="sm"
+            iconLeft={<FileText size={14} />}
+            onClick={openRawImportModal}
           >
-            <ArrowLeft size={20} />
-          </button>
-          <div>
-            <h2 className="text-xl font-bold text-zinc-900 tracking-tight">
-              {job ? "Editar Vaga" : "Cadastrar Nova Vaga"}
-            </h2>
-            <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest mt-1">
-              Configure os detalhes e parâmetros da IA
+            Ver texto bruto
+          </Button>
+        }
+      >
+        <div className="space-y-4">
+          <div className="flex flex-wrap gap-2">
+            <Badge color="primary" pill>
+              Importação #{currentImportedReview.importId}
+            </Badge>
+            <Badge color="gold" pill>
+              Via Aurora AI
+            </Badge>
+            {importedReviews.length > 1 && (
+              <Badge color="info" pill>
+                {importedReviews.length} vagas no lote
+              </Badge>
+            )}
+          </div>
+
+          {formData.ai_summary && (
+            <ContentCard className="bg-zinc-900 text-white" padding="sm">
+              <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-develoi-gold">
+                <Sparkles size={12} />
+                Resumo da IA
+              </div>
+              <p className="mt-3 text-sm leading-relaxed text-zinc-100">{formData.ai_summary}</p>
+            </ContentCard>
+          )}
+        </div>
+      </PanelCard>
+    );
+  };
+
+  const renderQueueCard = () => {
+    if (importedReviews.length === 0) return null;
+
+    return (
+      <ContentCard className="space-y-4">
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-black tracking-tight text-zinc-900">Lote importado</p>
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-400">
+                {importedReviews.length} vagas aguardando revisão
+              </p>
+            </div>
+            <Badge color="info" pill>
+              Limite {MAX_BATCH_IMPORT_FILES}
+            </Badge>
+          </div>
+
+          <p className="text-sm leading-relaxed text-zinc-500">
+            Cada vaga permanece em fila até você revisar e salvar. Os campos vazios continuam vazios quando o documento não traz a informação.
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          {importedReviews.map((review, index) => {
+            const isActive = review.importId === currentImportId;
+            return (
+              <Button
+                key={review.importId}
+                variant={isActive ? "secondary" : "ghost"}
+                size="sm"
+                fullWidth
+                className="h-auto min-w-0 justify-start px-3 py-3"
+                onClick={() => loadImportedReview(review)}
+              >
+                <div className="flex min-w-0 flex-1 items-start justify-between gap-3 text-left">
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] opacity-70">
+                      Vaga {index + 1}
+                    </p>
+                    <p className="truncate text-sm font-bold">{review.fileName}</p>
+                  </div>
+                  {isActive && (
+                    <Badge color="gold" pill className="shrink-0">
+                      Atual
+                    </Badge>
+                  )}
+                </div>
+              </Button>
+            );
+          })}
+        </div>
+      </ContentCard>
+    );
+  };
+
+  const renderImportMode = () => (
+    <div className="grid gap-6 xl:grid-cols-[320px,minmax(0,1fr)]">
+      <div className="space-y-6">
+        {renderQueueCard()}
+
+        {currentImportedReview && (
+          <ContentCard className="space-y-4">
+            <div className="space-y-2">
+              <p className="text-sm font-black tracking-tight text-zinc-900">Revisão pronta</p>
+              <p className="text-sm leading-relaxed text-zinc-500">
+                O lote já contém vaga em análise. Você pode importar mais arquivos agora ou voltar para a revisão manual.
+              </p>
+            </div>
+
+            <Button
+              variant="secondary"
+              fullWidth
+              iconLeft={<ArrowLeft size={14} />}
+              onClick={() => setImportMode(false)}
+            >
+              Voltar para revisão
+            </Button>
+          </ContentCard>
+        )}
+      </div>
+
+      <PanelCard
+        title="Importação assistida por IA"
+        description="Use arquivos reais da vaga. A plataforma vai estruturar apenas os campos com evidência textual."
+        icon={FileUp}
+      >
+        <div
+          onDragOver={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            setIsDropActive(true);
+          }}
+          onDragLeave={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            setIsDropActive(false);
+          }}
+          onDrop={handleDrop}
+          className={cn(
+            "rounded-[28px] border-2 border-dashed px-6 py-10 text-center transition-all sm:px-10 sm:py-14",
+            isDropActive
+              ? "border-develoi-navy bg-develoi-navy/5"
+              : "border-zinc-200 bg-zinc-50/70"
+          )}
+        >
+          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-[26px] border border-zinc-200 bg-white text-zinc-300 shadow-sm">
+            {isAnalyzing ? (
+              <div className="h-10 w-10 animate-spin rounded-full border-4 border-develoi-gold border-t-transparent" />
+            ) : (
+              <Upload size={30} />
+            )}
+          </div>
+
+          <div className="mx-auto mt-6 max-w-2xl space-y-3">
+            <h3 className="text-2xl font-black tracking-tight text-zinc-900">Arraste a descrição da vaga</h3>
+            <p className="text-sm leading-relaxed text-zinc-500">
+              Envie até {MAX_BATCH_IMPORT_FILES} arquivos por lote em PDF, Word, texto ou planilha.
+              A IA organiza os campos e deixa vazio tudo o que não estiver claramente no documento.
+            </p>
+          </div>
+
+          <div className="mt-8 flex flex-col items-center gap-3">
+            <input
+              ref={fileInputRef}
+              type="file"
+              className="hidden"
+              multiple
+              accept=".pdf,.doc,.docx,.txt,.csv,.xls,.xlsx"
+              onChange={handleFileUpload}
+            />
+
+            <Button
+              size="lg"
+              loading={isAnalyzing}
+              iconLeft={<Upload size={16} />}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {isAnalyzing ? "Analisando arquivos" : "Selecionar arquivos"}
+            </Button>
+
+            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-400">
+              Limite de {MAX_BATCH_IMPORT_FILES} arquivos por lote
+            </p>
+          </div>
+
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-2">
+            {["PDF", "DOC", "DOCX", "TXT", "CSV", "XLS", "XLSX"].map((extension) => (
+              <Badge key={extension} color="default" pill>
+                .{extension}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      </PanelCard>
+    </div>
+  );
+
+  const renderInfoSection = () => (
+    <div className="space-y-6">
+      <FormRow cols={2}>
+        <div className="md:col-span-2 space-y-1.5">
+          <FieldHeader label="Título da vaga" required badge={getConfidenceBadge("title")} />
+          <Input
+            value={formData.title ?? ""}
+            onChange={(event) => handleChange("title", event.target.value)}
+            placeholder="Ex: Coordenador de Frota"
+            className={getFieldClassName("title")}
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <FieldHeader label="Departamento" />
+          <Combobox
+            options={DEPARTMENT_OPTIONS}
+            value={formData.department ?? ""}
+            onChange={(value) => handleComboboxChange("department", value)}
+            allowCustom
+            onCustomAdd={(value) => handleChange("department", value)}
+            placeholder="Selecione ou digite o departamento"
+            searchPlaceholder="Buscar departamento"
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <FieldHeader label="Nível de senioridade" />
+          <Select
+            value={formData.seniority_level ?? ""}
+            onChange={(event) => handleChange("seniority_level", event.target.value === "Não informado" ? "" : event.target.value)}
+          >
+            {SENIORITY_OPTIONS.map((option) => (
+              <option key={option} value={option === "Não informado" ? "" : option}>
+                {option}
+              </option>
+            ))}
+          </Select>
+        </div>
+      </FormRow>
+
+      <div className="space-y-1.5">
+        <FieldHeader label="Descrição breve (resumo)" />
+        <Textarea
+          rows={5}
+          value={formData.description ?? ""}
+          onChange={(event) => handleChange("description", event.target.value)}
+          placeholder="Resumo curto para cards, listagens e publicação da vaga."
+        />
+      </div>
+
+      <div className="space-y-1.5">
+        <FieldHeader label="Benefícios" />
+        <Textarea
+          rows={4}
+          value={formData.benefits ?? ""}
+          onChange={(event) => handleChange("benefits", event.target.value)}
+          placeholder="Liste apenas benefícios confirmados no documento ou informados pelo RH."
+        />
+      </div>
+    </div>
+  );
+
+  const renderContentSection = () => (
+    <div className="space-y-6">
+      <div className="space-y-1.5">
+        <FieldHeader label="Responsabilidades" />
+        <RichTextEditor
+          value={formData.responsibilities || ""}
+          onChange={(value) => handleChange("responsibilities", value)}
+          placeholder="Descreva o dia a dia da função, escopo de atuação e entregas esperadas."
+        />
+      </div>
+
+      <div className="space-y-1.5">
+        <FieldHeader
+          label="Requisitos técnicos (base da IA)"
+          badge={getConfidenceBadge("requirements")}
+        />
+        <div className={cn("rounded-2xl border border-zinc-200 overflow-hidden", fieldHasLowConfidence("requirements") && "border-red-300 ring-2 ring-red-100")}>
+          <RichTextEditor
+            value={formData.technical_requirements || ""}
+            onChange={(value) => handleChange("technical_requirements", value)}
+            placeholder="Ferramentas, certificações, sistemas, conhecimentos técnicos e experiência operacional."
+          />
+        </div>
+      </div>
+
+      <FormRow cols={2}>
+        <div className="space-y-1.5">
+          <FieldHeader label="Habilidades / palavras-chave" />
+          <Textarea
+            rows={4}
+            value={formData.tags ?? ""}
+            onChange={(event) => handleChange("tags", event.target.value)}
+            placeholder="Ex: Gestão de Frotas, Excel, Telemetria, Negociação com Fornecedores."
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <FieldHeader label="Escolaridade mínima" />
+          <Select
+            value={formData.education_level ?? ""}
+            onChange={(event) => handleChange("education_level", event.target.value === "Não informado" ? "" : event.target.value)}
+          >
+            {EDUCATION_OPTIONS.map((option) => (
+              <option key={option} value={option === "Não informado" ? "" : option}>
+                {option}
+              </option>
+            ))}
+          </Select>
+        </div>
+      </FormRow>
+
+      <FormRow cols={2}>
+        <div className="space-y-1.5">
+          <FieldHeader label="Requisitos obrigatórios" />
+          <Textarea
+            rows={4}
+            value={formData.mandatory_requirements ?? ""}
+            onChange={(event) => handleChange("mandatory_requirements", event.target.value)}
+            placeholder="Liste itens obrigatórios que precisam ser atendidos."
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <FieldHeader label="Requisitos desejáveis" />
+          <Textarea
+            rows={4}
+            value={formData.desirable_requirements ?? ""}
+            onChange={(event) => handleChange("desirable_requirements", event.target.value)}
+            placeholder="Liste diferenciais desejáveis, mas não eliminatórios."
+          />
+        </div>
+      </FormRow>
+
+      <FormRow cols={2}>
+        <div className="space-y-1.5">
+          <FieldHeader label="Anos de experiência mínima" />
+          <Input
+            type="number"
+            min={0}
+            value={formData.min_experience_years ?? ""}
+            onChange={(event) => handleChange("min_experience_years", toOptionalInteger(event.target.value))}
+            placeholder="Ex: 3"
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <FieldHeader label="Critérios eliminatórios" />
+          <Textarea
+            rows={4}
+            value={formData.eliminatory_criteria ?? ""}
+            onChange={(event) => handleChange("eliminatory_criteria", event.target.value)}
+            placeholder="Ex: CNH ativa, disponibilidade para viagens, atuação em turno específico."
+          />
+        </div>
+      </FormRow>
+    </div>
+  );
+
+  const renderLocationSection = () => (
+    <div className="space-y-6">
+      <FormRow cols={2}>
+        <div className="space-y-1.5">
+          <FieldHeader label="Cidade" required badge={getConfidenceBadge("city")} />
+          <Input
+            value={formData.city ?? ""}
+            onChange={(event) => handleChange("city", event.target.value)}
+            placeholder="Ex: Tatuí"
+            className={getFieldClassName("city")}
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <FieldHeader label="Estado" required />
+          <Combobox
+            options={STATE_OPTIONS}
+            value={formData.state ?? ""}
+            onChange={(value) => handleComboboxChange("state", value)}
+            placeholder="Selecione o estado"
+            searchPlaceholder="Buscar UF ou estado"
+          />
+        </div>
+      </FormRow>
+
+      <FormRow cols={2}>
+        <div className="space-y-1.5">
+          <FieldHeader label="Modelo de trabalho" />
+          <Select
+            value={formData.work_model ?? ""}
+            onChange={(event) => handleChange("work_model", event.target.value === "Não informado" ? "" : event.target.value)}
+          >
+            {WORK_MODEL_OPTIONS.map((option) => (
+              <option key={option} value={option === "Não informado" ? "" : option}>
+                {option}
+              </option>
+            ))}
+          </Select>
+        </div>
+
+        <div className="space-y-1.5">
+          <FieldHeader label="Tipo de contrato" />
+          <Select
+            value={formData.contract_type ?? ""}
+            onChange={(event) => handleChange("contract_type", event.target.value === "Não informado" ? "" : event.target.value)}
+          >
+            {CONTRACT_TYPE_OPTIONS.map((option) => (
+              <option key={option} value={option === "Não informado" ? "" : option}>
+                {option}
+              </option>
+            ))}
+          </Select>
+        </div>
+      </FormRow>
+
+      <FormRow cols={2}>
+        <div className="space-y-1.5">
+          <FieldHeader label="Salário mínimo" badge={getConfidenceBadge("salary")} />
+          <Input
+            type="number"
+            step="0.01"
+            value={formData.salary_min ?? ""}
+            onChange={(event) => handleChange("salary_min", toOptionalFloat(event.target.value))}
+            placeholder="Ex: 3500"
+            addonLeft="R$"
+            className={getFieldClassName("salary")}
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <FieldHeader label="Salário máximo" />
+          <Input
+            type="number"
+            step="0.01"
+            value={formData.salary_max ?? ""}
+            onChange={(event) => handleChange("salary_max", toOptionalFloat(event.target.value))}
+            placeholder="Ex: 5000"
+            addonLeft="R$"
+          />
+        </div>
+      </FormRow>
+
+      <FormRow cols={2}>
+        <div className="space-y-1.5">
+          <FieldHeader label="Carga horária" />
+          <Input
+            value={formData.workload ?? ""}
+            onChange={(event) => handleChange("workload", event.target.value)}
+            placeholder="Ex: 44h semanais"
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <FieldHeader label="Escala / horário" />
+          <Input
+            value={formData.work_schedule ?? ""}
+            onChange={(event) => handleChange("work_schedule", event.target.value)}
+            placeholder="Ex: Segunda a sexta, das 08h às 18h"
+          />
+        </div>
+      </FormRow>
+
+      <div className="grid gap-4 md:grid-cols-3">
+        {[
+          {
+            label: "Exige CNH",
+            description: "Ative quando a habilitação for requisito real da vaga.",
+            checked: Boolean(formData.requires_cnh),
+            onChange: (checked: boolean) => handleChange("requires_cnh", checked),
+          },
+          {
+            label: "Exige viagens",
+            description: "Use apenas se o documento ou o RH confirmarem deslocamentos.",
+            checked: Boolean(formData.requires_travel),
+            onChange: (checked: boolean) => handleChange("requires_travel", checked),
+          },
+          {
+            label: "Exige mudança",
+            description: "Ative quando houver necessidade de mudança de cidade ou estado.",
+            checked: Boolean(formData.requires_relocation),
+            onChange: (checked: boolean) => handleChange("requires_relocation", checked),
+          },
+        ].map((item) => (
+          <ContentCard key={item.label} padding="sm" className="flex items-start justify-between gap-4">
+            <div className="space-y-1">
+              <p className="text-sm font-black tracking-tight text-zinc-900">{item.label}</p>
+              <p className="text-xs leading-relaxed text-zinc-500">{item.description}</p>
+            </div>
+            <Switch checked={item.checked} onCheckedChange={item.onChange} />
+          </ContentCard>
+        ))}
+      </div>
+
+      {formData.requires_cnh && (
+        <div className="space-y-1.5">
+          <FieldHeader label="Categoria da CNH" />
+          <Input
+            value={formData.cnh_category ?? ""}
+            onChange={(event) => handleChange("cnh_category", event.target.value)}
+            placeholder="Ex: B, C, D ou E"
+          />
+        </div>
+      )}
+    </div>
+  );
+
+  const renderIASection = () => (
+    <div className="space-y-6">
+      <ContentCard className="border-develoi-navy/10 bg-develoi-navy/5">
+        <div className="flex items-start gap-3">
+          <div className="mt-0.5 text-develoi-navy">
+            <Info size={18} />
+          </div>
+          <div className="space-y-2">
+            <p className="text-sm font-black tracking-tight text-develoi-navy">Leitura estratégica da Aurora AI</p>
+            <p className="text-sm leading-relaxed text-zinc-600">
+              Os pesos abaixo não precisam somar 100. Eles definem prioridade relativa entre técnica, experiência, localização e aderência ao contexto da vaga.
             </p>
           </div>
         </div>
+      </ContentCard>
 
-        <div className="flex gap-2">
-          {formData.ai_summary && (
-            <button 
-              onClick={() => setImportMode(true)}
-              disabled={loading}
-              className="px-5 py-2.5 bg-zinc-100 hover:bg-develoi-navy hover:text-white text-zinc-600 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all md:flex items-center gap-2 hidden"
-            >
-              <RefreshCcw size={14} /> Reprocessar
-            </button>
-          )}
-          <button 
-            onClick={() => handleSave(false)}
-            disabled={loading}
-            className="px-5 py-2.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-600 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all"
-          >
-            Salvar Rascunho
-          </button>
-          <button 
-            onClick={() => handleSave(true)}
-            disabled={loading}
-            className="px-5 py-2.5 bg-develoi-navy hover:bg-black text-white rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all shadow-lg shadow-develoi-navy/20"
-          >
-            {loading ? "Salvando..." : "Salvar e Publicar"}
-          </button>
-        </div>
-      </div>
-      
-      {!job && (
-        <div className="flex bg-zinc-100 p-1 rounded-2xl w-fit">
-          <button 
-            onClick={() => setImportMode(false)}
-            className={cn(
-              "px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
-              !importMode ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-500 hover:text-zinc-700"
-            )}
-          >
-            Cadastrar Manualmente
-          </button>
-          <button 
-            onClick={() => setImportMode(true)}
-            className={cn(
-              "px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
-              importMode ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-500 hover:text-zinc-700"
-            )}
-          >
-            Importar por Arquivo
-          </button>
-        </div>
-      )}
-
-      {importMode ? (
-        <div className="max-w-4xl mx-auto py-12">
-           <PanelCard title="Importar vaga por arquivo" icon={FileUp}>
-              <div className="p-8 text-center space-y-6">
-                 <div className="w-20 h-20 bg-zinc-50 border-2 border-dashed border-zinc-200 rounded-3xl mx-auto flex items-center justify-center text-zinc-300 group-hover:border-develoi-navy group-hover:text-develoi-navy transition-all">
-                    {isAnalyzing ? (
-                       <div className="w-10 h-10 border-4 border-amber-400 border-t-transparent rounded-full animate-spin"></div>
-                    ) : (
-                       <Upload size={32} />
-                    )}
-                 </div>
-                 
-                 <div className="space-y-2">
-                    <h3 className="text-lg font-bold text-zinc-900">Arraste a descrição da vaga</h3>
-                    <p className="text-xs text-zinc-400 font-bold uppercase tracking-widest max-w-sm mx-auto">
-                       Envie arquivos em PDF, Word, Texto ou Planilha (XLSX) para que a IA estruture as informações automaticamente.
-                    </p>
-                 </div>
-
-                 <div className="pt-4">
-                    <label className={cn(
-                       "inline-flex items-center gap-2 px-8 py-3 bg-zinc-900 text-white rounded-2xl text-[11px] font-bold uppercase tracking-widest cursor-pointer hover:bg-zinc-800 transition-all shadow-xl shadow-zinc-900/10 active:scale-95",
-                       isAnalyzing && "opacity-50 pointer-events-none"
-                    )}>
-                       <input type="file" className="hidden" accept=".pdf,.doc,.docx,.txt,.xls,.xlsx" onChange={handleFileUpload} />
-                       {isAnalyzing ? "Analisando..." : "Selecionar Arquivo"}
-                    </label>
-                 </div>
-
-                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-w-md mx-auto pt-8 opacity-40">
-                    {['PDF', 'DOC', 'DOCX', 'TXT', 'XLS', 'XLSX'].map(ext => (
-                       <div key={ext} className="px-3 py-2 border border-zinc-200 rounded-xl text-[9px] font-bold text-zinc-400">.{ext}</div>
-                    ))}
-                 </div>
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {IA_WEIGHT_FIELDS.map((item) => (
+          <ContentCard key={String(item.field)} padding="sm" className="space-y-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="space-y-1">
+                <p className="text-sm font-black tracking-tight text-zinc-900">{item.label}</p>
+                <p className="text-xs leading-relaxed text-zinc-500">{item.description}</p>
               </div>
-           </PanelCard>
-        </div>
-      ) : (
-        <div className="grid lg:grid-cols-12 gap-8">
-        {/* Navigation Sidebar */}
-        <aside className="lg:col-span-3">
-          <div className="bg-white border border-zinc-200 rounded-3xl p-3 sticky top-32 space-y-3">
-            {formData.ai_summary && (
-              <>
-                <div className="p-3 bg-zinc-50 border border-zinc-100 rounded-2xl space-y-3">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 bg-white border border-zinc-200 rounded-lg flex items-center justify-center text-zinc-400">
-                      <FileText size={16} />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-[9px] font-bold text-zinc-900 uppercase tracking-tighter truncate">Doc Importado</p>
-                      <p className="text-[8px] text-zinc-400 font-bold uppercase tracking-widest">Via Gemini IA</p>
-                    </div>
-                  </div>
-                  <button 
-                    onClick={() => {
-                      toast.info("Texto extraído exibido no console (simulação)");
-                      console.log(formData.description); // Using description as extracted text for now or whatever is available
-                    }}
-                    className="w-full py-2 bg-white border border-zinc-200 rounded-xl text-[8px] font-bold text-zinc-500 uppercase tracking-widest hover:bg-zinc-100 transition-all"
-                  >
-                    Ver Texto Bruto
-                  </button>
-                </div>
+              {confidence && (
+                <Badge color="primary" pill>
+                  IA
+                </Badge>
+              )}
+            </div>
 
-                <div className="p-4 bg-zinc-900 text-white rounded-2xl space-y-2">
-                  <div className="flex items-center gap-2 text-[8px] font-bold uppercase tracking-widest text-develoi-gold">
-                    <Sparkles size={12} /> Resumo da IA
-                  </div>
-                  <p className="text-[11px] font-bold opacity-80 leading-relaxed italic">
-                    "{formData.ai_summary}"
+            <Input
+              type="number"
+              min={0}
+              value={(formData[item.field] as number | undefined) ?? 0}
+              onChange={(event) => handleChange(item.field, Number.parseInt(event.target.value || "0", 10))}
+            />
+          </ContentCard>
+        ))}
+      </div>
+
+      <FormRow cols={2}>
+        <div className="space-y-1.5">
+          <FieldHeader label="Margem de corte (%)" />
+          <Input
+            type="number"
+            min={0}
+            max={100}
+            value={formData.compatibility_threshold ?? 80}
+            onChange={(event) => handleChange("compatibility_threshold", Number.parseInt(event.target.value || "0", 10))}
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <FieldHeader label="Máximo de candidatos sugeridos" />
+          <Input
+            type="number"
+            min={1}
+            value={formData.max_compatible_candidates ?? 20}
+            onChange={(event) => handleChange("max_compatible_candidates", Number.parseInt(event.target.value || "0", 10))}
+          />
+        </div>
+      </FormRow>
+    </div>
+  );
+
+  const renderInternalSection = () => (
+    <div className="space-y-6">
+      <div className="space-y-1.5">
+        <FieldHeader label="Observações privadas" />
+        <Textarea
+          rows={8}
+          value={formData.internal_notes ?? ""}
+          onChange={(event) => handleChange("internal_notes", event.target.value)}
+          placeholder="Anotações internas do RH, contexto de urgência, aprovadores e observações de processo."
+        />
+      </div>
+    </div>
+  );
+
+  const renderCurrentSection = () => {
+    switch (activeSection) {
+      case "info":
+        return renderInfoSection();
+      case "content":
+        return renderContentSection();
+      case "location":
+        return renderLocationSection();
+      case "ia":
+        return renderIASection();
+      case "internal":
+        return renderInternalSection();
+      default:
+        return null;
+    }
+  };
+
+  const currentSectionMeta = SECTION_META.find((section) => section.id === activeSection)!;
+
+  const renderEditorMode = () => (
+    <div className="grid gap-6 xl:grid-cols-[300px,minmax(0,1fr)]">
+      <div className="space-y-6">
+        {renderImportSummary()}
+        {renderQueueCard()}
+
+        <ContentCard className="space-y-2 xl:sticky xl:top-6" padding="sm">
+          <div className="px-1 pb-2">
+            <p className="text-sm font-black tracking-tight text-zinc-900">Navegação da vaga</p>
+            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-400">
+              Revise cada bloco antes de publicar
+            </p>
+          </div>
+
+          {SECTION_META.map((section) => {
+            const Icon = section.icon;
+            const isActive = section.id === activeSection;
+
+            return (
+              <Button
+                key={section.id}
+                variant={isActive ? "secondary" : "ghost"}
+                size="sm"
+                fullWidth
+                iconLeft={<Icon size={16} />}
+                className="h-auto min-w-0 justify-start px-3 py-3"
+                onClick={() => setActiveSection(section.id)}
+              >
+                <div className="min-w-0 text-left">
+                  <p className="truncate text-sm font-bold">{section.navLabel}</p>
+                  <p className="truncate text-[10px] font-black uppercase tracking-[0.16em] opacity-70">
+                    {section.title}
                   </p>
                 </div>
+              </Button>
+            );
+          })}
+        </ContentCard>
+      </div>
+
+      <div className="space-y-6">
+        <PanelCard
+          title={currentSectionMeta.title}
+          description={currentSectionMeta.description}
+          icon={currentSectionMeta.icon}
+        >
+          {renderCurrentSection()}
+        </PanelCard>
+
+        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+          <Button variant="ghost" onClick={onBack}>
+            Cancelar alterações
+          </Button>
+          <Button variant="outline" loading={loading} onClick={() => handleSave(false)}>
+            {job ? "Salvar vaga" : "Salvar rascunho"}
+          </Button>
+          <Button variant="secondary" loading={loading} onClick={() => handleSave(true)}>
+            Salvar e publicar
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const rawImportText = currentImportId ? rawImportTexts[currentImportId] ?? "" : "";
+
+  return (
+    <PageWrapper className="min-h-screen bg-zinc-50/60">
+      <div className="space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+          <div className="flex items-start gap-3">
+            <IconButton variant="ghost" size="md" onClick={onBack} aria-label="Voltar">
+              <ArrowLeft size={18} />
+            </IconButton>
+
+            <SectionTitle
+              className="mb-0"
+              title={job ? "Editar Vaga" : "Cadastrar Nova Vaga"}
+              subtitle="Configure os detalhes da vaga, importe documentos reais e revise os parâmetros da IA."
+              icon={<Briefcase size={22} />}
+            />
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {currentImportedReview && importMode && (
+              <Button
+                variant="outline"
+                iconLeft={<ArrowLeft size={14} />}
+                onClick={() => setImportMode(false)}
+              >
+                Voltar para revisão
+              </Button>
+            )}
+
+            {currentImportedReview && !importMode && !job && (
+              <Button
+                variant="outline"
+                iconLeft={<RefreshCcw size={14} />}
+                onClick={() => setImportMode(true)}
+              >
+                Importar mais arquivos
+              </Button>
+            )}
+
+            {!importMode && (
+              <>
+                <Button variant="outline" loading={loading} onClick={() => handleSave(false)}>
+                  Salvar rascunho
+                </Button>
+                <Button variant="secondary" loading={loading} onClick={() => handleSave(true)}>
+                  Salvar e publicar
+                </Button>
               </>
             )}
-            <nav className="space-y-1">
-              {SECTIONS.map((s) => {
-                const Icon = s.icon;
-                const active = activeSection === s.id;
-                return (
-                  <button
-                    key={s.id}
-                    onClick={() => setActiveSection(s.id)}
-                    className={cn(
-                      "w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all text-left group",
-                      active 
-                        ? "bg-develoi-navy text-white font-bold shadow-lg shadow-develoi-navy/20" 
-                        : "text-zinc-500 hover:bg-zinc-50 font-bold"
-                    )}
-                  >
-                    <Icon size={18} className={cn("transition-colors", active ? "text-white" : "text-zinc-400 group-hover:text-zinc-700")} />
-                    <span className="text-[11px] uppercase tracking-widest">{s.label}</span>
-                  </button>
-                );
-              })}
-            </nav>
-          </div>
-        </aside>
-
-        {/* Content Area */}
-        <div className="lg:col-span-9 space-y-6">
-          {activeSection === 'info' && (
-            <PanelCard title="Informações Gerais" icon={Building2}>
-              <div className="grid md:grid-cols-2 gap-6">
-                <div className="space-y-1.5 md:col-span-2">
-                  <div className="flex items-center justify-between">
-                    <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Título da Vaga *</label>
-                    {renderConfidenceBadge('title')}
-                  </div>
-                  <input 
-                    type="text" 
-                    value={formData.title}
-                    onChange={(e) => handleChange('title', e.target.value)}
-                    placeholder="Ex: Motorista Carreteiro" 
-                    className={cn(
-                      "w-full px-4 py-3 bg-zinc-50 border rounded-2xl text-sm font-bold outline-none focus:border-fadel-navy transition-all",
-                      confidence?.title === 'Baixa' ? "border-red-200 bg-red-50/30" : "border-zinc-200"
-                    )}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Departamento</label>
-                  <input 
-                    type="text" 
-                    value={formData.department}
-                    onChange={(e) => handleChange('department', e.target.value)}
-                    placeholder="Ex: Logística" 
-                    className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-2xl text-sm font-bold outline-none focus:border-amber-400 transition-all" 
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Nível de Senioridade</label>
-                  <select 
-                    value={formData.seniority_level}
-                    onChange={(e) => handleChange('seniority_level', e.target.value)}
-                    className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-2xl text-sm font-bold outline-none focus:border-amber-400 transition-all appearance-none"
-                  >
-                    <option>Operacional</option>
-                    <option>Auxiliar</option>
-                    <option>Júnior</option>
-                    <option>Pleno</option>
-                    <option>Sênior</option>
-                    <option>Coordenação</option>
-                    <option>Gerência</option>
-                    <option>Diretoria</option>
-                  </select>
-                </div>
-                <div className="space-y-1.5 md:col-span-2">
-                  <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Descrição Breve (Resumo)</label>
-                  <textarea 
-                    value={formData.description}
-                    onChange={(e) => handleChange('description', e.target.value)}
-                    placeholder="Uma pequena introdução que aparece nos cards de listagem..." 
-                    className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-2xl text-sm font-bold outline-none focus:border-amber-400 transition-all min-h-24"
-                  />
-                </div>
-              </div>
-            </PanelCard>
-          )}
-
-          {activeSection === 'content' && (
-            <PanelCard title="Responsabilidades e Requisitos" icon={FileText}>
-              <div className="space-y-8">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Responsabilidades</label>
-                  <RichTextEditor 
-                    value={formData.responsibilities || ""} 
-                    onChange={(v) => handleChange('responsibilities', v)} 
-                    placeholder="O que o colaborador fará no dia a dia..." 
-                  />
-                </div>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest ml-1 text-develoi-gold">Requisitos Técnicos (Base para IA)</label>
-                    {renderConfidenceBadge('requirements')}
-                  </div>
-                  <div className={cn(
-                    "rounded-2xl overflow-hidden border transition-all",
-                    confidence?.requirements === 'Baixa' ? "border-red-200 ring-2 ring-red-50" : "border-zinc-200"
-                  )}>
-                    <RichTextEditor 
-                      value={formData.technical_requirements || ""} 
-                      onChange={(v) => handleChange('technical_requirements', v)} 
-                      placeholder="Habilidades técnicas, softwares, certificações..." 
-                    />
-                  </div>
-                </div>
-                <div className="grid md:grid-cols-2 gap-6">
-                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Escolaridade Mínima</label>
-                    <select 
-                      value={formData.education_level}
-                      onChange={(e) => handleChange('education_level', e.target.value)}
-                      className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-2xl text-sm font-bold outline-none focus:border-amber-400 transition-all"
-                    >
-                      <option>Fundamental</option>
-                      <option>Ensino Médio</option>
-                      <option>Técnico</option>
-                      <option>Superior Incompleto</option>
-                      <option>Superior Completo</option>
-                      <option>Pós/MBA</option>
-                      <option>Mestrado/Doutorado</option>
-                    </select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Anos de Experiência Mínima</label>
-                    <input 
-                      type="number" 
-                      value={formData.min_experience_years}
-                      onChange={(e) => handleChange('min_experience_years', parseInt(e.target.value))}
-                      className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-2xl text-sm font-bold outline-none focus:border-amber-400 transition-all" 
-                    />
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest ml-1 text-red-500">Critérios Eliminatórios</label>
-                  <textarea 
-                    value={formData.eliminatory_criteria}
-                    onChange={(e) => handleChange('eliminatory_criteria', e.target.value)}
-                    placeholder="Ex: Possuir CNH D ativa, Disponibilidade para viagens longas..." 
-                    className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-2xl text-sm font-bold outline-none focus:border-red-400 transition-all min-h-24"
-                  />
-                </div>
-              </div>
-            </PanelCard>
-          )}
-
-          {activeSection === 'location' && (
-            <PanelCard title="Localização e Contrato" icon={MapPin}>
-              <div className="grid md:grid-cols-2 gap-6">
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Cidade *</label>
-                    {renderConfidenceBadge('city')}
-                  </div>
-                  <input 
-                    type="text" 
-                    value={formData.city}
-                    onChange={(e) => handleChange('city', e.target.value)}
-                    placeholder="Ex: Tatuí" 
-                    className={cn(
-                      "w-full px-4 py-3 bg-zinc-50 border rounded-2xl text-sm font-bold outline-none focus:border-amber-400 transition-all",
-                      confidence?.city === 'Baixa' ? "border-red-200 bg-red-50/30" : "border-zinc-200"
-                    )}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Estado *</label>
-                  <input 
-                    type="text" 
-                    value={formData.state}
-                    onChange={(e) => handleChange('state', e.target.value)}
-                    placeholder="Ex: SP" 
-                    maxLength={2}
-                    className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-2xl text-sm font-bold outline-none focus:border-amber-400 transition-all" 
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Modelo de Trabalho</label>
-                  <select 
-                    value={formData.work_model}
-                    onChange={(e) => handleChange('work_model', e.target.value)}
-                    className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-2xl text-sm font-bold outline-none focus:border-amber-400 transition-all"
-                  >
-                    <option>Presencial</option>
-                    <option>Híbrido</option>
-                    <option>Home Office</option>
-                  </select>
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Tipo de Contrato</label>
-                  <select 
-                    value={formData.contract_type}
-                    onChange={(e) => handleChange('contract_type', e.target.value)}
-                    className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-2xl text-sm font-bold outline-none focus:border-amber-400 transition-all"
-                  >
-                    <option>CLT</option>
-                    <option>PJ</option>
-                    <option>Estágio</option>
-                    <option>Temporário</option>
-                    <option>Freelancer</option>
-                    <option>Outro</option>
-                  </select>
-                </div>
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Salário Mínimo</label>
-                    {renderConfidenceBadge('salary')}
-                  </div>
-                  <input 
-                    type="number" 
-                    value={formData.salary_min}
-                    onChange={(e) => handleChange('salary_min', parseFloat(e.target.value))}
-                    className={cn(
-                      "w-full px-4 py-3 bg-zinc-50 border rounded-2xl text-sm font-bold outline-none focus:border-amber-400 transition-all",
-                      confidence?.salary === 'Baixa' ? "border-red-200 bg-red-50/30" : "border-zinc-200"
-                    )}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Salário Máximo</label>
-                  <input 
-                    type="number" 
-                    value={formData.salary_max}
-                    onChange={(e) => handleChange('salary_max', parseFloat(e.target.value))}
-                    className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-2xl text-sm font-bold outline-none focus:border-amber-400 transition-all" 
-                  />
-                </div>
-              </div>
-            </PanelCard>
-          )}
-
-          {activeSection === 'ia' && (
-            <PanelCard title="Critérios de Compatibilidade IA" icon={Sparkles}>
-              <div className="space-y-6">
-                <div className="p-4 bg-develoi-navy/5 border border-develoi-navy/10 rounded-2xl flex gap-3">
-                  <Info size={20} className="text-develoi-navy shrink-0 mt-0.5" />
-                  <p className="text-[10px] font-bold text-develoi-navy leading-relaxed uppercase tracking-widest">
-                    Estes pesos definem como o Gemini AI irá priorizar os candidatos. O total não precisa somar 100, os valores são relativos.
-                  </p>
-                </div>
-                
-                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {[
-                    { id: 'weight_technical', label: 'Requisitos Técnicos' },
-                    { id: 'weight_experience', label: 'Experiência' },
-                    { id: 'weight_education', label: 'Formação Acadêmica' },
-                    { id: 'weight_location', label: 'Localização' },
-                    { id: 'weight_soft_skills', label: 'Soft Skills' },
-                    { id: 'weight_culture', label: 'Aderência Cultural' },
-                  ].map(w => (
-                    <div key={w.id} className="space-y-1.5 p-3 rounded-2xl border border-zinc-100 bg-white shadow-sm overflow-hidden relative">
-                      <div className="flex items-center justify-between gap-2">
-                        <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest truncate">{w.label}</label>
-                        {confidence && (
-                           <Sparkles size={10} className="text-fadel-gold" />
-                        )}
-                      </div>
-                      <input 
-                        type="number" 
-                        value={formData[w.id as keyof Job] as number}
-                        onChange={(e) => handleChange(w.id as keyof Job, parseInt(e.target.value))}
-                        className="w-full bg-transparent border-none p-0 text-sm font-bold outline-none focus:ring-0" 
-                      />
-                      {confidence && (
-                         <div className="absolute top-0 right-0 w-1 h-full bg-fadel-navy"></div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-
-                <div className="grid sm:grid-cols-2 gap-6 pt-6 border-t border-zinc-100">
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Margem de Corte (%)</label>
-                    <input 
-                      type="number" 
-                      value={formData.compatibility_threshold}
-                      onChange={(e) => handleChange('compatibility_threshold', parseInt(e.target.value))}
-                      className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-2xl text-sm font-bold outline-none focus:border-amber-400 transition-all" 
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Sugestão Máxima de Ranking</label>
-                    <input 
-                      type="number" 
-                      value={formData.max_compatible_candidates}
-                      onChange={(e) => handleChange('max_compatible_candidates', parseInt(e.target.value))}
-                      className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-2xl text-sm font-bold outline-none focus:border-amber-400 transition-all" 
-                    />
-                  </div>
-                </div>
-              </div>
-            </PanelCard>
-          )}
-
-          {activeSection === 'internal' && (
-            <PanelCard title="Dados Internos do RH" icon={ShieldCheck}>
-              <div className="space-y-6">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Observações Privadas</label>
-                  <textarea 
-                    value={formData.internal_notes}
-                    onChange={(e) => handleChange('internal_notes', e.target.value)}
-                    placeholder="Notas que apenas o RH da unidade consegue ver..." 
-                    className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-2xl text-sm font-bold outline-none focus:border-amber-400 transition-all min-h-32"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Tags / Palavras-chave</label>
-                  <input 
-                    type="text" 
-                    value={formData.tags}
-                    onChange={(e) => handleChange('tags', e.target.value)}
-                    placeholder="Separe por vírgulas: Urgente, PJ, Disponibilidade..." 
-                    className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-2xl text-sm font-bold outline-none focus:border-amber-400 transition-all" 
-                  />
-                </div>
-              </div>
-            </PanelCard>
-          )}
-
-          <div className="flex justify-end gap-3 pt-6">
-            <button 
-              onClick={onBack}
-              className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-zinc-400 hover:text-zinc-600 transition-colors"
-            >
-              Cancelar Alterações
-            </button>
-            <button 
-              onClick={() => handleSave(false)}
-              disabled={loading}
-              className="px-8 py-3 bg-zinc-900 text-white rounded-2xl text-[11px] font-bold uppercase tracking-widest hover:bg-zinc-800 transition-all shadow-xl shadow-zinc-900/10 active:scale-[0.98]"
-            >
-              {loading ? "Processando..." : (job ? "Salvar Vaga" : "Salvar Agora")}
-            </button>
           </div>
         </div>
+
+        {!job && (
+          <ContentCard padding="sm" className="inline-flex w-full flex-wrap gap-2 sm:w-auto">
+            <Button
+              variant={!importMode ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => setImportMode(false)}
+            >
+              Cadastrar manualmente
+            </Button>
+            <Button
+              variant={importMode ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => setImportMode(true)}
+            >
+              Importar por arquivo
+            </Button>
+          </ContentCard>
+        )}
+
+        {importMode ? renderImportMode() : renderEditorMode()}
       </div>
-     )}
-    </div>
+
+      <Modal
+        open={rawImportOpen}
+        onClose={() => setRawImportOpen(false)}
+        title="Texto bruto importado"
+        description={
+          currentImportedReview
+            ? `Leitura original do arquivo ${currentImportedReview.fileName}`
+            : "Conteúdo extraído do documento."
+        }
+        icon={<FileText size={20} />}
+        size="lg"
+        footer={
+          <div className="flex justify-end">
+            <Button variant="outline" onClick={() => setRawImportOpen(false)}>
+              Fechar
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          {currentImportedReview && (
+            <div className="flex flex-wrap gap-2">
+              <Badge color="primary" pill>
+                Importação #{currentImportedReview.importId}
+              </Badge>
+              <Badge color="default" pill>
+                {currentImportedReview.fileName}
+              </Badge>
+            </div>
+          )}
+
+          {rawImportLoading ? (
+            <ContentCard className="flex items-center justify-center py-12 text-sm font-bold text-zinc-500">
+              Carregando texto importado...
+            </ContentCard>
+          ) : rawImportError ? (
+            <ContentCard className="border-red-200 bg-red-50/70 text-red-700">
+              <div className="flex items-start gap-3">
+                <AlertCircle size={18} className="mt-0.5 shrink-0" />
+                <p className="text-sm leading-relaxed">{rawImportError}</p>
+              </div>
+            </ContentCard>
+          ) : (
+            <Textarea
+              rows={18}
+              readOnly
+              value={rawImportText || "Nenhum texto bruto disponível para esta importação."}
+            />
+          )}
+        </div>
+      </Modal>
+    </PageWrapper>
   );
 }

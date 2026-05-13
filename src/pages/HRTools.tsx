@@ -885,7 +885,7 @@ export default function HRTools() {
             >
               <div className="space-y-6">
                 {[
-                  { label: 'Peso Cultura Develoi', value: 80, desc: 'Importância dos valores organizacionais' },
+                  { label: 'Peso Cultura Organizacional', value: 80, desc: 'Importância dos valores organizacionais' },
                   { label: 'Rigor Técnico', value: 65, desc: 'Nível de exigência para competências técnicas' },
                   { label: 'Tolerância comportamental', value: 40, desc: 'Flexibilidade em traços de personalidade' },
                   { label: 'Match de Experiência', value: 90, desc: 'Importância do tempo de casa/segmento' }
@@ -995,8 +995,10 @@ export default function HRTools() {
                       description: 'Análise comportamental baseada na metodologia DISC.',
                       type: 'DISC',
                       questions: [
-                        { question_text: 'Qual seu nível de dominância em situações de estresse?', question_type: 'select', is_required: true },
-                        { question_text: 'Como você prefere se comunicar com a equipe?', question_type: 'select', is_required: true }
+                        { question_text: 'Em um projeto sob pressão, você costuma ser:', question_type: 'select', is_required: true, options_json: ['Focado no resultado a qualquer custo (D)', 'Otimista e busca engajar a equipe (I)', 'Calmo, ajudando a manter a harmonia (S)', 'Meticuloso, revisando regras e detalhes (C)'] },
+                        { question_text: 'Ao tomar uma decisão importante, o que mais pesa para você?', question_type: 'select', is_required: true, options_json: ['Rapidez e impacto (D)', 'Opinião e impacto nas pessoas (I)', 'Segurança e precedentes (S)', 'Dados, fatos e precisão (C)'] },
+                        { question_text: 'Como você reage a mudanças repentinas?', question_type: 'select', is_required: true, options_json: ['Gosto, me adapto rápido e tomo a frente (D)', 'Acho estimulante, adoro novidades (I)', 'Prefiro mudanças graduais e planejadas (S)', 'Preciso entender o porquê lógico e as regras (C)'] },
+                        { question_text: 'Qual a sua maior força trabalhando em equipe?', question_type: 'select', is_required: true, options_json: ['Liderança e determinação (D)', 'Comunicação e persuasão (I)', 'Empatia e lealdade (S)', 'Organização e controle de qualidade (C)'] }
                       ]
                     })}
                     className="p-4 bg-white border border-zinc-200 rounded-2xl text-[9px] font-black text-zinc-600 uppercase tracking-widest hover:border-develoi-navy transition-all text-center"
@@ -1114,6 +1116,19 @@ export default function HRTools() {
                             </select>
                           </div>
                         </div>
+                        {q.question_type === 'select' && (
+                          <div className="mt-4 pt-4 border-t border-zinc-100">
+                             <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-2 block ml-1">Opções <span className="lowercase font-medium text-zinc-300">(separadas por ponto e vírgula)</span></label>
+                             <input 
+                               type="text" 
+                               placeholder="Ex: Opção A; Opção B; Opção C"
+                               className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-bold outline-none focus:border-zinc-900 transition-all shadow-inner"
+                               value={Array.isArray(q.options_json) ? q.options_json.join('; ') : (q.options_json || '')}
+                               onChange={e => updateQuestion(idx, { options_json: e.target.value.split(';').map((s: string) => s.trim()).filter(Boolean) })}
+                             />
+                          </div>
+                        )}
+
                       </div>
                     ))}
                   </div>

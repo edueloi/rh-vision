@@ -40,6 +40,7 @@ export interface Job {
   internal_notes?: string;
   tags?: string;
   external_links: string; // JSON
+  ai_summary?: string;
   created_at: string;
   updated_at: string;
   candidates_count?: number;
@@ -83,6 +84,14 @@ export interface Candidate {
   status: 'Novo' | 'Em análise' | 'Compatível' | 'Entrevista' | 'Aprovado' | 'Reprovado' | 'Banco de talentos' | 'Contratado';
   tags?: string;
   internal_notes?: string;
+  experiences_json?: string;
+  education_json?: string;
+  languages_json?: string;
+  projects_json?: string;
+  certifications_json?: string;
+  hard_skills_json?: string;
+  soft_skills_json?: string;
+  objectives_json?: string;
   created_at: string;
   updated_at: string;
   deleted_at?: string;

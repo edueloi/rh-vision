@@ -343,7 +343,7 @@ export default function PublicToolResponse() {
               <div className="p-6 bg-zinc-50 rounded-3xl mb-8">
                  <h4 className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1 text-left">Próximos Passos</h4>
                  <p className="text-xs font-semibold text-zinc-600 text-left leading-relaxed">
-                   Nossa equipe analisará seu perfil e entrará em contato caso seu perfil esteja alinhado com o que buscamos para o time Develoi.
+                   Nossa equipe analisará seu perfil e entrará em contato caso seu perfil esteja alinhado com o que buscamos para o time {tool?.tenant_name || 'da empresa'}.
                  </p>
               </div>
 

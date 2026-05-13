@@ -104,7 +104,7 @@ export default function Login({ onLogin }: LoginProps) {
 
           <div className="mt-10 border-t border-zinc-50 pt-8 text-center">
             <p className="text-[9px] font-bold uppercase tracking-widest text-zinc-400">
-              Protegido pela Tecnologia Develoi &copy; 2024
+              Protegido pela Tecnologia Aurora AI &copy; 2024
             </p>
           </div>
         </PanelCard>

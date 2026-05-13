@@ -1,4 +1,4 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
 import express from 'express';
 import { createServer as createHttpServer } from 'http';
 import cors from 'cors';
@@ -7,7 +7,7 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import db, { initDb, prisma } from './src/lib/db';
-import { GoogleGenAI } from '@google/genai';
+import OpenAI from 'openai';
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 import multer from 'multer';
@@ -20,20 +20,242 @@ import {
   stringifyAccessPermissions,
 } from './src/lib/access';
 
+dotenv.config({ override: true });
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY?.trim();
-const GEMINI_MODEL = process.env.GEMINI_MODEL?.trim() || 'gemini-1.5-flash';
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY?.trim();
+const LEGACY_GEMINI_API_KEY = process.env.GEMINI_API_KEY?.trim();
+const OPENAI_MODEL = process.env.OPENAI_MODEL?.trim() || 'gpt-5-nano';
+const OPENAI_RETRY_ATTEMPTS = Math.max(1, Number.parseInt(process.env.OPENAI_RETRY_ATTEMPTS?.trim() || '3', 10) || 3);
+const OPENAI_RETRY_BASE_DELAY_MS = Math.max(250, Number.parseInt(process.env.OPENAI_RETRY_BASE_DELAY_MS?.trim() || '900', 10) || 900);
 const IMPORT_UPLOADS_DIR = path.join(__dirname, 'storage', 'imports');
 const CANDIDATE_UPLOADS_DIR = path.join(__dirname, 'storage', 'candidate-files');
 
-function createGeminiClient() {
-  if (!GEMINI_API_KEY) {
-    throw new Error('GEMINI_API_KEY nÃƒÂ£o configurada. Defina a chave no arquivo .env.');
+type AIReasoningEffort = 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh';
+type AITextVerbosity = 'low' | 'medium' | 'high';
+type AIMessageRole = 'user' | 'model' | 'assistant';
+type AIMessagePart = { text?: string | null };
+type AIMessage = { role?: AIMessageRole; parts?: AIMessagePart[] };
+type AIGenerateContentConfig = {
+  responseMimeType?: string;
+  temperature?: number;
+  maxOutputTokens?: number;
+  reasoningEffort?: AIReasoningEffort;
+  verbosity?: AITextVerbosity;
+  instructions?: string;
+  operationLabel?: string;
+};
+type AIGenerateContentRequest = {
+  model?: string;
+  contents: string | AIMessage[];
+  config?: AIGenerateContentConfig;
+};
+type AIClient = {
+  models: {
+    generateContent: (request: AIGenerateContentRequest) => Promise<{ text: string }>;
+  };
+};
+type GoogleGenAI = AIClient;
+
+const GEMINI_MODEL = OPENAI_MODEL;
+
+const AI_CORE_INSTRUCTIONS = [
+  'Você é Aurora AI, especialista sênior em recrutamento, seleção, people analytics e análise técnica de candidatos e vagas.',
+  'Responda sempre em português do Brasil com rigor, clareza e critério profissional.',
+  'Nunca invente informações ausentes. Quando faltarem dados, use null, [] ou declare a ausência conforme o formato solicitado.',
+  'Em análises de aderência, seja conservadora e baseie a conclusão apenas nas evidências fornecidas.',
+].join(' ');
+
+class AITemporaryUnavailableError extends Error {
+  statusCode: number;
+  originalError: unknown;
+
+  constructor(message: string, originalError: unknown) {
+    super(message);
+    this.name = 'AITemporaryUnavailableError';
+    this.statusCode = 503;
+    this.originalError = originalError;
+  }
+}
+
+function wait(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function getAIErrorStatus(error: any) {
+  const numericStatus = Number(error?.status ?? error?.code ?? error?.error?.code);
+  return Number.isFinite(numericStatus) && numericStatus > 0 ? numericStatus : null;
+}
+
+function getAIErrorMessage(error: any) {
+  return error?.error?.message || error?.message || 'Erro desconhecido ao consultar o provedor de IA.';
+}
+
+function isAITemporaryFailure(error: any) {
+  const status = getAIErrorStatus(error);
+  const providerStatus = String(error?.error?.status || error?.code || '').toUpperCase();
+
+  return (
+    status === 408 ||
+    status === 409 ||
+    status === 429 ||
+    status === 500 ||
+    status === 502 ||
+    status === 503 ||
+    status === 504 ||
+    providerStatus === 'RESOURCE_EXHAUSTED' ||
+    providerStatus === 'UNAVAILABLE' ||
+    providerStatus === 'ECONNRESET' ||
+    providerStatus === 'ETIMEDOUT'
+  );
+}
+
+function normalizeReasoningEffort(value: string | undefined, fallback: AIReasoningEffort): AIReasoningEffort {
+  const normalized = value?.trim().toLowerCase();
+  if (
+    normalized === 'none' ||
+    normalized === 'minimal' ||
+    normalized === 'low' ||
+    normalized === 'medium' ||
+    normalized === 'high' ||
+    normalized === 'xhigh'
+  ) {
+    return normalized;
   }
 
-  return new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+  return fallback;
 }
+
+function normalizeTextVerbosity(value: string | undefined, fallback: AITextVerbosity): AITextVerbosity {
+  const normalized = value?.trim().toLowerCase();
+  if (normalized === 'low' || normalized === 'medium' || normalized === 'high') {
+    return normalized;
+  }
+
+  return fallback;
+}
+
+function buildAIInstructions(extraInstructions?: string | null) {
+  return [AI_CORE_INSTRUCTIONS, extraInstructions?.trim()].filter(Boolean).join('\n\n');
+}
+
+function extractTextFromAIMessageParts(parts?: AIMessagePart[]) {
+  return (parts || [])
+    .map((part) => (typeof part?.text === 'string' ? part.text : ''))
+    .filter(Boolean)
+    .join('\n')
+    .trim();
+}
+
+function convertGeminiLikeContentsToOpenAIInput(contents: string | AIMessage[]): any {
+  if (typeof contents === 'string') {
+    return contents;
+  }
+
+  const normalizedMessages = contents
+    .map((item) => ({
+      role: item.role === 'model' || item.role === 'assistant' ? 'assistant' : 'user',
+      text: extractTextFromAIMessageParts(item.parts),
+    }))
+    .filter((item) => item.text);
+
+  if (normalizedMessages.length === 0) {
+    return '';
+  }
+
+  if (normalizedMessages.every((item) => item.role === 'user')) {
+    return normalizedMessages.map((item) => ({
+      type: 'message' as const,
+      role: 'user' as const,
+      content: [{ type: 'input_text' as const, text: item.text }],
+    }));
+  }
+
+  return normalizedMessages
+    .map((item) => `${item.role === 'assistant' ? 'Assistente' : 'Usuário'}:\n${item.text}`)
+    .join('\n\n');
+}
+
+async function executeAIRequestWithRetry<T>(request: () => Promise<T>, operationLabel = 'geração de conteúdo') {
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= OPENAI_RETRY_ATTEMPTS; attempt += 1) {
+    try {
+      return await request();
+    } catch (error) {
+      lastError = error;
+
+      if (!isAITemporaryFailure(error) || attempt === OPENAI_RETRY_ATTEMPTS) {
+        break;
+      }
+
+      const delayMs = OPENAI_RETRY_BASE_DELAY_MS * attempt;
+      const status = getAIErrorStatus(error) ?? 'sem status';
+      console.warn(`[OpenAI] ${operationLabel} temporariamente indisponível (${status}). Nova tentativa em ${delayMs}ms.`);
+      await wait(delayMs);
+    }
+  }
+
+  if (isAITemporaryFailure(lastError)) {
+    const status = getAIErrorStatus(lastError) ?? 'sem status';
+    const providerMessage = getAIErrorMessage(lastError);
+    throw new AITemporaryUnavailableError(
+      `OpenAI indisponível temporariamente para ${operationLabel} (${status}): ${providerMessage}`,
+      lastError
+    );
+  }
+
+  throw lastError;
+}
+
+function createAIClient(): AIClient {
+  if (!OPENAI_API_KEY) {
+    if (LEGACY_GEMINI_API_KEY) {
+      throw new Error('OPENAI_API_KEY não configurada. O arquivo .env ainda está com GEMINI_API_KEY. Renomeie para OPENAI_API_KEY e use uma chave OpenAI válida com prefixo sk- ou sk-proj-.');
+    }
+
+    throw new Error('OPENAI_API_KEY não configurada. Defina a chave no arquivo .env.');
+  }
+
+  if (/^AIza[0-9A-Za-z_-]{20,}$/.test(OPENAI_API_KEY)) {
+    throw new Error('OPENAI_API_KEY está com uma chave do Google/Gemini (prefixo AIza). Remova a variável OPENAI_API_KEY do terminal atual e configure uma chave OpenAI válida com prefixo sk- ou sk-proj-.');
+  }
+
+  const client = new OpenAI({ apiKey: OPENAI_API_KEY });
+
+  return {
+    models: {
+      generateContent: async ({ model, contents, config }: AIGenerateContentRequest) => {
+        const expectsJson = config?.responseMimeType === 'application/json';
+        const response = await executeAIRequestWithRetry(
+          () =>
+            client.responses.create({
+              model: model || OPENAI_MODEL,
+              input: convertGeminiLikeContentsToOpenAIInput(contents) as any,
+              instructions: buildAIInstructions(config?.instructions),
+              max_output_tokens: config?.maxOutputTokens,
+              reasoning: {
+                effort: config?.reasoningEffort || normalizeReasoningEffort(process.env.OPENAI_REASONING_EFFORT, 'low'),
+              },
+              text: {
+                format: expectsJson ? { type: 'json_object' } : { type: 'text' },
+                verbosity: expectsJson ? 'low' : config?.verbosity || normalizeTextVerbosity(process.env.OPENAI_TEXT_VERBOSITY, 'low'),
+              },
+            }),
+          config?.operationLabel || 'geração de conteúdo'
+        ) as any;
+
+        return {
+          text: response.output_text || '',
+        };
+      },
+    },
+  };
+}
+
+const createGeminiClient = createAIClient;
+const GeminiTemporaryUnavailableError = AITemporaryUnavailableError;
 
 function normalizeAuroraChatReply(rawText: string) {
   return rawText
@@ -80,6 +302,19 @@ async function saveImportedResumeFile(batchId: number | string, tenantId: string
   const safeName = sanitizeUploadFileName(path.basename(file.originalname || 'curriculo', extension));
   const uniqueName = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}-${safeName}${extension}`;
   const targetDir = path.join(IMPORT_UPLOADS_DIR, tenantId, String(batchId));
+  const targetPath = path.join(targetDir, uniqueName);
+
+  await fs.promises.mkdir(targetDir, { recursive: true });
+  await fs.promises.writeFile(targetPath, file.buffer);
+
+  return targetPath;
+}
+
+async function saveImportedJobFile(importId: number | string, tenantId: string, file: any) {
+  const extension = path.extname(file.originalname || '').toLowerCase();
+  const safeName = sanitizeUploadFileName(path.basename(file.originalname || 'vaga', extension));
+  const uniqueName = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}-${safeName}${extension}`;
+  const targetDir = path.join(IMPORT_UPLOADS_DIR, tenantId, 'jobs', String(importId));
   const targetPath = path.join(targetDir, uniqueName);
 
   await fs.promises.mkdir(targetDir, { recursive: true });
@@ -154,6 +389,19 @@ async function extractResumeTextFromStoredFile(file: any) {
   return extractResumeTextFromBuffer(buffer, file.file_name, file.file_type);
 }
 
+async function extractJobTextFromBuffer(buffer: Buffer, fileName: string, fileType?: string | null) {
+  return extractResumeTextFromBuffer(buffer, fileName, fileType);
+}
+
+async function extractJobTextFromStoredFile(file: any) {
+  if (!file.file_path) {
+    throw new Error('Arquivo da vaga não encontrado no armazenamento.');
+  }
+
+  const buffer = await fs.promises.readFile(file.file_path);
+  return extractJobTextFromBuffer(buffer, file.file_name, file.file_type);
+}
+
 function normalizeStringList(value: unknown) {
   if (Array.isArray(value)) {
     return value
@@ -177,6 +425,21 @@ function normalizeNullableString(value: unknown) {
   }
 
   const text = String(value).trim();
+  return text ? text : null;
+}
+
+function normalizeNullableTextBlock(value: unknown) {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  const text = String(value)
+    .replace(/\r\n/g, '\n')
+    .replace(/\u0000/g, '')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
   return text ? text : null;
 }
 
@@ -212,6 +475,153 @@ function normalizeNullableBoolean(value: unknown) {
   }
 
   return null;
+}
+
+function normalizeBrazilianState(value: unknown) {
+  const text = normalizeNullableString(value);
+  if (!text) {
+    return null;
+  }
+
+  const lettersOnly = text.toUpperCase().replace(/[^A-Z]/g, '');
+  return lettersOnly.length === 2 ? lettersOnly : null;
+}
+
+function clampInteger(value: unknown, fallback: number, min = 0, max = 100) {
+  const normalized = normalizeNullableInteger(value);
+  if (normalized === null) {
+    return fallback;
+  }
+
+  return Math.max(min, Math.min(max, normalized));
+}
+
+function normalizeConfidenceLevel(value: unknown): 'Alta' | 'Média' | 'Baixa' {
+  const normalized = String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase();
+
+  if (normalized === 'alta') return 'Alta';
+  if (normalized === 'media') return 'Média';
+  return 'Baixa';
+}
+
+function normalizeEvidenceSnippet(value: unknown) {
+  const text = normalizeNullableTextBlock(value);
+  return text ? text.slice(0, 220) : null;
+}
+
+function normalizeEvidenceText(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function hasSourceEvidence(extractedText: string, evidence: string | null) {
+  if (!evidence) {
+    return false;
+  }
+
+  const normalizedSource = normalizeEvidenceText(extractedText || '');
+  const normalizedEvidence = normalizeEvidenceText(evidence);
+
+  return Boolean(normalizedEvidence) && normalizedSource.includes(normalizedEvidence);
+}
+
+function buildImportedJobSummary(data: any) {
+  const parts = [
+    data?.title || null,
+    data?.department ? `Departamento: ${data.department}` : null,
+    data?.city && data?.state ? `${data.city}/${data.state}` : data?.city || null,
+    data?.contract_type ? `Contrato: ${data.contract_type}` : null,
+    data?.work_model ? `Modelo: ${data.work_model}` : null,
+  ].filter(Boolean);
+
+  if (parts.length > 0) {
+    return parts.join(' | ');
+  }
+
+  return 'Revise os campos importados e complete apenas os dados confirmados no arquivo.';
+}
+
+function normalizeImportedJobParsedData(data: any, extractedText: string) {
+  const evidence = data && typeof data.evidence === 'object' && data.evidence ? data.evidence : {};
+  const pickValue = <T,>(value: T, evidenceValue: unknown, fallback: T = null as T) => (
+    hasSourceEvidence(extractedText, normalizeEvidenceSnippet(evidenceValue)) ? value : fallback
+  );
+
+  const workModel = pickValue(normalizeNullableString(data?.work_model), evidence?.work_model);
+  const contractType = pickValue(normalizeNullableString(data?.contract_type), evidence?.contract_type);
+  const requiresCnh = pickValue(normalizeNullableBoolean(data?.requires_cnh), evidence?.requires_cnh);
+  const requiresTravel = pickValue(normalizeNullableBoolean(data?.requires_travel), evidence?.requires_travel);
+  const requiresRelocation = pickValue(normalizeNullableBoolean(data?.requires_relocation), evidence?.requires_relocation);
+
+  const normalized = {
+    title: pickValue(normalizeNullableString(data?.title), evidence?.title),
+    department: pickValue(normalizeNullableString(data?.department), evidence?.department),
+    description: pickValue(normalizeNullableTextBlock(data?.description), evidence?.description),
+    responsibilities: pickValue(normalizeNullableTextBlock(data?.responsibilities), evidence?.responsibilities),
+    technical_requirements: pickValue(normalizeNullableTextBlock(data?.technical_requirements), evidence?.technical_requirements),
+    mandatory_requirements: pickValue(normalizeNullableTextBlock(data?.mandatory_requirements), evidence?.mandatory_requirements),
+    desirable_requirements: pickValue(normalizeNullableTextBlock(data?.desirable_requirements), evidence?.desirable_requirements),
+    eliminatory_criteria: pickValue(normalizeNullableTextBlock(data?.eliminatory_criteria), evidence?.eliminatory_criteria),
+    benefits: pickValue(normalizeNullableTextBlock(data?.benefits), evidence?.benefits),
+    city: pickValue(normalizeNullableString(data?.city), evidence?.city),
+    state: pickValue(normalizeBrazilianState(data?.state), evidence?.state),
+    work_model: ['Presencial', 'Híbrido', 'Home Office'].includes(workModel || '') ? workModel : null,
+    contract_type: ['CLT', 'PJ', 'Estágio', 'Temporário', 'Freelancer', 'Outro'].includes(contractType || '') ? contractType : null,
+    seniority_level: pickValue(normalizeNullableString(data?.seniority_level), evidence?.seniority_level),
+    education_level: pickValue(normalizeNullableString(data?.education_level), evidence?.education_level),
+    min_experience_years: pickValue(normalizeNullableInteger(data?.min_experience_years), evidence?.min_experience_years),
+    salary_min: pickValue(normalizeNullableFloat(data?.salary_min), evidence?.salary_min),
+    salary_max: pickValue(normalizeNullableFloat(data?.salary_max), evidence?.salary_max),
+    workload: pickValue(normalizeNullableString(data?.workload), evidence?.workload),
+    work_schedule: pickValue(normalizeNullableString(data?.work_schedule), evidence?.work_schedule),
+    requires_cnh: requiresCnh === true,
+    cnh_category: pickValue(normalizeNullableString(data?.cnh_category), evidence?.cnh_category),
+    requires_travel: requiresTravel === true,
+    requires_relocation: requiresRelocation === true,
+    tags: pickValue(normalizeNullableString(data?.tags), evidence?.tags),
+    compatibility_threshold: clampInteger(data?.compatibility_threshold, 80, 50, 100),
+    weight_technical: clampInteger(data?.weight_technical, 20),
+    weight_experience: clampInteger(data?.weight_experience, 20),
+    weight_education: clampInteger(data?.weight_education, 20),
+    weight_location: clampInteger(data?.weight_location, 10),
+    weight_soft_skills: clampInteger(data?.weight_soft_skills, 15),
+    weight_culture: clampInteger(data?.weight_culture, 15),
+    ai_summary: null as string | null,
+    confidence: {
+      title: normalizeConfidenceLevel(data?.confidence?.title),
+      city: normalizeConfidenceLevel(data?.confidence?.city),
+      salary: normalizeConfidenceLevel(data?.confidence?.salary),
+      requirements: normalizeConfidenceLevel(data?.confidence?.requirements),
+    },
+  };
+
+  if (!normalized.title) {
+    normalized.confidence.title = 'Baixa';
+  }
+
+  if (!normalized.city || !normalized.state) {
+    normalized.confidence.city = 'Baixa';
+  }
+
+  if (normalized.salary_min === null && normalized.salary_max === null) {
+    normalized.confidence.salary = 'Baixa';
+  }
+
+  if (!normalized.technical_requirements && !normalized.mandatory_requirements && !normalized.desirable_requirements) {
+    normalized.confidence.requirements = 'Baixa';
+  }
+
+  normalized.ai_summary = buildImportedJobSummary(normalized);
+
+  return normalized;
 }
 
 function normalizeResumeParsedData(data: any, hasLinkedJob: boolean) {
@@ -350,6 +760,46 @@ function parseJsonFromAiResponse(textResponse: string) {
   return JSON.parse(jsonMatch[0]);
 }
 
+function parseJsonFromAiResponseSafe(textResponse: string) {
+  const normalizedText = String(textResponse || '')
+    .replace(/```json|```/gi, '')
+    .replace(/\u201c|\u201d/g, '"')
+    .replace(/\u2018|\u2019/g, "'")
+    .trim();
+
+  const jsonMatch = normalizedText.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) {
+    throw new Error('A IA não retornou um JSON válido.');
+  }
+
+  const rawJson = jsonMatch[0];
+  const attempts = [
+    rawJson,
+    rawJson.replace(/,\s*([}\]])/g, '$1'),
+    rawJson
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/^\s*\/\/.*$/gm, '')
+      .replace(/,\s*([}\]])/g, '$1'),
+    rawJson
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/^\s*\/\/.*$/gm, '')
+      .replace(/([{,]\s*)([A-Za-z_][A-Za-z0-9_]*)(\s*:)/g, '$1"$2"$3')
+      .replace(/,\s*([}\]])/g, '$1'),
+  ];
+
+  let lastError: unknown;
+  for (const candidate of attempts) {
+    try {
+      return JSON.parse(candidate);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  console.error('[AI JSON Parse] Falha ao converter resposta em JSON:', rawJson.slice(0, 800));
+  throw lastError instanceof Error ? lastError : new Error('Falha ao interpretar JSON retornado pela IA.');
+}
+
 async function runResumePreAnalysis(ai: GoogleGenAI, file: any, linkedJob?: { job_title?: string | null; job_description?: string | null } | null) {
   const extractedText = await extractResumeTextFromStoredFile(file);
   const prompt = buildResumePreAnalysisPrompt(extractedText, linkedJob);
@@ -360,6 +810,8 @@ async function runResumePreAnalysis(ai: GoogleGenAI, file: any, linkedJob?: { jo
       responseMimeType: 'application/json',
       temperature: 0.2,
       maxOutputTokens: 900,
+      reasoningEffort: 'low',
+      operationLabel: 'pré-análise de currículo',
     }
   });
 
@@ -515,7 +967,7 @@ async function startServer() {
 
     console.log(`Login attempt for: [${cleanEmail}]`);
     try {
-      const stmt = db.prepare('SELECT u.*, un.name as unit_name FROM users u LEFT JOIN units un ON u.unit_id = un.id WHERE (LOWER(u.email) = ? OR LOWER(u.id) = ?) AND u.password = ?');
+      const stmt = db.prepare('SELECT u.*, un.name as unit_name, t.name as tenant_name FROM users u LEFT JOIN units un ON u.unit_id = un.id LEFT JOIN tenants t ON u.tenant_id = t.id WHERE (LOWER(u.email) = ? OR LOWER(u.id) = ?) AND u.password = ?');
       const user = await stmt.get(cleanEmail, cleanEmail, cleanPassword) as any;
 
       if (user) {
@@ -535,6 +987,7 @@ async function startServer() {
              email: 'admin',
              role: 'admin',
              tenant_id: 'develoi',
+             tenant_name: 'Develoi Recruitment',
              access_profile: 'custom',
              permissions_json: JSON.stringify({
                dashboard: true, aurora_ai: true, jobs: true, candidates: true,
@@ -605,7 +1058,12 @@ async function startServer() {
       const result = await ai.models.generateContent({
         model: GEMINI_MODEL,
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        config: { responseMimeType: 'application/json' }
+        config: {
+          responseMimeType: 'application/json',
+          maxOutputTokens: 1100,
+          reasoningEffort: 'low',
+          operationLabel: 'extração de currículo importado',
+        }
       });
       
       const candidateData = JSON.parse(result.text || '{}');
@@ -653,7 +1111,7 @@ async function startServer() {
 
   // Jobs Endpoints
   app.get('/api/jobs', async (req, res) => {
-    const { unitId, tenantId, status, search } = req.query;
+    const { unitId, tenantId, status, search, workModel } = req.query;
     let query = 'SELECT * FROM jobs WHERE deleted_at IS NULL';
     const params: any[] = [];
 
@@ -670,6 +1128,11 @@ async function startServer() {
     if (status) {
       query += ' AND status = ?';
       params.push(status);
+    }
+
+    if (workModel) {
+      query += ' AND work_model = ?';
+      params.push(workModel);
     }
 
     if (search) {
@@ -702,13 +1165,10 @@ async function startServer() {
     if (!job.title || !job.city || !job.state) {
       return res.status(400).json({ error: 'Title, city and state are required' });
     }
-
-    const keys = Object.keys(job).filter(k => k !== 'id' && k !== 'created_at' && k !== 'updated_at');
+    const keys = Object.keys(job).filter(k => k !== 'id' && k !== 'created_at' && k !== 'updated_at' && !k.startsWith('_'));
     const placeholders = keys.map(() => '?').join(',');
     const values = keys.map(k => job[k]);
-
     const query = `INSERT INTO jobs (${keys.join(',')}, created_at, updated_at) VALUES (${placeholders}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`;
-
     try {
       const result = await db.prepare(query).run(...values);
       res.status(201).json({ id: result.lastInsertRowid, ...job });
@@ -721,17 +1181,15 @@ async function startServer() {
   app.put('/api/jobs/:id', async (req, res) => {
     const job = req.body;
     const { id } = req.params;
-
-    const keys = Object.keys(job).filter(k => k !== 'id' && k !== 'created_at' && k !== 'updated_at' && k !== 'tenant_id');
+    const keys = Object.keys(job).filter(k => k !== 'id' && k !== 'created_at' && k !== 'updated_at' && k !== 'tenant_id' && !k.startsWith('_'));
     const setClause = keys.map(k => `${k} = ?`).join(',');
     const values = keys.map(k => job[k]);
-
     const query = `UPDATE jobs SET ${setClause}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
-
     try {
       await db.prepare(query).run(...values, id);
       res.json({ id, ...job });
     } catch (error) {
+      console.error(error);
       res.status(500).json({ error: 'Failed to update job' });
     }
   });
@@ -780,18 +1238,47 @@ async function startServer() {
   });
 
   // Job Import Endpoints
-  app.post('/api/jobs/import', async (req, res) => {
-    const { tenant_id, unit_id, file_name, file_type, file_size } = req.body;
-    try {
-      const result = await db.prepare(`
-        INSERT INTO job_imports (tenant_id, unit_id, file_name, file_type, file_size, status)
-        VALUES (?, ?, ?, ?, ?, 'uploaded')
-      `).run(tenant_id, unit_id, file_name, file_type, file_size);
+  app.post('/api/jobs/import', upload.single('file'), async (req, res) => {
+    const { tenant_id, unit_id } = req.body;
 
-      res.status(201).json({ id: result.lastInsertRowid, success: true });
+    if (!tenant_id || !unit_id) {
+      return res.status(400).json({ error: 'tenant_id and unit_id are required' });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ error: 'Job file is required' });
+    }
+
+    try {
+      const extractedText = await extractJobTextFromBuffer(req.file.buffer, req.file.originalname, req.file.mimetype);
+
+      const result = await db.prepare(`
+        INSERT INTO job_imports (
+          tenant_id, unit_id, file_name, file_type, file_size, status, extracted_text
+        )
+        VALUES (?, ?, ?, ?, ?, 'uploaded', ?)
+      `).run(
+        tenant_id,
+        unit_id,
+        req.file.originalname,
+        req.file.mimetype,
+        req.file.size,
+        extractedText
+      );
+
+      const importId = result.lastInsertRowid;
+      const filePath = await saveImportedJobFile(importId, tenant_id, req.file);
+
+      await db.prepare(`
+        UPDATE job_imports
+        SET file_path = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `).run(filePath, importId);
+
+      res.status(201).json({ id: importId, success: true });
     } catch (error) {
       console.error(error);
-      res.status(500).json({ error: 'Failed to create job import' });
+      res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to create job import' });
     }
   });
 
@@ -815,6 +1302,7 @@ async function startServer() {
 
       // In a real app we'd extract text from the file.
       // Here we simulate it based on the file name if text is not provided.
+      const actualExtractedText = importData.extracted_text || await extractJobTextFromStoredFile(importData);
       const simulatedText = importData.extracted_text || `DescriÃƒÂ§ÃƒÂ£o da vaga importada do arquivo ${importData.file_name}. Esperamos um profissional com experiÃƒÂªncia em LogÃƒÂ­stica, CNH categoria E, residindo em TatuÃƒÂ­/SP. SalÃƒÂ¡rio entre R$ 3.500,00 e R$ 5.000,00. BenefÃƒÂ­cios: Vale transporte, plano de saÃƒÂºde, seguro de vida.`;
 
       const ai = createGeminiClient();
@@ -872,14 +1360,107 @@ async function startServer() {
         }
       `;
 
+      const strictPrompt = `
+Analise o texto de uma vaga e retorne apenas dados que existirem de forma explícita no documento.
+
+Regras obrigatórias:
+- Não invente cidade, estado, salário, benefícios, experiência, contrato, senioridade ou qualquer outro campo.
+- Se um campo não aparecer claramente no texto, retorne null.
+- Preserve a redação original sempre que possível; só faça ajustes leves de ortografia ou concordância.
+- Não use o nome do arquivo como fonte de verdade.
+- Para cada campo preenchido, informe um trecho literal do documento em "evidence".
+- O trecho em "evidence" precisa existir exatamente no texto enviado.
+- Os pesos de IA podem ser sugeridos por você, mas nunca preencha dados da vaga sem evidência.
+- Retorne JSON válido no padrão RFC 8259, sem comentários, sem markdown, sem vírgulas finais e com todas as chaves entre aspas duplas.
+
+Texto da vaga:
+${actualExtractedText}
+
+Retorne EXATAMENTE este JSON:
+{
+  "title": string | null,
+  "department": string | null,
+  "description": string | null,
+  "responsibilities": string | null,
+  "technical_requirements": string | null,
+  "mandatory_requirements": string | null,
+  "desirable_requirements": string | null,
+  "eliminatory_criteria": string | null,
+  "benefits": string | null,
+  "city": string | null,
+  "state": string | null,
+  "work_model": "Presencial" | "Híbrido" | "Home Office" | null,
+  "contract_type": "CLT" | "PJ" | "Estágio" | "Temporário" | "Freelancer" | "Outro" | null,
+  "seniority_level": "Operacional" | "Júnior" | "Pleno" | "Sênior" | "Coordenação" | "Gerência" | "Diretoria" | null,
+  "education_level": string | null,
+  "min_experience_years": number | null,
+  "salary_min": number | null,
+  "salary_max": number | null,
+  "workload": string | null,
+  "work_schedule": string | null,
+  "requires_cnh": boolean | null,
+  "cnh_category": string | null,
+  "requires_travel": boolean | null,
+  "requires_relocation": boolean | null,
+  "tags": string | null,
+  "compatibility_threshold": number,
+  "weight_technical": number,
+  "weight_experience": number,
+  "weight_education": number,
+  "weight_location": number,
+  "weight_soft_skills": number,
+  "weight_culture": number,
+  "confidence": {
+    "title": "Alta" | "Média" | "Baixa",
+    "city": "Alta" | "Média" | "Baixa",
+    "salary": "Alta" | "Média" | "Baixa",
+    "requirements": "Alta" | "Média" | "Baixa"
+  },
+  "evidence": {
+    "title": string | null,
+    "department": string | null,
+    "description": string | null,
+    "responsibilities": string | null,
+    "technical_requirements": string | null,
+    "mandatory_requirements": string | null,
+    "desirable_requirements": string | null,
+    "eliminatory_criteria": string | null,
+    "benefits": string | null,
+    "city": string | null,
+    "state": string | null,
+    "work_model": string | null,
+    "contract_type": string | null,
+    "seniority_level": string | null,
+    "education_level": string | null,
+    "min_experience_years": string | null,
+    "salary_min": string | null,
+    "salary_max": string | null,
+    "workload": string | null,
+    "work_schedule": string | null,
+    "requires_cnh": string | null,
+    "cnh_category": string | null,
+    "requires_travel": string | null,
+    "requires_relocation": string | null,
+    "tags": string | null
+  },
+  "ai_summary": string | null
+}
+      `;
+
       const aiResult = await ai.models.generateContent({
         model: GEMINI_MODEL,
-        contents: [{ role: 'user', parts: [{ text: prompt }] }]
+        contents: [{ role: 'user', parts: [{ text: strictPrompt }] }],
+        config: {
+          responseMimeType: 'application/json',
+          maxOutputTokens: 1800,
+          reasoningEffort: 'low',
+          operationLabel: 'análise de vaga importada',
+        }
       });
       
       const textResponse = aiResult.text || "";
       const cleaned = textResponse.replace(/```json|```/g, '').trim();
-      const parsedData = JSON.parse(cleaned);
+      const parsedData = normalizeImportedJobParsedData(parseJsonFromAiResponseSafe(cleaned), actualExtractedText);
 
       await db.prepare(`
         UPDATE job_imports
@@ -891,7 +1472,7 @@ async function startServer() {
             updated_at = CURRENT_TIMESTAMP
         WHERE id = ?
       `).run(
-        simulatedText,
+        actualExtractedText,
         JSON.stringify(parsedData),
         JSON.stringify(parsedData.confidence),
         parsedData.ai_summary,
@@ -913,7 +1494,17 @@ async function startServer() {
       const importData = await db.prepare('SELECT * FROM job_imports WHERE id = ?').get(id) as any;
       if (!importData) return res.status(404).json({ error: 'Import not found' });
 
-      const keys = Object.keys(jobData).filter(k => k !== 'id' && k !== 'created_at' && k !== 'updated_at' && k !== 'confidence');
+      const keys = Object.keys(jobData).filter(
+        k =>
+          k !== 'id' &&
+          k !== 'created_at' &&
+          k !== 'updated_at' &&
+          k !== 'confidence' &&
+          k !== 'tenant_id' &&
+          k !== 'unit_id' &&
+          k !== 'ai_summary' &&
+          !k.startsWith('_')
+      );
       const placeholders = keys.map(() => '?').join(',');
       const values = keys.map(k => jobData[k]);
 
@@ -940,7 +1531,7 @@ async function startServer() {
     }
   });
 
-  // Gemini AI Generation
+  // AI Generation
   app.post('/api/jobs/:id/generate-publication-text', async (req, res) => {
     const { channel, tone = 'profissional' } = req.body;
     const { id } = req.params;
@@ -975,7 +1566,13 @@ async function startServer() {
 
       const result = await ai.models.generateContent({
         model: GEMINI_MODEL,
-        contents: [{ role: 'user', parts: [{ text: prompt }] }]
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        config: {
+          maxOutputTokens: 1200,
+          reasoningEffort: 'low',
+          verbosity: 'high',
+          operationLabel: 'geração de texto de divulgação',
+        }
       });
       
       res.json({ text: result.text });
@@ -1167,7 +1764,7 @@ async function startServer() {
         console.warn('[PARSE] Nenhum texto extraído do arquivo');
       }
 
-      console.log('[PARSE] Chamando Gemini API...');
+      console.log('[PARSE] Chamando OpenAI...');
       const ai = createGeminiClient();
       
       const prompt = `
@@ -1178,7 +1775,7 @@ async function startServer() {
 
         REGRAS:
         - "experiences_list": ARRAY obrigatório com CADA emprego/experiência. Inclua TODOS, mesmo estágios e freelances. Campos: company, role, period, location, description (atividades resumidas em 1-2 frases).
-        - "education_list": ARRAY com CADA formação. Inclua pós-graduação, MBA, graduação, técnico. Campos: course, institution, period, status ("Concluído" ou "Em andamento").
+        - "education_list": ARRAY com CADA formação. Inclua pós-graduação, MBA, graduação, técnico. Campos: course, institution, status ("Concluído", "Em andamento", "Trancado", "Incompleto"), degree_type (Bacharelado, Licenciatura, Tecnólogo, Especialização, MBA, Mestrado, Doutorado, Técnico, Outro), start_date (formato MM/YYYY se possível), end_date (formato MM/YYYY se possível).
         - "certifications_list": ARRAY com CADA curso ou certificação mencionada. Campos: name, institution, year.
         - "projects_list": ARRAY com projetos relevantes/portfólio mencionados. Campos: name (nome do projeto), description (o que é), technologies (tecnologias usadas, string separada por vírgula).
         - "languages_list": ARRAY com idiomas. Campos: language, level.
@@ -1220,7 +1817,7 @@ async function startServer() {
           "available_to_travel": boolean | null,
           "available_to_relocate": boolean | null,
           "experiences_list": [{ "company": string, "role": string, "period": string, "location": string | null, "description": string }],
-          "education_list": [{ "course": string, "institution": string, "period": string | null, "status": string }],
+          "education_list": [{ "course": string, "institution": string, "status": string, "degree_type": string | null, "start_date": string | null, "end_date": string | null }],
           "certifications_list": [{ "name": string, "institution": string | null, "year": string | null }],
           "projects_list": [{ "name": string, "description": string, "technologies": string | null }],
           "languages_list": [{ "language": string, "level": string }]
@@ -1230,7 +1827,13 @@ async function startServer() {
       const result = await ai.models.generateContent({
         model: GEMINI_MODEL,
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        config: { responseMimeType: 'application/json', temperature: 0.1 }
+        config: {
+          responseMimeType: 'application/json',
+          temperature: 0.1,
+          maxOutputTokens: 2600,
+          reasoningEffort: 'low',
+          operationLabel: 'extração completa de currículo',
+        }
       });
 
       const data = JSON.parse(result.text || '{}');
@@ -1494,7 +2097,12 @@ async function startServer() {
       const result = await ai.models.generateContent({
         model: GEMINI_MODEL,
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        config: { responseMimeType: 'application/json' }
+        config: {
+          responseMimeType: 'application/json',
+          maxOutputTokens: 2200,
+          reasoningEffort: 'low',
+          operationLabel: 'análise de compatibilidade candidato-vaga',
+        }
       });
       
       const analysis = JSON.parse(result.text || '{}');
@@ -1711,7 +2319,12 @@ async function startServer() {
       const aiResult = await ai.models.generateContent({
         model: GEMINI_MODEL,
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        config: { responseMimeType: 'application/json' }
+        config: {
+          responseMimeType: 'application/json',
+          maxOutputTokens: 2600,
+          reasoningEffort: 'low',
+          operationLabel: 'match inteligente de vaga',
+        }
       });
 
       const analysis = JSON.parse(aiResult.text || '{"results": [], "summary": ""}');
@@ -1754,6 +2367,8 @@ async function startServer() {
 
   app.post('/api/aurora-ai/chat', async (req, res) => {
     const { message, tenantId, unitId, sessionId } = req.body;
+    let effectiveUnitId = unitId;
+    let currentSessionId = sessionId;
     
     try {
       if (!message?.trim()) {
@@ -1762,8 +2377,8 @@ async function startServer() {
 
       const ai = createGeminiClient();
       const normalizedMessage = String(message).trim();
-      const wantsDetailedReply = /(detalh|explic|complet|passo a passo|relat[oÃƒÂ³]rio|aprofund|an[aÃƒÂ¡]lise completa)/i.test(normalizedMessage);
-      let effectiveUnitId = unitId;
+      const wantsDetailedReply = /(detalh|explic|complet|passo a passo|relat[oó]rio|aprofund|an[aá]lise completa)/i.test(normalizedMessage);
+      const wantsAction = /(cri(a|ar|e)|atualiz|modific|altera|remov|delet|exclu|abr(e|ir)|fech(a|ar)|reabr)/i.test(normalizedMessage);
 
       if (effectiveUnitId === 'master') {
         const masterUnit = await db.prepare('SELECT id FROM units WHERE tenant_id = ? AND is_master = 1 LIMIT 1').get(tenantId) as any;
@@ -1771,11 +2386,11 @@ async function startServer() {
       }
 
       // Fetch history for context
-      let currentSessionId = sessionId;
       if (!currentSessionId) {
         const sessionRes = await db.prepare('INSERT INTO ai_search_sessions (tenant_id, unit_id, search_type, created_at) VALUES (?, ?, "chat", CURRENT_TIMESTAMP)').run(tenantId, effectiveUnitId);
         currentSessionId = sessionRes.lastInsertRowid;
       }
+
 
       const history = await db.prepare('SELECT role, message FROM ai_chat_messages WHERE session_id = ? ORDER BY created_at ASC').all(currentSessionId) as any[];
       const recentHistory = history.slice(-6);
@@ -1804,60 +2419,63 @@ async function startServer() {
       const systemPrompt = `
         Você é a Aurora AI, assistente de recrutamento inteligente da Develoi.
         Sua missão é responder perguntas do recrutador sobre o sistema, candidatos e vagas.
-        Responda sempre em português do Brasil, de forma clara, profissional e extremamente inteligente.
+        Responda sempre em português do Brasil, de forma clara e profissional.
         
         Diretrizes:
-        1. Baseie-se ESTRITAMENTE nos dados do sistema listados abaixo. NÃO invente candidatos ou vagas.
-        2. Se o usuário perguntar "qual vaga eu tenho em Tatuí", procure na lista abaixo e responda com precisão.
-        3. Se perguntar sobre candidatos para uma vaga, tente fazer um match mental comparando as skills do candidato com a vaga e sugira os IDs.
-        4. Responda curto e direto por padrão. Só faça textos longos se o usuário pedir detalhes ou relatórios.
-        5. Não repita "Eu sou a Aurora" em toda mensagem. Apenas responda a pergunta.
-        6. Se o usuário pedir algo que não está na lista abaixo (ex: mais de 50 candidatos), avise que você está analisando apenas os 50 registros mais recentes do banco local.
-        7. AÇÕES NO SISTEMA: Você tem permissão para criar ou modificar vagas se o usuário pedir.
-           Para isso, inclua no final da sua mensagem um bloco exato como este (não use crases \`\`\`json no bloco, apenas a tag):
+        1. Baseie-se nos dados do sistema listados abaixo. NÃO invente candidatos ou vagas.
+        2. Responda curto e direto por padrão.
+        3. Não repita "Eu sou a Aurora" em toda mensagem.
+        4. CRIAÇÃO DE VAGA:
+           - Se o usuário pedir para criar uma vaga mas não informar o título, responda apenas: "Qual o título da vaga e a cidade?"
+           - Se o usuário fornecer dados da vaga, use SOMENTE os campos que ele explicitamente informou.
+           - NUNCA invente campos como salário, benefícios, experiência ou qualquer informação não fornecida pelo usuário.
+           - Campos permitidos no data: title, city, state, department, status, description, work_model, employment_type, mandatory_requirements, hard_skills.
+           - Inclua apenas os campos que o usuário mencionou. Omita todos os outros.
+           - SEMPRE escreva UMA frase curta de confirmação ANTES do bloco <action>:
+           Vaga criada como rascunho!
            <action>
-           {
-             "type": "create_job",
-             "data": { "title": "Nome da Vaga", "city": "Cidade", "status": "Rascunho", "department": "TI" }
-           }
+           {"type":"create_job","data":{"title":"Título","city":"Cidade","status":"Rascunho"}}
            </action>
-           
-           Se for atualizar:
+        5. Para atualizar vaga (apenas com campos que o usuário pediu alterar):
+           Vaga atualizada!
            <action>
-           {
-             "type": "update_job",
-             "job_id": 123,
-             "data": { "status": "Aberta", "city": "Nova Cidade" }
-           }
+           {"type":"update_job","job_id":123,"data":{"status":"Aberta"}}
            </action>
 
-        === DADOS DO SISTEMA (VAGAS) ===
-        ${jobsList || 'Nenhuma vaga cadastrada.'}
+        === VAGAS ===
+        ${jobsList || 'Nenhuma vaga.'}
 
-        === DADOS DO SISTEMA (CANDIDATOS) ===
-        ${candidatesList || 'Nenhum candidato cadastrado.'}
+        === CANDIDATOS ===
+        ${candidatesList || 'Nenhum candidato.'}
       `;
 
-      const contents = [
-        { role: 'user', parts: [{ text: systemPrompt }] },
+      const contents: AIMessage[] = [
         ...recentHistory.map((h) => ({
-          role: h.role === 'assistant' ? 'model' : 'user',
+          role: (h.role === 'assistant' ? 'model' : 'user') as AIMessageRole,
           parts: [{ text: h.message }]
         })),
         { role: 'user', parts: [{ text: normalizedMessage }] }
       ];
+
+      await db.prepare('INSERT INTO ai_chat_messages (tenant_id, unit_id, session_id, role, message, created_at) VALUES (?, ?, ?, "user", ?, CURRENT_TIMESTAMP)')
+        .run(tenantId, effectiveUnitId, currentSessionId, normalizedMessage);
 
       const result = await ai.models.generateContent({
         model: GEMINI_MODEL,
         contents: contents,
         config: {
           temperature: 0.4,
-          maxOutputTokens: wantsDetailedReply ? 700 : 220
+          maxOutputTokens: wantsDetailedReply ? 800 : wantsAction ? 500 : 300,
+          reasoningEffort: 'low',
+          verbosity: wantsDetailedReply ? 'medium' : 'low',
+          instructions: systemPrompt,
+          operationLabel: 'chat da Aurora',
         }
       });
 
       if (!result.text?.trim()) {
-        throw new Error('O Gemini não retornou conteúdo para esta conversa.');
+        console.warn('[Aurora AI] Modelo retornou resposta vazia. Usando fallback.');
+        result.text = 'Não consegui processar sua solicitação agora. Poderia reformular a pergunta?';
       }
 
       let responseText = normalizeAuroraChatReply(result.text) || 'Como posso ajudar?';
@@ -1894,16 +2512,24 @@ async function startServer() {
         responseText = responseText.replace(/<action>[\s\S]*?<\/action>/, '').trim() + actionResultMsg;
       }
 
-      // Save user message
-      await db.prepare('INSERT INTO ai_chat_messages (tenant_id, unit_id, session_id, role, message, created_at) VALUES (?, ?, ?, "user", ?, CURRENT_TIMESTAMP)')
-        .run(tenantId, effectiveUnitId, currentSessionId, normalizedMessage);
-
       // Save assistant response
       await db.prepare('INSERT INTO ai_chat_messages (tenant_id, unit_id, session_id, role, message, created_at) VALUES (?, ?, ?, "assistant", ?, CURRENT_TIMESTAMP)')
         .run(tenantId, effectiveUnitId, currentSessionId, responseText);
 
       res.json({ message: responseText, sessionId: currentSessionId });
     } catch (error) {
+      if (error instanceof GeminiTemporaryUnavailableError) {
+        const fallbackMessage = 'A Aurora está com alta demanda no provedor de IA no momento. Tente novamente em alguns instantes.';
+
+        if (currentSessionId) {
+          await db.prepare('INSERT INTO ai_chat_messages (tenant_id, unit_id, session_id, role, message, created_at) VALUES (?, ?, ?, "assistant", ?, CURRENT_TIMESTAMP)')
+            .run(tenantId, effectiveUnitId, currentSessionId, fallbackMessage);
+        }
+
+        console.warn(`[Aurora AI] ${error.message}`);
+        return res.json({ message: fallbackMessage, sessionId: currentSessionId });
+      }
+
       console.error(error);
       res.status(500).json({ error: 'Chat failed' });
     }
@@ -2169,6 +2795,12 @@ async function startServer() {
       const aiResponse = await ai.models.generateContent({
         model: GEMINI_MODEL,
         contents: prompt,
+        config: {
+          responseMimeType: 'application/json',
+          maxOutputTokens: 1200,
+          reasoningEffort: 'low',
+          operationLabel: 'análise de respostas de ferramenta RH',
+        }
       });
 
       const text = aiResponse.text || "{}";
@@ -2242,7 +2874,12 @@ async function startServer() {
       const result = await ai.models.generateContent({
         model: GEMINI_MODEL,
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        config: { responseMimeType: 'application/json' }
+        config: {
+          responseMimeType: 'application/json',
+          maxOutputTokens: 1500,
+          reasoningEffort: 'low',
+          operationLabel: 'parecer estruturado de ferramenta RH',
+        }
       });
 
       const analysis = JSON.parse(result.text || '{}');
@@ -2277,9 +2914,19 @@ async function startServer() {
 
   // --- Public Tool Endpoints ---
 
+  app.get('/api/public/tenants/:id', async (req, res) => {
+    try {
+      const tenant = await db.prepare('SELECT id, name, company_name, email, phone FROM tenants WHERE id = ?').get(req.params.id) as any;
+      if (!tenant) return res.status(404).json({ error: 'Tenant not found' });
+      res.json(tenant);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch tenant info' });
+    }
+  });
+
   app.get('/api/public/hr-tools/:slug', async (req, res) => {
     try {
-      const tool = await db.prepare("SELECT * FROM hr_tools WHERE public_slug = ? AND status = 'Ativo'").get(req.params.slug);
+      const tool = await db.prepare("SELECT h.*, t.name as tenant_name FROM hr_tools h JOIN tenants t ON h.tenant_id = t.id WHERE h.public_slug = ? AND h.status = 'Ativo'").get(req.params.slug);
       if (!tool) return res.status(404).json({ error: 'Tool not found or inactive' });
 
       const questions = await db.prepare('SELECT * FROM hr_tool_questions WHERE tool_id = ? ORDER BY position ASC').all((tool as any).id);
@@ -2513,6 +3160,8 @@ async function startServer() {
                   responseMimeType: 'application/json',
                   temperature: 0.2,
                   maxOutputTokens: 900,
+                  reasoningEffort: 'low',
+                  operationLabel: 'pré-análise em lote',
                 }
               });
               
@@ -2643,6 +3292,8 @@ async function startServer() {
               responseMimeType: 'application/json',
               temperature: 0.2,
               maxOutputTokens: 900,
+              reasoningEffort: 'low',
+              operationLabel: 'reprocessamento de pré-análise',
             }
           });
           const textResponse = aiResult.text || "";
@@ -2785,6 +3436,12 @@ async function startServer() {
       const response = await ai.models.generateContent({
         model: GEMINI_MODEL,
         contents: prompt,
+        config: {
+          responseMimeType: 'application/json',
+          maxOutputTokens: 900,
+          reasoningEffort: 'low',
+          operationLabel: 'sugestão de vagas por IA',
+        }
       });
 
       const text = response.text || "{}";

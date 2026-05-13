@@ -40,7 +40,8 @@ Use o arquivo [`.env.example`](.env.example) como base.
 Variáveis principais:
 
 - `PORT`
-- `GEMINI_API_KEY`
+- `OPENAI_API_KEY`
+- `OPENAI_MODEL`
 - `SQLITE_DB_PATH`
 - `DATABASE_URL`
 

@@ -15,6 +15,11 @@ import {
   Globe,
   Brain,
   ShieldCheck,
+  LogOut,
+  User,
+  HelpCircle,
+  Moon,
+  Sun,
 } from "lucide-react";
 import { AnimatePresence } from "motion/react";
 import {
@@ -38,9 +43,11 @@ import AuroraAI from "./pages/AuroraAI";
 import Login from "./pages/Login";
 import Welcome from "./pages/Welcome";
 import SuperAdmin from "./pages/SuperAdmin";
+import Profile from "./pages/Profile";
 import { cn } from "./lib/utils";
 import { useUnit, Unit } from "./lib/useUnit";
 import { getWelcomeStorageKey, isRootAdmin } from "./lib/auth";
+import { usePreferences } from "./lib/usePreferences";
 import { AccessPermissionKey, getPermissionsForUser } from "./lib/access";
 
 type MenuItem = {
@@ -114,7 +121,9 @@ function AppContent() {
   const [isInitializing, setIsInitializing] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [unitMenuOpen, setUnitMenuOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const { currentUnit, changeUnit, isMaster, units } = useUnit();
+  const { theme, toggleTheme } = usePreferences();
   const toast = useToast();
   const location = useLocation();
   const navigate = useNavigate();
@@ -144,7 +153,7 @@ function AppContent() {
     const currentHash = location.hash || "#superadmin-overview";
     return ROOT_SECTION_ITEMS.find((item) => item.href === currentHash) || ROOT_SECTION_ITEMS[0];
   }, [isRootShell, location.hash]);
-  const activeLabel = activeItem?.label ?? (menuItems[0]?.label || "Painel");
+  const activeLabel = activeItem?.label ?? (location.pathname === '/perfil' ? 'Meu Perfil' : (menuItems[0]?.label || "Painel"));
 
   useEffect(() => {
     let nextTitle = "RH Vision | Aurora Recruitment Hub";
@@ -285,7 +294,15 @@ function AppContent() {
     allowed ? element : <Navigate to={defaultPath} replace />;
 
   return (
-    <div className="flex min-h-screen bg-zinc-50/50">
+    <div className={cn(
+      "flex min-h-screen transition-colors duration-300",
+      theme === 'dark' ? "bg-[#071325] text-white" : "bg-zinc-50/50 text-zinc-900"
+    )}>
+      {/* Global Scale Filter */}
+      <style>{`
+        html { font-size: 14.4px; } 
+        @media (min-width: 1536px) { html { font-size: 16px; } }
+      `}</style>
       {sidebarOpen && (
         <div
           className="fixed inset-0 z-[40] bg-develoi-navy/40 backdrop-blur-sm lg:hidden"
@@ -295,15 +312,22 @@ function AppContent() {
 
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-[50] h-screen w-72 overflow-y-auto transition-transform duration-300 lg:sticky lg:translate-x-0",
+          "fixed inset-y-0 left-0 z-[50] h-screen w-72 transition-transform duration-300 lg:sticky lg:translate-x-0 border-r",
           isRootShell
-            ? "border-r border-[#102647] bg-[#071325] text-white"
-            : "border-r border-zinc-200 bg-white",
+            ? "border-[#102647] bg-[#071325] text-white"
+            : theme === 'dark' 
+              ? "border-white/5 bg-develoi-navy text-white" 
+              : "border-zinc-200 bg-white text-zinc-900",
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        <div className="flex h-full flex-col p-8">
-          <div className="mb-10 flex items-center gap-3">
+        <div className="flex h-full flex-col">
+          {/* Sticky Header Section */}
+          <div className={cn(
+            "sticky top-0 z-10 p-8 pb-4 transition-colors",
+            theme === 'dark' || isRootShell ? "bg-develoi-navy" : "bg-white"
+          )}>
+            <div className="mb-10 flex items-center gap-3">
             <div
               className={cn(
                 "flex h-10 w-10 items-center justify-center rounded-2xl text-white shadow-lg",
@@ -315,13 +339,11 @@ function AppContent() {
               <Brain size={22} strokeWidth={3} className="text-develoi-gold" />
             </div>
             <div>
-              <h1
-                className={cn(
-                  "text-base font-bold uppercase leading-none tracking-tight",
-                  isRootShell ? "text-white" : "text-develoi-navy"
-                )}
-              >
-                {isRootShell ? "Aurora Root" : "Develoi"}
+              <h1 className={cn(
+                "text-base font-bold uppercase leading-none tracking-tight transition-colors",
+                theme === 'dark' || isRootShell ? "text-white" : "text-develoi-navy"
+              )}>
+                {isRootShell ? "Aurora Root" : (user?.tenant_name || "Develoi")}
               </h1>
               <p className="mt-0.5 text-[9px] font-bold uppercase tracking-widest text-develoi-gold">
                 {isRootShell ? "Control Grid" : "Recruitment Hub"}
@@ -329,44 +351,57 @@ function AppContent() {
             </div>
             <button
               onClick={() => setSidebarOpen(false)}
-              className={cn("ml-auto p-2 lg:hidden", isRootShell ? "text-white/60" : "text-zinc-400")}
+              className={cn(
+                "ml-auto p-2 lg:hidden rounded-xl transition-colors",
+                theme === 'dark' || isRootShell ? "text-white/60 hover:bg-white/5" : "text-zinc-400 hover:bg-zinc-50"
+              )}
             >
               <X size={20} />
             </button>
           </div>
+        </div>
 
-          {!isRootShell && (
+        <div className="flex-1 overflow-y-auto px-8 py-4">
+            {!isRootShell && (
             <div className="mb-8">
-              <p className="mb-2 px-1 text-[9px] font-bold uppercase tracking-widest text-zinc-400 opacity-70">
+              <p className={cn(
+                "mb-2 px-1 text-[9px] font-bold uppercase tracking-widest transition-colors",
+                theme === 'dark' || isRootShell ? "text-white/40" : "text-zinc-400"
+              )}>
                 Unidade
               </p>
               <div className="relative">
                 <button
                   onClick={() => setUnitMenuOpen((current) => !current)}
-                  className="flex w-full items-center justify-between rounded-2xl border border-zinc-100 bg-zinc-50/50 p-3 text-xs font-bold text-zinc-700 transition-all hover:border-develoi-gold"
+                  className={cn(
+                    "flex w-full items-center justify-between rounded-2xl border transition-all hover:border-develoi-gold p-3 text-xs font-bold",
+                    theme === 'dark' || isRootShell 
+                      ? "border-white/10 bg-white/5 text-white/90" 
+                      : "border-zinc-100 bg-zinc-50/50 text-zinc-700"
+                  )}
                 >
                   <div className="flex items-center gap-2 overflow-hidden">
-                    <Globe size={14} className="shrink-0 text-amber-500" />
+                    <Globe size={14} className={cn("shrink-0", theme === 'dark' || isRootShell ? "text-develoi-gold" : "text-amber-500")} />
                     <span className="truncate">{currentUnit.name}</span>
                   </div>
                   <ChevronDown
                     size={14}
-                    className={cn("text-zinc-400 transition-transform", unitMenuOpen && "rotate-180")}
+                    className={cn("transition-transform", theme === 'dark' || isRootShell ? "text-white/40" : "text-zinc-400", unitMenuOpen && "rotate-180")}
                   />
                 </button>
 
                 <AnimatePresence>
                   {unitMenuOpen && (
-                    <div className="absolute left-0 right-0 top-full z-10 mt-2 overflow-hidden rounded-2xl border border-zinc-200 bg-white py-1 shadow-xl">
+                    <div className="absolute left-0 right-0 top-full z-10 mt-2 overflow-hidden rounded-2xl border border-zinc-200 bg-white py-1 shadow-xl dark:bg-[#0d1b3e] dark:border-white/10">
                       {units.map((unit) => (
                         <button
                           key={unit.id}
                           onClick={() => handleUnitChange(unit)}
                           className={cn(
-                            "w-full px-4 py-2.5 text-left text-xs font-bold transition-colors hover:bg-zinc-50",
+                            "w-full px-4 py-2.5 text-left text-xs font-bold transition-colors hover:bg-zinc-50 dark:hover:bg-white/5",
                             currentUnit.id === unit.id
-                              ? "bg-amber-50/50 text-develoi-gold"
-                              : "text-zinc-600"
+                              ? "bg-amber-50/50 text-develoi-gold dark:bg-develoi-gold/10"
+                              : "text-zinc-600 dark:text-white/60"
                           )}
                         >
                           {unit.name}
@@ -472,8 +507,10 @@ function AppContent() {
                     className={cn(
                       "group flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left transition-all duration-200",
                       active
-                        ? "bg-develoi-navy font-bold text-white shadow-lg shadow-develoi-navy/10"
-                        : "font-medium text-zinc-500 hover:bg-zinc-50"
+                        ? "bg-develoi-gold font-bold text-white shadow-lg shadow-develoi-gold/20"
+                        : theme === 'dark' || isRootShell
+                          ? "font-medium text-white/50 hover:bg-white/5 hover:text-white"
+                          : "font-bold text-zinc-600 hover:bg-zinc-50 hover:text-develoi-navy"
                     )}
                   >
                     <div className="flex items-center gap-3">
@@ -484,7 +521,9 @@ function AppContent() {
                           "transition-colors",
                           active
                             ? "text-white"
-                            : "text-zinc-400 group-hover:text-zinc-900 focus:text-develoi-gold"
+                            : theme === 'dark' || isRootShell
+                              ? "text-white/40 group-hover:text-white"
+                              : "text-zinc-400 group-hover:text-develoi-navy"
                         )}
                       />
                       <span className="text-[10px] uppercase tracking-wider">{item.label}</span>
@@ -496,37 +535,22 @@ function AppContent() {
             )}
           </nav>
 
-          <div className="mt-auto pt-8">
-            {isRootShell ? (
-              <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.04] p-5 text-white">
-                <div className="absolute right-0 top-0 -mr-12 -mt-12 h-24 w-24 rounded-full bg-develoi-gold/10" />
-                <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-develoi-gold">
-                  Root Session
-                </p>
-                <p className="mb-4 text-xs font-medium leading-relaxed text-white/72">
-                  Shell dedicado para governança global da plataforma, sem misturar navegação operacional.
-                </p>
-                <button
-                  onClick={handleLogout}
-                  className="w-full rounded-xl border border-white/10 bg-white py-2 text-[10px] font-bold uppercase tracking-widest text-[#071325] transition-colors hover:border-develoi-gold hover:bg-develoi-gold hover:text-white"
-                >
-                  Encerrar Sessão
-                </button>
-              </div>
-            ) : (
-              <div className="relative overflow-hidden rounded-3xl border border-white/5 bg-develoi-navy p-5 text-white">
-              <div className="absolute right-0 top-0 -mr-12 -mt-12 h-24 w-24 rounded-full bg-develoi-gold/10" />
-              <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-develoi-gold">
-                Acesso Master
-              </p>
-              <p className="mb-4 text-xs font-medium leading-relaxed opacity-80">
-                Você tem visão total de todas as unidades Develoi.
-              </p>
-              <button className="w-full rounded-xl bg-white py-2 text-[10px] font-bold uppercase tracking-widest text-develoi-navy transition-colors hover:bg-develoi-gold hover:text-white">
-                Gerenciar Master
-              </button>
-              </div>
-            )}
+          </div>
+
+          {/* Footer Section */}
+          <div className="mt-auto p-8 pt-4">
+            <button
+              onClick={handleLogout}
+              className={cn(
+                "flex w-full items-center justify-center gap-2 rounded-2xl border py-3 text-[10px] font-bold uppercase tracking-widest transition-all",
+                theme === 'dark' || isRootShell
+                  ? "border-white/10 bg-white/5 text-white hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/20"
+                  : "border-zinc-200 bg-white text-develoi-navy hover:bg-red-50 hover:text-red-600 hover:border-red-200 shadow-sm"
+              )}
+            >
+              <LogOut size={14} />
+              Encerrar Sessão
+            </button>
           </div>
         </div>
       </aside>
@@ -534,18 +558,20 @@ function AppContent() {
       <main className="flex min-w-0 flex-1 flex-col">
         <header
           className={cn(
-            "sticky top-0 z-30 flex items-center justify-between",
+            "sticky top-0 z-30 flex items-center justify-between shadow-sm transition-all duration-300",
             isRootShell
               ? "h-20 border-b border-[#102647] bg-[#071325]/95 px-4 text-white backdrop-blur sm:px-8"
-              : "h-16 border-b border-zinc-200 bg-white px-4 sm:px-10 lg:h-20"
+              : theme === 'dark'
+                ? "h-16 border-b border-white/5 bg-develoi-navy px-4 sm:px-10 lg:h-20 text-white"
+                : "h-16 border-b border-zinc-200 bg-white px-4 sm:px-10 lg:h-20 text-zinc-900"
           )}
         >
           <div className="flex items-center gap-3">
             <button
               onClick={() => setSidebarOpen(true)}
               className={cn(
-                "rounded-xl p-2 lg:hidden",
-                isRootShell ? "text-white/70 hover:bg-white/5" : "text-zinc-500 hover:bg-zinc-100"
+                "rounded-xl p-2 lg:hidden transition-colors",
+                theme === 'dark' || isRootShell ? "text-white/70 hover:bg-white/5" : "text-zinc-500 hover:bg-zinc-100"
               )}
             >
               <Menu size={20} />
@@ -563,21 +589,27 @@ function AppContent() {
                 </div>
               </div>
             ) : (
-              <div className="hidden items-center gap-2 text-[10px] font-medium uppercase tracking-widest text-zinc-500 sm:flex">
+              <div className={cn(
+                "hidden items-center gap-2 text-[10px] font-medium uppercase tracking-widest sm:flex transition-colors",
+                theme === 'dark' ? "text-white/50" : "text-zinc-400"
+              )}>
                 {!isSuperAdmin && (
                   <>
                     <Building2 size={10} className="text-develoi-gold" />
-                    <span className="text-develoi-navy/60">{currentUnit.name}</span>
-                    <ChevronRight size={10} strokeWidth={2} className="text-zinc-300" />
+                    <span className={theme === 'dark' ? "text-white/80" : "text-zinc-600"}>{currentUnit.name}</span>
+                    <ChevronRight size={10} strokeWidth={2} className={theme === 'dark' ? "text-white/30" : "text-zinc-300"} />
                   </>
                 )}
-                <span className="font-bold text-develoi-navy">{activeLabel}</span>
+                <span className={cn(
+                  "font-bold transition-colors",
+                  theme === 'dark' ? "text-white" : "text-develoi-navy"
+                )}>{activeLabel}</span>
               </div>
             )}
           </div>
 
           <div className="flex items-center gap-3 md:gap-6">
-            {isRootShell ? (
+            {isRootShell && (
               <div className="hidden xl:flex items-center gap-2">
                 {ROOT_SECTION_ITEMS.map((item) => (
                   <a
@@ -594,75 +626,103 @@ function AppContent() {
                   </a>
                 ))}
               </div>
-            ) : (
-              <div className="relative hidden lg:block">
-                <Search
-                  size={14}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400"
-                />
-                <input
-                  type="text"
-                  placeholder="Pesquisar..."
-                  className="w-48 rounded-xl border-none bg-zinc-100 py-2 pl-9 pr-4 text-xs font-bold outline-none transition-all focus:ring-2 focus:ring-develoi-gold/20"
-                />
-              </div>
             )}
 
             <div className="flex items-center gap-4">
-              <button
-                className={cn(
-                  "relative p-2 transition-colors",
-                  isRootShell ? "text-white/55 hover:text-white" : "text-zinc-400 hover:text-zinc-900"
-                )}
-              >
+              <button className={cn(
+                "relative p-2 transition-colors",
+                theme === 'dark' ? "text-white/60 hover:text-white" : "text-zinc-400 hover:text-develoi-navy"
+              )}>
                 <Bell size={20} />
-                <span className="absolute right-2 top-2 h-2 w-2 rounded-full border-2 border-white bg-develoi-gold" />
+                <span className={cn(
+                  "absolute right-2 top-2 h-2 w-2 rounded-full border-2 bg-develoi-gold",
+                  theme === 'dark' ? "border-develoi-navy" : "border-white"
+                )} />
               </button>
-              <div
-                className={cn(
-                  "flex items-center gap-3 pl-4",
-                  isRootShell ? "border-l border-white/10" : "border-l border-zinc-200"
-                )}
-              >
+              <div className={cn(
+                "flex items-center gap-3 pl-4 border-l transition-colors",
+                theme === 'dark' ? "border-white/10" : "border-zinc-200"
+              )}>
                 <div className="hidden text-right sm:block">
-                  <p
-                    className={cn(
-                      "text-[10px] font-bold leading-none",
-                      isRootShell ? "text-white" : "text-zinc-900"
-                    )}
-                  >
+                  <p className={cn(
+                    "text-[10px] font-bold leading-none transition-colors",
+                    theme === 'dark' ? "text-white" : "text-develoi-navy"
+                  )}>
                     {user?.full_name || "Usuário"}
                   </p>
-                  <p
-                    className={cn(
-                      "mt-1 text-[8px] font-medium uppercase tracking-widest",
-                      isRootShell ? "text-white/45" : "text-zinc-400"
-                    )}
-                  >
+                  <p className={cn(
+                    "mt-1 text-[8px] font-medium uppercase tracking-widest transition-colors",
+                    theme === 'dark' ? "text-white/60" : "text-zinc-400"
+                  )}>
                     {isSuperAdmin ? "Root Admin" : user?.access_profile || user?.role || "Operação"}
                   </p>
                 </div>
-                <div
-                  onClick={handleLogout}
-                  className={cn(
-                    "group relative flex h-10 w-10 cursor-pointer items-center justify-center overflow-hidden rounded-2xl border-2 text-xs font-black shadow-sm transition-all",
-                    isRootShell
-                      ? "border-white/10 bg-white/10 text-white hover:border-red-200/40"
-                      : "border-white bg-zinc-100 text-zinc-600 hover:border-red-100"
-                  )}
-                >
-                  <img
-                    src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.full_name}`}
-                    alt="avatar"
-                  />
-                  <div className="absolute inset-0 bg-red-500/0 transition-colors group-hover:bg-red-500/10" />
+                <div className="relative">
+                  <div
+                    onClick={() => setUserMenuOpen(!userMenuOpen)}
+                    className={cn(
+                      "group relative flex h-10 w-10 cursor-pointer items-center justify-center overflow-hidden rounded-2xl border text-xs font-black shadow-sm transition-all hover:border-develoi-gold",
+                      theme === 'dark' ? "border-white/20 bg-white/5" : "border-zinc-200 bg-zinc-50"
+                    )}
+                  >
+                    <img
+                      src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.full_name}`}
+                      alt="avatar"
+                    />
+                    <div className="absolute inset-0 bg-white/0 transition-colors group-hover:bg-white/10" />
+                  </div>
+
+                  <AnimatePresence>
+                    {userMenuOpen && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setUserMenuOpen(false)} />
+                        <div className="absolute right-0 top-14 z-50 w-52 rounded-2xl border border-zinc-100 bg-white p-2 shadow-xl animate-in fade-in slide-in-from-top-2">
+                          <div className="mb-2 border-b border-zinc-100 px-3 pb-3 pt-2 text-left">
+                            <p className="text-xs font-bold text-develoi-navy truncate">{user?.full_name || "Usuário"}</p>
+                            <p className="text-[9px] font-semibold text-zinc-400 uppercase tracking-wider mt-0.5 truncate">{user?.email || "contato@empresa.com"}</p>
+                          </div>
+                          <button onClick={() => { setUserMenuOpen(false); navigate('/perfil'); }} className="w-full rounded-xl px-3 py-2 text-left text-[11px] font-bold text-zinc-600 transition-colors hover:bg-zinc-50 hover:text-develoi-navy flex items-center gap-2.5">
+                            <User size={14} className="text-zinc-400" /> Meu Perfil
+                          </button>
+                          <button className="w-full rounded-xl px-3 py-2 text-left text-[11px] font-bold text-zinc-600 transition-colors hover:bg-zinc-50 hover:text-develoi-navy flex items-center gap-2.5">
+                            <Settings size={14} className="text-zinc-400" /> Configurações
+                          </button>
+                          <button className="w-full rounded-xl px-3 py-2 text-left text-[11px] font-bold text-zinc-600 transition-colors hover:bg-zinc-50 hover:text-develoi-navy flex items-center gap-2.5">
+                            <HelpCircle size={14} className="text-zinc-400" /> Suporte
+                          </button>
+                          <button 
+                            onClick={toggleTheme}
+                            className="w-full rounded-xl px-3 py-2 text-left text-[11px] font-bold text-zinc-600 transition-colors hover:bg-zinc-50 hover:text-develoi-navy flex items-center justify-between"
+                          >
+                            <div className="flex items-center gap-2.5">
+                              {theme === 'light' ? <Moon size={14} className="text-zinc-400" /> : <Sun size={14} className="text-zinc-400" />}
+                              Modo {theme === 'light' ? 'Escuro' : 'Claro'}
+                            </div>
+                            <div className={cn(
+                              "w-8 h-4 rounded-full relative transition-colors",
+                              theme === 'dark' ? "bg-develoi-gold" : "bg-zinc-200"
+                            )}>
+                              <div className={cn(
+                                "absolute top-1 w-2 h-2 rounded-full bg-white transition-all",
+                                theme === 'dark' ? "right-1" : "left-1"
+                              )} />
+                            </div>
+                          </button>
+                          <div className="my-1 border-t border-zinc-100" />
+                          <button onClick={handleLogout} className="w-full rounded-xl px-3 py-2.5 text-left text-[11px] font-bold text-red-600 transition-colors hover:bg-red-50 flex items-center gap-2.5">
+                            <LogOut size={14} className="text-red-400" /> Sair da Plataforma
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </AnimatePresence>
                 </div>
               </div>
             </div>
           </div>
         </header>
 
-        <div className="w-full px-6 py-6 sm:px-8 sm:py-8 xl:px-10">
+        <div className="w-full flex-1 flex flex-col min-h-0">
           {isSuperAdmin && (
             <div className="mb-6 flex items-center justify-between rounded-3xl bg-develoi-navy p-4 text-white">
               <div className="flex items-center gap-3">
@@ -676,22 +736,7 @@ function AppContent() {
             </div>
           )}
 
-          {!isSuperAdmin && isMaster && (
-            <div className="mb-6 flex flex-col items-center justify-between gap-4 rounded-3xl border border-amber-100/50 bg-amber-50 p-4 sm:flex-row">
-              <div className="flex items-center gap-3">
-                <div className="shrink-0 rounded-xl bg-develoi-gold p-2 text-white shadow-sm shadow-develoi-gold/20">
-                  <Globe size={16} />
-                </div>
-                <p className="text-[10px] font-medium uppercase tracking-wider text-amber-900 leading-relaxed">
-                  Visão Master: Você está visualizando dados consolidados de{" "}
-                  <span className="font-bold text-develoi-navy">todas as unidades Develoi</span>.
-                </p>
-              </div>
-              <button className="whitespace-nowrap text-[10px] font-bold uppercase tracking-wider text-develoi-gold transition-colors hover:text-develoi-navy">
-                Ver Relatórios
-              </button>
-            </div>
-          )}
+
 
           {!isSuperAdmin && !isMaster && (
             <div className="mb-6 flex items-center justify-between rounded-3xl bg-develoi-navy p-4 text-white">
@@ -723,6 +768,7 @@ function AppContent() {
               path="/super-admin"
               element={guard(isSuperAdmin && permissions.super_admin, <SuperAdmin />)}
             />
+            <Route path="/perfil" element={<Profile />} />
             <Route path="*" element={<Navigate to={defaultPath} replace />} />
           </Routes>
         </div>

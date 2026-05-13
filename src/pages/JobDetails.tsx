@@ -281,7 +281,7 @@ export default function JobDetails({ job, onClose, onEdit }: JobDetailsProps) {
                   <h4 className="text-xs font-bold text-develoi-navy uppercase tracking-widest">Divulgação com IA</h4>
                 </div>
                 <p className="text-[11px] font-bold text-zinc-500 mb-6 leading-relaxed">
-                  Gere textos atraentes para diferentes canais usando o Gemini.
+                  Gere textos atraentes para diferentes canais usando a Aurora AI com OpenAI.
                 </p>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   {[
@@ -308,7 +308,7 @@ export default function JobDetails({ job, onClose, onEdit }: JobDetailsProps) {
               {aiLoading && (
                 <div className="p-12 flex flex-col items-center justify-center gap-4 text-center">
                    <div className="w-8 h-8 border-3 border-amber-400 border-t-transparent rounded-full animate-spin"></div>
-                   <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Gemini está trabalhando...</p>
+                   <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Aurora AI está trabalhando...</p>
                 </div>
               )}
 

@@ -87,7 +87,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             ref={ref}
             type={resolvedType}
             className={cn(
-              "flex h-10 w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs font-bold text-zinc-800 shadow-sm transition-all placeholder:text-zinc-400 placeholder:font-normal placeholder:italic",
+              "flex h-10 w-full rounded-full border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs font-bold text-zinc-800 shadow-sm transition-all placeholder:text-zinc-400 placeholder:font-normal placeholder:italic",
               "hover:border-zinc-300",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300/50 focus-visible:ring-offset-0 focus-visible:border-[#2a74ac]",
               "disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-400",
@@ -193,7 +193,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
             ref={ref}
             rows={rows}
             className={cn(
-              "flex w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs font-bold text-zinc-800 shadow-sm transition-all placeholder:text-zinc-400 placeholder:font-normal placeholder:italic",
+              "flex w-full rounded-3xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs font-bold text-zinc-800 shadow-sm transition-all placeholder:text-zinc-400 placeholder:font-normal placeholder:italic",
               "hover:border-zinc-300 resize-none",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300/50 focus-visible:ring-offset-0 focus-visible:border-[#2a74ac]",
               "disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-400",
@@ -265,7 +265,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
           <select
             ref={ref}
             className={cn(
-              "flex h-10 w-full appearance-none rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 pr-10 text-xs font-bold text-zinc-800 shadow-sm transition-all",
+              "flex h-10 w-full appearance-none rounded-full border border-zinc-200 bg-zinc-50 px-3 py-2 pr-10 text-xs font-bold text-zinc-800 shadow-sm transition-all",
               "hover:border-zinc-300",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300/50 focus-visible:ring-offset-0 focus-visible:border-[#2a74ac]",
               "disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-400",

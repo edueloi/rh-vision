@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, Brain, Briefcase, Zap, ArrowRight, ShieldCheck } from 'lucide-react';
+import { Sparkles, Brain, Briefcase, Zap, ArrowRight, ShieldCheck, type LucideIcon } from 'lucide-react';
 
 interface WelcomeProps {
   onComplete: () => void;
@@ -12,10 +12,10 @@ export default function Welcome({ onComplete }: WelcomeProps) {
   }, []);
 
   const features = [
-    { icon: <Brain size={24} />, title: "Análise Preditiva", color: "bg-blue-500" },
-    { icon: <Zap size={24} />, title: "Triagem Inteligente", color: "bg-amber-500" },
-    { icon: <Briefcase size={24} />, title: "Match em Tempo Real", color: "bg-emerald-500" }
-  ];
+    { icon: Brain, title: "Análise Preditiva", color: "bg-blue-500" },
+    { icon: Zap, title: "Triagem Inteligente", color: "bg-amber-500" },
+    { icon: Briefcase, title: "Match em Tempo Real", color: "bg-emerald-500" }
+  ] satisfies { icon: LucideIcon; title: string; color: string }[];
 
   return (
     <div className="fixed inset-0 z-[200] bg-zinc-950 flex items-center justify-center p-4 md:p-8 overflow-y-auto overflow-x-hidden">
@@ -50,7 +50,7 @@ export default function Welcome({ onComplete }: WelcomeProps) {
                className="inline-flex items-center gap-2.5 px-4 py-2 bg-white/5 backdrop-blur-md border border-white/10 rounded-full"
              >
                 <Sparkles size={12} className="text-develoi-gold animate-pulse" />
-                <span className="text-[9px] md:text-[10px] font-black text-white/70 uppercase tracking-[0.25em]">Tecnologia Develoi AI</span>
+                <span className="text-[9px] md:text-[10px] font-black text-white/70 uppercase tracking-[0.25em]">Tecnologia Aurora AI</span>
              </motion.div>
 
              <div className="space-y-6">
@@ -101,7 +101,7 @@ export default function Welcome({ onComplete }: WelcomeProps) {
                   className="bg-white/5 backdrop-blur-2xl border border-white/5 p-6 md:p-8 rounded-[32px] flex items-center gap-6 group hover:bg-white/10 hover:border-white/10 transition-all duration-500 cursor-default"
                 >
                    <div className={`${feature.color} w-14 h-14 md:w-16 md:h-16 rounded-2xl flex items-center justify-center text-white shadow-xl shadow-black/20 group-hover:scale-110 transition-transform duration-500`}>
-                      {React.cloneElement(feature.icon as React.ReactElement, { size: 28 })}
+                      <feature.icon size={28} />
                    </div>
                    <div>
                       <h3 className="text-base md:text-lg font-black text-white uppercase tracking-tight group-hover:text-develoi-gold transition-colors">{feature.title}</h3>

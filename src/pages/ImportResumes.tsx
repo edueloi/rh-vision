@@ -71,7 +71,7 @@ import { getTenantId } from "@/src/lib/auth";
 import { useUnit } from "@/src/lib/useUnit";
 import { Job } from "@/src/types";
 
-type ImportStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'committed';
+type ImportStatus = 'pending' | 'uploaded' | 'processing' | 'completed' | 'failed' | 'committed';
 
 interface ImportBatch {
   id: number;
@@ -785,7 +785,7 @@ export default function ImportResumes() {
                  <h4 className="text-[10px] font-black uppercase tracking-widest">Privacidade & GDPR</h4>
               </div>
               <p className="text-[10px] font-bold text-zinc-400 leading-relaxed uppercase tracking-widest">
-                Seus dados são criptografados em repouso e em trânsito. A IA da Develoi não utiliza seus dados para treinamento de modelos públicos.
+                Seus dados são criptografados em repouso e em trânsito. Nossa IA não utiliza seus dados para treinamento de modelos públicos.
               </p>
            </div>
         </div>
