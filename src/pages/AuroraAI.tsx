@@ -69,6 +69,10 @@ interface MatchResult {
   distance_km?: number;
   has_disc: boolean;
   disc_profile: string;
+  disc_d?: number;
+  disc_i?: number;
+  disc_s?: number;
+  disc_c?: number;
   strengths: string[];
   attention_points: string[];
   recommendation_reason: string;
@@ -476,6 +480,27 @@ function MatchCard({ rec, radius, onClick }: { rec: MatchResult; radius: number;
         )}
       </div>
 
+      {/* DISC mini scores */}
+      {rec.has_disc && ((rec.disc_d || 0) + (rec.disc_i || 0) + (rec.disc_s || 0) + (rec.disc_c || 0)) > 0 && (
+        <div className="flex items-end gap-2 mb-4 p-2.5 bg-zinc-50 rounded-xl border border-zinc-100">
+          <span className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mr-1 self-center">DISC</span>
+          {([
+            { l: 'D', v: rec.disc_d || 0, color: '#ef4444' },
+            { l: 'I', v: rec.disc_i || 0, color: '#f59e0b' },
+            { l: 'S', v: rec.disc_s || 0, color: '#10b981' },
+            { l: 'C', v: rec.disc_c || 0, color: '#3b82f6' },
+          ] as const).map(({ l, v, color }) => (
+            <div key={l} className="flex flex-col items-center gap-0.5 flex-1">
+              <span className="text-[8px] font-black" style={{ color }}>{v}%</span>
+              <div className="w-full h-8 bg-zinc-200 rounded-full overflow-hidden flex items-end">
+                <div className="w-full rounded-full transition-all" style={{ height: `${v}%`, backgroundColor: color }} />
+              </div>
+              <span className="text-[8px] font-black text-zinc-400">{l}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Strengths */}
       {rec.strengths?.length > 0 && (
         <div className="mb-4">
@@ -721,6 +746,55 @@ function MatchDetailsModal({ rec, radius, onClose }: { rec: MatchResult; radius:
             </div>
           )}
         </div>
+
+        {/* DISC Profile */}
+        {rec.has_disc && (
+          <div className="space-y-3 pt-4 border-t border-zinc-100 dark:border-white/5">
+            <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-600 flex items-center gap-2">
+              <span className="w-4 h-4 rounded bg-blue-100 text-blue-700 flex items-center justify-center text-[9px] font-black">D</span>
+              Perfil DISC
+            </h4>
+            <div className="flex items-center gap-3 p-3 bg-zinc-50 rounded-2xl border border-zinc-100">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-base shrink-0 ${
+                rec.disc_profile === 'D' ? 'bg-red-100 text-red-700' :
+                rec.disc_profile === 'I' ? 'bg-amber-100 text-amber-700' :
+                rec.disc_profile === 'S' ? 'bg-emerald-100 text-emerald-700' :
+                'bg-blue-100 text-blue-700'
+              }`}>
+                {rec.disc_profile}
+              </div>
+              <div className="flex-1">
+                <p className="text-xs font-black text-zinc-700">
+                  {rec.disc_profile === 'D' ? 'Dominância' : rec.disc_profile === 'I' ? 'Influência' : rec.disc_profile === 'S' ? 'Estabilidade' : 'Conformidade'}
+                </p>
+                <p className="text-[10px] text-zinc-400 font-medium">
+                  {rec.disc_profile === 'D' ? 'Direto, decisivo, orientado a resultados' :
+                   rec.disc_profile === 'I' ? 'Comunicativo, otimista, motivador' :
+                   rec.disc_profile === 'S' ? 'Paciente, colaborativo, confiável' :
+                   'Analítico, preciso, sistemático'}
+                </p>
+              </div>
+              {((rec.disc_d || 0) + (rec.disc_i || 0) + (rec.disc_s || 0) + (rec.disc_c || 0)) > 0 && (
+                <div className="flex items-end gap-1.5 shrink-0">
+                  {([
+                    { l: 'D', v: rec.disc_d || 0, color: '#ef4444' },
+                    { l: 'I', v: rec.disc_i || 0, color: '#f59e0b' },
+                    { l: 'S', v: rec.disc_s || 0, color: '#10b981' },
+                    { l: 'C', v: rec.disc_c || 0, color: '#3b82f6' },
+                  ] as const).map(({ l, v, color }) => (
+                    <div key={l} className="flex flex-col items-center gap-0.5">
+                      <span className="text-[8px] font-black" style={{ color }}>{v}%</span>
+                      <div className="w-5 h-10 bg-zinc-200 rounded-full overflow-hidden flex items-end">
+                        <div className="w-full rounded-full" style={{ height: `${v}%`, backgroundColor: color }} />
+                      </div>
+                      <span className="text-[8px] font-black text-zinc-400">{l}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Risk */}
         {rec.risk_reason && (

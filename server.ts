@@ -2996,15 +2996,25 @@ Retorne EXATAMENTE este JSON:
 
       const candidates = await db.prepare(candQuery).all(...candParams) as any[];
 
-      // Fetch DISC for candidates
+      // Fetch DISC scores for all candidates (latest result per candidate)
       for (const cand of candidates) {
-        cand.disc = await db.prepare('SELECT predominant_profile FROM candidate_disc_results WHERE candidate_id = ?').get(cand.id);
+        cand.disc = await db.prepare(`
+          SELECT predominant_profile, disc_d, disc_i, disc_s, disc_c
+          FROM candidate_disc_results
+          WHERE candidate_id = ?
+          ORDER BY id DESC LIMIT 1
+        `).get(cand.id);
       }
 
       // AI Matching Logic
       const ai = createGeminiClient();
-      
-      const candidatesToProcess = candidates.slice(0, 50); 
+
+      // Filter by DISC if requested
+      const filteredCandidates = onlyWithDisc
+        ? candidates.filter((c: any) => c.disc && c.disc.predominant_profile)
+        : candidates;
+
+      const candidatesToProcess = filteredCandidates.slice(0, 50);
 
       const prompt = `
         Você é a Aurora AI, um sistema extremamente crítico e analítico de recrutamento corporativo.
@@ -3041,7 +3051,7 @@ Retorne EXATAMENTE este JSON:
           Experiência Profissional (Detalhada): ${c.professional_experiences?.substring(0, 1500) || 'Não informado'}
           Skills Técnicas: ${c.hard_skills || 'N/A'}
           Skills Comportamentais: ${c.soft_skills || 'N/A'}
-          Perfil DISC: ${c.disc?.predominant_profile || 'N/A'}
+          Perfil DISC: ${c.disc?.predominant_profile ? `${c.disc.predominant_profile} (D:${c.disc.disc_d||0} I:${c.disc.disc_i||0} S:${c.disc.disc_s||0} C:${c.disc.disc_c||0})` : 'Não avaliado'}
         `).join('\n')}
         
         Regras de Negócio de Fit (0-100):
@@ -3058,8 +3068,6 @@ Retorne EXATAMENTE este JSON:
               "compatibility_score": number,
               "classification": string,
               "distance_km": number,
-              "has_disc": boolean,
-              "disc_profile": string,
               "strengths": string[],
               "attention_points": string[],
               "recommendation_reason": string,
@@ -3095,6 +3103,8 @@ Retorne EXATAMENTE este JSON:
 
       for (const resItem of analysis.results) {
         if (resItem.compatibility_score >= numericMinScore) {
+          const cand = candidates.find((c: any) => Number(c.id) === Number(resItem.candidate_id));
+          const hasDisc = !!(cand?.disc?.predominant_profile);
           await insertResultStmt.run(
             sessionId,
             resItem.candidate_id,
@@ -3102,8 +3112,8 @@ Retorne EXATAMENTE este JSON:
             resItem.compatibility_score,
             resItem.classification,
             resItem.distance_km,
-            resItem.has_disc ? 1 : 0,
-            resItem.disc_profile || null,
+            hasDisc ? 1 : 0,
+            cand?.disc?.predominant_profile || null,
             JSON.stringify(resItem.strengths),
             JSON.stringify(resItem.attention_points),
             resItem.recommendation_reason,
@@ -3118,14 +3128,21 @@ Retorne EXATAMENTE este JSON:
       let enhancedResults = analysis.results
         .filter((resItem: any) => resItem.compatibility_score >= numericMinScore)
         .map((resItem: any) => {
-        const candidate = candidates.find(c => Number(c.id) === Number(resItem.candidate_id));
-        return {
-          ...resItem,
-          full_name: candidate?.full_name || 'Candidato',
-          city: candidate?.city || 'Localidade',
-          state: candidate?.state || 'NI'
-        };
-      });
+          const candidate = candidates.find((c: any) => Number(c.id) === Number(resItem.candidate_id));
+          const hasDisc = !!(candidate?.disc?.predominant_profile);
+          return {
+            ...resItem,
+            full_name: candidate?.full_name || 'Candidato',
+            city: candidate?.city || 'Localidade',
+            state: candidate?.state || 'NI',
+            has_disc: hasDisc,
+            disc_profile: candidate?.disc?.predominant_profile || null,
+            disc_d: candidate?.disc?.disc_d || 0,
+            disc_i: candidate?.disc?.disc_i || 0,
+            disc_s: candidate?.disc?.disc_s || 0,
+            disc_c: candidate?.disc?.disc_c || 0,
+          };
+        });
 
       enhancedResults.sort((a: any, b: any) => {
         if (b.compatibility_score !== a.compatibility_score) {
