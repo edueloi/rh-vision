@@ -245,14 +245,19 @@ function DiscDetailModal({
         const hasScores = (d.disc_d || 0) + (d.disc_i || 0) + (d.disc_s || 0) + (d.disc_c || 0) > 0;
         if (!hasScores && d.answers && d.answers.length > 0) {
           setAnalyzing(true);
+          const loadingId = toastRef.current.loading("Aurora IA gerando análise DISC detalhada…");
           try {
             const res = await fetch(`/api/disc/results/${discId}/analyze`, { method: "POST" });
+            toastRef.current.dismiss(loadingId);
             if (res.ok) {
               const r2 = await fetch(`/api/disc/results/${discId}`);
               setData(await r2.json());
-              toastRef.current.success("Análise DISC gerada pela Aurora IA.");
+              toastRef.current.success("Análise DISC gerada com sucesso!");
             }
-          } catch { /* silent */ } finally { setAnalyzing(false); }
+          } catch {
+            toastRef.current.dismiss(loadingId);
+            toastRef.current.error("Erro ao gerar análise DISC.");
+          } finally { setAnalyzing(false); }
         }
       })
       .catch(() => { toastRef.current.error("Erro ao carregar resultado DISC."); setLoading(false); });
@@ -260,15 +265,16 @@ function DiscDetailModal({
 
   const handleReAnalyze = async () => {
     setAnalyzing(true);
+    const loadingId = toastRef.current.loading("Aurora IA re-analisando perfil DISC…");
     try {
       const res = await fetch(`/api/disc/results/${discId}/analyze`, { method: "POST" });
+      toastRef.current.dismiss(loadingId);
       if (!res.ok) throw new Error();
-      const { analysis } = await res.json();
-      // refresh
       const r2 = await fetch(`/api/disc/results/${discId}`);
       setData(await r2.json());
-      toastRef.current.success("Análise DISC atualizada pela Aurora IA.");
+      toastRef.current.success("Análise DISC atualizada com sucesso!");
     } catch {
+      toastRef.current.dismiss(loadingId);
       toastRef.current.error("Erro na análise IA.");
     } finally {
       setAnalyzing(false);
