@@ -4990,15 +4990,25 @@ Retorne EXATAMENTE este JSON:
     const { tenantId } = req.query as { tenantId: string };
     if (!tenantId) return res.status(400).json({ error: 'tenantId required' });
     try {
-      let row = await db.prepare('SELECT * FROM tenant_settings WHERE tenant_id = ?').get(tenantId);
-      if (!row) {
-        await db.prepare(
-          'INSERT INTO tenant_settings (tenant_id) VALUES (?)'
-        ).run(tenantId);
-        row = await db.prepare('SELECT * FROM tenant_settings WHERE tenant_id = ?').get(tenantId);
-      }
-      res.json(row);
+      // Upsert row so it always exists, then return it
+      await prisma.$executeRawUnsafe(
+        `INSERT INTO tenant_settings (tenant_id, auto_delete_enabled, auto_delete_interval, auto_delete_target)
+         VALUES (?, 0, '6_months', 'candidates')
+         ON DUPLICATE KEY UPDATE tenant_id = tenant_id`,
+        tenantId
+      );
+      const rows = await prisma.$queryRawUnsafe<any[]>(
+        'SELECT * FROM tenant_settings WHERE tenant_id = ? LIMIT 1',
+        tenantId
+      );
+      const row = rows[0] ?? null;
+      if (!row) return res.status(404).json({ error: 'Settings not found.' });
+      res.json({
+        ...row,
+        auto_delete_enabled: Boolean(row.auto_delete_enabled),
+      });
     } catch (err) {
+      console.error('[settings GET]', err);
       res.status(500).json({ error: 'Erro ao carregar configurações.' });
     }
   });
@@ -5008,22 +5018,29 @@ Retorne EXATAMENTE este JSON:
     if (!tenantId) return res.status(400).json({ error: 'tenantId required' });
     const { auto_delete_enabled, auto_delete_interval, auto_delete_target } = req.body;
     try {
-      await db.prepare(
+      await prisma.$executeRawUnsafe(
         `INSERT INTO tenant_settings (tenant_id, auto_delete_enabled, auto_delete_interval, auto_delete_target)
          VALUES (?, ?, ?, ?)
-         ON CONFLICT(tenant_id) DO UPDATE SET
-           auto_delete_enabled = excluded.auto_delete_enabled,
-           auto_delete_interval = excluded.auto_delete_interval,
-           auto_delete_target = excluded.auto_delete_target`
-      ).run(
+         ON DUPLICATE KEY UPDATE
+           auto_delete_enabled = VALUES(auto_delete_enabled),
+           auto_delete_interval = VALUES(auto_delete_interval),
+           auto_delete_target = VALUES(auto_delete_target)`,
         tenantId,
         auto_delete_enabled ? 1 : 0,
         auto_delete_interval ?? '6_months',
         auto_delete_target ?? 'candidates'
       );
-      const updated = await db.prepare('SELECT * FROM tenant_settings WHERE tenant_id = ?').get(tenantId);
-      res.json(updated);
+      const rows = await prisma.$queryRawUnsafe<any[]>(
+        'SELECT * FROM tenant_settings WHERE tenant_id = ? LIMIT 1',
+        tenantId
+      );
+      const updated = rows[0] ?? null;
+      res.json({
+        ...updated,
+        auto_delete_enabled: Boolean(updated?.auto_delete_enabled),
+      });
     } catch (err) {
+      console.error('[settings PUT]', err);
       res.status(500).json({ error: 'Erro ao salvar configurações.' });
     }
   });
