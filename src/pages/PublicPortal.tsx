@@ -2,10 +2,10 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   MapPin, Briefcase, Globe, FileText, Send, CheckCircle2,
   ArrowLeft, Search, Sparkles, Clock, ChevronRight, Award,
-  GraduationCap, DollarSign, X, Filter, Phone, ChevronDown,
+  GraduationCap, DollarSign, X, Filter, Phone,
   Building2, Zap, Star, Heart, Users
 } from "lucide-react";
-import { Badge, Button, Input } from "@/src/components/ui";
+import { Badge, Button, Input, Combobox } from "@/src/components/ui";
 import { getTenantId } from "@/src/lib/auth";
 import { Job } from "@/src/types";
 import { motion, AnimatePresence } from "motion/react";
@@ -144,7 +144,7 @@ export default function PublicPortal() {
   const [applied, setApplied] = useState(false);
   const [tenantInfo, setTenantInfo] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchCity, setSearchCity] = useState("");
+  const [searchCities, setSearchCities] = useState<string[]>([]);
   const [searchModel, setSearchModel] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
@@ -189,17 +189,19 @@ export default function PublicPortal() {
     finally { setSubmitting(false); }
   };
 
-  const uniqueCities = useMemo(() => Array.from(new Set(jobs.map(j => j.city).filter(Boolean))).sort(), [jobs]);
+  const uniqueCities = useMemo(() =>
+    Array.from(new Set(jobs.map(j => j.city).filter(Boolean))).sort().map(c => ({ value: c, label: c })),
+    [jobs]);
   const uniqueModels = useMemo(() => Array.from(new Set(jobs.map(j => j.work_model).filter(Boolean))).sort(), [jobs]);
 
   const filtered = useMemo(() => jobs.filter(j => {
     const q = searchQuery.toLowerCase();
     return (!q || j.title.toLowerCase().includes(q) || (j.department || "").toLowerCase().includes(q) || (j.city || "").toLowerCase().includes(q))
-      && (!searchCity || j.city === searchCity)
+      && (!searchCities.length || searchCities.includes(j.city))
       && (!searchModel || j.work_model === searchModel);
-  }), [jobs, searchQuery, searchCity, searchModel]);
+  }), [jobs, searchQuery, searchCities, searchModel]);
 
-  const hasFilters = !!(searchQuery || searchCity || searchModel);
+  const hasFilters = !!(searchQuery || searchCities.length || searchModel);
 
   if (loading) return (
     <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center">
@@ -240,12 +242,8 @@ export default function PublicPortal() {
             />
           </div>
 
-          {/* Count */}
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="hidden sm:inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-develoi-gold bg-develoi-gold/10 border border-develoi-gold/20 px-3 py-1.5 rounded-full">
-              <Zap size={10} /> {jobs.length} vaga{jobs.length !== 1 ? "s" : ""}
-            </span>
-          </div>
+          {/* Spacer placeholder to keep logo left-aligned */}
+          <div className="w-24 hidden sm:block" />
         </div>
       </header>
 
@@ -307,17 +305,16 @@ export default function PublicPortal() {
                       onChange={e => setSearchQuery(e.target.value)}
                     />
                   </div>
-                  <div className="relative sm:w-44">
-                    <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" size={14} />
-                    <select
-                      className="w-full pl-9 pr-7 py-2.5 bg-zinc-50 rounded-xl text-sm font-medium outline-none focus:bg-white focus:ring-2 focus:ring-develoi-gold/30 transition-all appearance-none cursor-pointer"
-                      value={searchCity}
-                      onChange={e => setSearchCity(e.target.value)}
-                    >
-                      <option value="">Todas as cidades</option>
-                      {uniqueCities.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
-                    <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" size={13} />
+                  <div className="sm:w-52">
+                    <Combobox
+                      options={uniqueCities}
+                      value={searchCities}
+                      onChange={v => setSearchCities(v as string[])}
+                      placeholder="Todas as cidades"
+                      searchPlaceholder="Buscar cidade…"
+                      multiple
+                      size="sm"
+                    />
                   </div>
                   <Button
                     variant={showFilters ? "secondary" : "outline"}
@@ -372,7 +369,7 @@ export default function PublicPortal() {
                 </h2>
                 {hasFilters && (
                   <button
-                    onClick={() => { setSearchQuery(""); setSearchCity(""); setSearchModel(""); }}
+                    onClick={() => { setSearchQuery(""); setSearchCities([]); setSearchModel(""); }}
                     className="flex items-center gap-1 text-[10px] font-bold text-zinc-400 hover:text-red-500 transition-colors uppercase tracking-widest"
                   >
                     <X size={11} /> Limpar
@@ -385,7 +382,7 @@ export default function PublicPortal() {
                   <Briefcase size={36} className="mx-auto text-zinc-200 mb-4" />
                   <p className="text-sm font-black text-zinc-700">Nenhuma vaga encontrada</p>
                   <p className="text-xs text-zinc-400 mt-1">Tente outros termos ou remova os filtros.</p>
-                  <Button variant="ghost" size="sm" onClick={() => { setSearchQuery(""); setSearchCity(""); setSearchModel(""); }} className="mt-4">
+                  <Button variant="ghost" size="sm" onClick={() => { setSearchQuery(""); setSearchCities([]); setSearchModel(""); }} className="mt-4">
                     Limpar filtros
                   </Button>
                 </div>
@@ -637,46 +634,108 @@ export default function PublicPortal() {
       </main>
 
       {/* ── FOOTER ── */}
-      <footer className="bg-develoi-navy text-white">
-        <div className="max-w-6xl mx-auto px-5 sm:px-8 py-12 grid sm:grid-cols-3 gap-10">
-          <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 bg-white/10 rounded-xl flex items-center justify-center">
-                <Sparkles size={16} className="text-develoi-gold" />
-              </div>
-              <div>
-                <p className="text-sm font-black uppercase tracking-tight">{companyName}</p>
-                <p className="text-[9px] text-white/40 font-bold uppercase tracking-widest">Portal de Vagas</p>
-              </div>
+      <footer className="bg-develoi-navy text-white mt-8">
+        {/* CTA strip */}
+        <div className="border-b border-white/10">
+          <div className="max-w-6xl mx-auto px-5 sm:px-8 py-10 flex flex-col sm:flex-row items-center justify-between gap-6">
+            <div className="space-y-1 text-center sm:text-left">
+              <p className="text-lg font-black text-white leading-tight">
+                Não encontrou a vaga ideal?
+              </p>
+              <p className="text-xs text-white/50 font-medium">
+                Novas oportunidades surgem regularmente. Volte sempre para conferir.
+              </p>
             </div>
-            <p className="text-xs text-white/50 leading-relaxed">
-              Encontre sua próxima oportunidade e faça parte de um time que valoriza pessoas.
-            </p>
-          </div>
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-widest text-white/30 mb-4">Navegação</p>
-            <button onClick={() => navigate("/portal")} className="text-xs text-white/60 hover:text-develoi-gold transition-colors font-medium">
+            <Button
+              variant="outline"
+              size="md"
+              iconLeft={<Search size={14} />}
+              onClick={() => { navigate("/portal"); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+              className="!border-develoi-gold !text-develoi-gold hover:!bg-develoi-gold hover:!text-develoi-navy shrink-0"
+            >
               Ver todas as vagas
-            </button>
-          </div>
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-widest text-white/30 mb-4">Contato</p>
-            {tenantInfo?.email && (
-              <a href={`mailto:${tenantInfo.email}`} className="block text-xs text-white/60 hover:text-develoi-gold transition-colors font-medium">
-                {tenantInfo.email}
-              </a>
-            )}
-            {tenantInfo?.phone && (
-              <p className="text-xs text-white/60 font-medium mt-1">{tenantInfo.phone}</p>
-            )}
+            </Button>
           </div>
         </div>
-        <div className="border-t border-white/10">
-          <div className="max-w-6xl mx-auto px-5 sm:px-8 py-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-            <p className="text-[9px] text-white/25 font-medium uppercase tracking-widest">
+
+        {/* Main footer grid */}
+        <div className="max-w-6xl mx-auto px-5 sm:px-8 py-14 grid sm:grid-cols-3 gap-10">
+          {/* Brand */}
+          <div className="space-y-5">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center border border-white/10">
+                <Sparkles size={18} className="text-develoi-gold" />
+              </div>
+              <div>
+                <p className="text-sm font-black uppercase tracking-tight leading-none">{companyName}</p>
+                <p className="text-[9px] text-white/35 font-bold uppercase tracking-widest mt-0.5">Portal de Vagas</p>
+              </div>
+            </div>
+            <p className="text-xs text-white/45 leading-relaxed">
+              Conectamos talentos a oportunidades reais. Candidate-se diretamente e faça parte de um time que valoriza cada pessoa.
+            </p>
+            {/* Stats pills */}
+            <div className="flex flex-wrap gap-2">
+              <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest bg-white/8 border border-white/10 px-3 py-1.5 rounded-full text-white/60">
+                <Briefcase size={10} className="text-develoi-gold" /> {jobs.length} vagas abertas
+              </span>
+              {uniqueCities.length > 0 && (
+                <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest bg-white/8 border border-white/10 px-3 py-1.5 rounded-full text-white/60">
+                  <MapPin size={10} className="text-develoi-gold" /> {uniqueCities.length} {uniqueCities.length === 1 ? "cidade" : "cidades"}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Nav */}
+          <div className="space-y-4">
+            <p className="text-[10px] font-black uppercase tracking-widest text-white/30">Navegação</p>
+            <div className="space-y-2.5">
+              {[
+                { label: "Todas as vagas", action: () => navigate("/portal") },
+                ...(uniqueModels.map(m => ({ label: `Vagas ${m}`, action: () => { navigate("/portal"); setSearchModel(m); } }))),
+              ].slice(0, 5).map(({ label, action }) => (
+                <button key={label} onClick={action} className="block text-xs text-white/50 hover:text-develoi-gold transition-colors font-medium text-left">
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Contact */}
+          <div className="space-y-4">
+            <p className="text-[10px] font-black uppercase tracking-widest text-white/30">Contato</p>
+            <div className="space-y-3">
+              {tenantInfo?.email && (
+                <a href={`mailto:${tenantInfo.email}`} className="flex items-center gap-2.5 text-xs text-white/50 hover:text-develoi-gold transition-colors font-medium group">
+                  <div className="w-7 h-7 bg-white/8 border border-white/10 rounded-lg flex items-center justify-center shrink-0 group-hover:bg-develoi-gold/20 group-hover:border-develoi-gold/30 transition-colors">
+                    <Send size={11} className="text-develoi-gold" />
+                  </div>
+                  {tenantInfo.email}
+                </a>
+              )}
+              {tenantInfo?.phone && (
+                <div className="flex items-center gap-2.5 text-xs text-white/50 font-medium">
+                  <div className="w-7 h-7 bg-white/8 border border-white/10 rounded-lg flex items-center justify-center shrink-0">
+                    <Phone size={11} className="text-develoi-gold" />
+                  </div>
+                  {tenantInfo.phone}
+                </div>
+              )}
+              {!tenantInfo?.email && !tenantInfo?.phone && (
+                <p className="text-xs text-white/30 font-medium italic">Sem contato configurado.</p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom bar */}
+        <div className="border-t border-white/8">
+          <div className="max-w-6xl mx-auto px-5 sm:px-8 py-5 flex flex-col sm:flex-row items-center justify-between gap-2">
+            <p className="text-[9px] text-white/20 font-medium uppercase tracking-widest">
               © {new Date().getFullYear()} {companyName}. Todos os direitos reservados.
             </p>
-            <p className="text-[9px] text-white/20 font-medium uppercase tracking-widest">Powered by Recrute IA</p>
+            <p className="text-[9px] text-white/15 font-medium uppercase tracking-widest">Powered by Recrute IA</p>
           </div>
         </div>
       </footer>
