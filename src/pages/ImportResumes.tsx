@@ -1277,11 +1277,24 @@ export default function ImportResumes() {
                         ))
                       ) : Object.entries(parsed).map(([k, v]: [string, any]) => {
                         if (typeof v === "object" && v !== null && !Array.isArray(v)) return null;
-                        if (["skills", "summary", "strengths", "attention_points", "compatibility_score", "experiences_list", "education_list", "projects_list", "languages_list"].includes(k)) return null;
+                        if (["skills", "summary", "strengths", "attention_points", "compatibility_score", "recommendation", "experiences_list", "education_list", "projects_list", "languages_list"].includes(k)) return null;
                         const dv = Array.isArray(v) ? v.join(", ") : v;
+                        const FIELD_LABELS: Record<string, string> = {
+                          name: "Nome", email: "E-mail", phone: "Telefone", cpf: "CPF",
+                          city: "Cidade", state: "Estado", role: "Cargo",
+                          experience_years: "Experiência (anos)", education: "Escolaridade",
+                          linkedin: "LinkedIn", desired_salary: "Pretensão Salarial",
+                          desired_position: "Cargo Desejado", nationality: "Nacionalidade",
+                          birth_date: "Data de Nascimento", gender: "Gênero",
+                          cnh: "CNH", work_model: "Modelo de Trabalho",
+                          contract_type: "Tipo de Contrato", availability: "Disponibilidade",
+                          languages: "Idiomas", certifications: "Certificações",
+                          location: "Localização", address: "Endereço",
+                        };
+                        const label = FIELD_LABELS[k] ?? k.replace(/_/g, " ");
                         return (
                           <div key={k} className="p-4 bg-zinc-50 rounded-2xl border border-zinc-100 hover:border-develoi-gold/40 transition-colors group">
-                            <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1 group-hover:text-develoi-gold">{k.replace(/_/g, " ")}</p>
+                            <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1 group-hover:text-develoi-gold">{label}</p>
                             <p className="text-sm font-black text-zinc-900 leading-snug">{dv?.toString() || "—"}</p>
                           </div>
                         );

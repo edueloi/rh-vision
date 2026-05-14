@@ -317,6 +317,22 @@ function sanitizeUploadFileName(fileName: string) {
   return normalized || 'arquivo';
 }
 
+// Corrige nomes de arquivo que chegam com encoding Latin-1 (multer + browsers Windows)
+function fixFilenameLatin1(name: string): string {
+  try {
+    // Se j\u00e1 est\u00e1 em UTF-8 v\u00e1lido com acentos normais, retorna como est\u00e1
+    if (/[\u00c0-\u00ff]/.test(name) && !/\u00c3|\u00c2|\u00c5/.test(name)) return name;
+    // Tenta decodificar Latin-1 \u2192 UTF-8
+    const bytes = Buffer.from(name, 'latin1');
+    const decoded = bytes.toString('utf8');
+    // Verifica se faz sentido (sem caracteres de controle estranhos)
+    if (/[\u00c0-\u00ff]/.test(decoded)) return decoded;
+    return name;
+  } catch {
+    return name;
+  }
+}
+
 function bytesToMegabytes(bytes: number) {
   return Number((bytes / (1024 * 1024)).toFixed(1));
 }
@@ -3997,10 +4013,11 @@ Retorne EXATAMENTE este JSON:
 
         for (const file of files) {
           const filePath = await saveImportedResumeFile(batchId, batch.tenant_id, file);
+          const displayName = fixFilenameLatin1(file.originalname);
           await db.prepare(`
             INSERT INTO import_files (batch_id, tenant_id, unit_id, file_name, file_path, file_type, file_size, status)
             VALUES (?, ?, ?, ?, ?, ?, ?, 'uploaded')
-          `).run(batchId, batch.tenant_id, batch.unit_id, file.originalname, filePath, file.mimetype, file.size);
+          `).run(batchId, batch.tenant_id, batch.unit_id, displayName, filePath, file.mimetype, file.size);
         }
 
         await db.prepare('UPDATE import_batches SET total_files = total_files + ? WHERE id = ?').run(files.length, batchId);
