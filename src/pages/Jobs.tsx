@@ -41,8 +41,8 @@ export default function Jobs() {
 
   const isCreateRoute = Boolean(createMatch || importMatch);
   const isEditRoute = Boolean(editMatch);
-  const isDetailsRoute = Boolean(detailsMatch) && !isEditRoute;
-  const routeJobId = decodeId(editMatch?.params.jobId ?? detailsMatch?.params.jobId ?? '') || null;
+  const isDetailsRoute = Boolean(detailsMatch) && !isEditRoute && !isCreateRoute;
+  const routeJobId = decodeId(editMatch?.params.jobId ?? (isDetailsRoute ? detailsMatch?.params.jobId : undefined) ?? '') || null;
 
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [selectedJobLoading, setSelectedJobLoading] = useState(false);
@@ -111,9 +111,9 @@ export default function Jobs() {
       return;
     }
 
-    // slug presente mas decode falhou → redireciona uma única vez
-    const slug = editMatch?.params.jobId ?? detailsMatch?.params.jobId;
-    if (slug && !routeJobId) {
+    // slug presente mas decode falhou e não é rota de criação → redireciona
+    const slug = editMatch?.params.jobId ?? (isDetailsRoute ? detailsMatch?.params.jobId : undefined);
+    if (slug && !routeJobId && !isCreateRoute) {
       navigate("/vagas", { replace: true });
       return;
     }
@@ -121,7 +121,7 @@ export default function Jobs() {
     if (!isCreateRoute) {
       setSelectedJob(null);
     }
-  }, [fetchJob, isCreateRoute, routeJobId]);
+  }, [fetchJob, isCreateRoute, isDetailsRoute, routeJobId]);
 
   const handleDelete = async (id: number) => {
     try {
