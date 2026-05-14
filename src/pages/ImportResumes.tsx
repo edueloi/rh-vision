@@ -60,7 +60,7 @@ interface ImportCapacity {
 }
 
 const DEFAULT_CAPACITY: ImportCapacity = {
-  max_files_per_batch: 100,
+  max_files_per_batch: 500,
   max_file_size_bytes: 8 * 1024 * 1024,
   max_file_size_mb: 8,
   max_total_size_bytes: 96 * 1024 * 1024,
@@ -142,6 +142,13 @@ export default function ImportResumes() {
   const [nbDragging, setNbDragging] = useState(false);
   const [nbProcessing, setNbProcessing] = useState(false);
   const nbFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Add-to-batch modal state
+  const [showAddFiles, setShowAddFiles] = useState(false);
+  const [addQueue, setAddQueue] = useState<File[]>([]);
+  const [addDragging, setAddDragging] = useState(false);
+  const [addProcessing, setAddProcessing] = useState(false);
+  const addFileInputRef = useRef<HTMLInputElement>(null);
 
   // ─── Fetch ──────────────────────────────────────────────────────────────────
 
@@ -591,6 +598,16 @@ export default function ImportResumes() {
             <IconButton onClick={() => selectedBatch && openBatchDetails(selectedBatch)} className="h-11 w-11 rounded-2xl bg-zinc-900 text-white hover:bg-develoi-gold">
               <RefreshCw size={18} />
             </IconButton>
+            {selectedBatch?.status !== "processing" && (
+              <Button
+                variant="outline"
+                onClick={() => { setAddQueue([]); setShowAddFiles(true); }}
+                className="h-11 px-5 rounded-2xl border-develoi-navy text-develoi-navy hover:bg-develoi-navy hover:text-white"
+                iconLeft={<Plus size={16} />}
+              >
+                Adicionar CVs
+              </Button>
+            )}
             {canCommit && (
               <div className="flex items-center gap-3 bg-white p-2 pl-5 rounded-2xl border border-zinc-100 shadow-xl shadow-zinc-200/40">
                 <div>
@@ -922,6 +939,128 @@ export default function ImportResumes() {
 
   const nbTotalBytes = nbQueue.reduce((s, i) => s + i.file.size, 0);
   const nbUsagePct = Math.min((nbQueue.length / capacity.max_files_per_batch) * 100, 100);
+
+  // ─── Add Files to Existing Batch ────────────────────────────────────────────
+
+  const addEnqueue = (files: File[]) => {
+    const supported = new Set(capacity.supported_extensions.map(e => e.toLowerCase()));
+    const next = [...addQueue];
+    for (const f of files) {
+      const ext = `.${f.name.split(".").pop()?.toLowerCase() || ""}`;
+      if (!supported.has(ext)) { toast.error(`${f.name}: formato não suportado`); continue; }
+      if (f.size > capacity.max_file_size_bytes) { toast.error(`${f.name} excede ${capacity.max_file_size_mb}MB`); continue; }
+      const alreadyIn = next.some(x => x.name === f.name && x.size === f.size);
+      if (!alreadyIn) next.push(f);
+    }
+    setAddQueue(next);
+  };
+
+  const handleAddFilesSubmit = async () => {
+    if (!selectedBatch || addQueue.length === 0) return;
+    setAddProcessing(true);
+    const loadId = toast.loading(`Enviando ${addQueue.length} arquivo(s)...`);
+    try {
+      const form = new FormData();
+      addQueue.forEach(f => form.append("files", f));
+      const res = await fetch(`/api/imports/${selectedBatch.id}/files`, { method: "POST", body: form });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Falha no upload");
+
+      // restart processing for the new files
+      fetch(`/api/imports/${selectedBatch.id}/start`, { method: "POST" });
+
+      toast.dismiss(loadId);
+      toast.success(`${addQueue.length} currículo(s) adicionado(s) e processamento reiniciado!`);
+      setShowAddFiles(false);
+      setAddQueue([]);
+      openBatchDetails(selectedBatch);
+    } catch (err: any) {
+      toast.dismiss(loadId);
+      toast.error(err.message || "Erro ao adicionar arquivos.");
+    } finally {
+      setAddProcessing(false);
+    }
+  };
+
+  const renderAddFilesModal = () => (
+    <Modal
+      open={showAddFiles}
+      onClose={() => !addProcessing && setShowAddFiles(false)}
+      title="Adicionar CVs ao Lote"
+      icon={<Plus size={20} />}
+      description={`Adicione mais currículos ao lote "${selectedBatch?.name}". Eles serão processados pela Aurora IA.`}
+    >
+      <div className="space-y-5 pt-2">
+        {/* Drop zone */}
+        <div
+          onDragOver={e => { e.preventDefault(); setAddDragging(true); }}
+          onDragLeave={() => setAddDragging(false)}
+          onDrop={e => { e.preventDefault(); setAddDragging(false); addEnqueue(Array.from(e.dataTransfer.files)); }}
+          onClick={() => addFileInputRef.current?.click()}
+          className={cn(
+            "border-2 border-dashed rounded-3xl p-8 flex flex-col items-center justify-center gap-3 cursor-pointer transition-all",
+            addDragging ? "border-develoi-gold bg-develoi-gold/5 scale-[0.99]" : "border-zinc-200 hover:border-develoi-navy/40 hover:bg-zinc-50/50"
+          )}
+        >
+          <input
+            ref={addFileInputRef}
+            type="file"
+            multiple
+            accept=".pdf,.docx,.txt,.csv,.xls,.xlsx"
+            className="hidden"
+            onChange={e => { if (e.target.files) addEnqueue(Array.from(e.target.files)); e.target.value = ""; }}
+          />
+          <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center transition-all", addDragging ? "bg-develoi-gold text-white" : "bg-zinc-100 text-zinc-400")}>
+            <Upload size={26} />
+          </div>
+          <div className="text-center">
+            <p className="text-sm font-black text-zinc-700 uppercase tracking-tight">Arraste os currículos aqui</p>
+            <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mt-1">ou clique para selecionar • PDF, DOCX, XLS, TXT</p>
+          </div>
+        </div>
+
+        {/* File list */}
+        {addQueue.length > 0 && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">{addQueue.length} arquivo(s) selecionado(s)</span>
+              <button onClick={() => setAddQueue([])} className="text-[10px] font-bold text-red-400 hover:text-red-600 uppercase tracking-widest">Limpar</button>
+            </div>
+            <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
+              {addQueue.map((f, i) => (
+                <div key={i} className="flex items-center justify-between gap-3 p-2.5 bg-zinc-50 border border-zinc-100 rounded-xl">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <FileText size={14} className="text-zinc-400 shrink-0" />
+                    <span className="text-xs font-bold text-zinc-700 truncate">{f.name}</span>
+                    <span className="text-[10px] text-zinc-400 shrink-0">{fmtBytes(f.size)}</span>
+                  </div>
+                  <button onClick={() => setAddQueue(q => q.filter((_, idx) => idx !== i))} className="text-zinc-300 hover:text-red-500 transition-colors shrink-0">
+                    <X size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="flex gap-3 pt-1">
+          <Button variant="ghost" fullWidth onClick={() => setShowAddFiles(false)} disabled={addProcessing}>
+            Cancelar
+          </Button>
+          <Button
+            variant="primary"
+            fullWidth
+            onClick={handleAddFilesSubmit}
+            loading={addProcessing}
+            disabled={addQueue.length === 0}
+            iconLeft={!addProcessing && <Zap size={16} />}
+          >
+            {addProcessing ? "Enviando..." : `Enviar ${addQueue.length > 0 ? addQueue.length : ""} CV(s)`}
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
 
   const renderNewBatchModal = () => (
     <Modal open={showNewBatch} onClose={() => !nbProcessing && setShowNewBatch(false)} title="Novo Lote de Importação" icon={<Layers size={22} />} description="Configure o lote e faça o upload dos currículos para processamento via Aurora IA.">
@@ -1294,6 +1433,7 @@ export default function ImportResumes() {
 
       {/* Modals */}
       {renderNewBatchModal()}
+      {renderAddFilesModal()}
       <FileDetailModal />
       <DeleteModal />
     </div>

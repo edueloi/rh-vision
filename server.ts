@@ -29,9 +29,9 @@ const OPENAI_RETRY_ATTEMPTS = Math.max(1, Number.parseInt(process.env.OPENAI_RET
 const OPENAI_RETRY_BASE_DELAY_MS = Math.max(250, Number.parseInt(process.env.OPENAI_RETRY_BASE_DELAY_MS?.trim() || '900', 10) || 900);
 const IMPORT_UPLOADS_DIR = path.join(__dirname, 'storage', 'imports');
 const CANDIDATE_UPLOADS_DIR = path.join(__dirname, 'storage', 'candidate-files');
-const CANDIDATE_BATCH_IMPORT_MAX_FILES = 100;
+const CANDIDATE_BATCH_IMPORT_MAX_FILES = 500;
 const CANDIDATE_BATCH_IMPORT_MAX_FILE_SIZE_BYTES = 8 * 1024 * 1024;
-const CANDIDATE_BATCH_IMPORT_MAX_TOTAL_SIZE_BYTES = 96 * 1024 * 1024;
+const CANDIDATE_BATCH_IMPORT_MAX_TOTAL_SIZE_BYTES = 512 * 1024 * 1024;
 const CANDIDATE_BATCH_IMPORT_EXTENSIONS = ['.pdf', '.docx', '.txt', '.csv', '.xls', '.xlsx'];
 
 type AIReasoningEffort = 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh';
@@ -4959,6 +4959,66 @@ Retorne EXATAMENTE este JSON:
     app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
+  }
+
+  // ─── Tenant Settings ────────────────────────────────────────────────────────
+
+  app.get('/api/settings', async (req, res) => {
+    const { tenantId } = req.query as { tenantId: string };
+    if (!tenantId) return res.status(400).json({ error: 'tenantId required' });
+    try {
+      let row = await db.prepare('SELECT * FROM tenant_settings WHERE tenant_id = ?').get(tenantId);
+      if (!row) {
+        await db.prepare(
+          'INSERT INTO tenant_settings (tenant_id) VALUES (?)'
+        ).run(tenantId);
+        row = await db.prepare('SELECT * FROM tenant_settings WHERE tenant_id = ?').get(tenantId);
+      }
+      res.json(row);
+    } catch (err) {
+      res.status(500).json({ error: 'Erro ao carregar configurações.' });
+    }
+  });
+
+  app.put('/api/settings', async (req, res) => {
+    const { tenantId } = req.query as { tenantId: string };
+    if (!tenantId) return res.status(400).json({ error: 'tenantId required' });
+    const { auto_delete_enabled, auto_delete_interval, auto_delete_target } = req.body;
+    try {
+      await db.prepare(
+        `INSERT INTO tenant_settings (tenant_id, auto_delete_enabled, auto_delete_interval, auto_delete_target)
+         VALUES (?, ?, ?, ?)
+         ON CONFLICT(tenant_id) DO UPDATE SET
+           auto_delete_enabled = excluded.auto_delete_enabled,
+           auto_delete_interval = excluded.auto_delete_interval,
+           auto_delete_target = excluded.auto_delete_target`
+      ).run(
+        tenantId,
+        auto_delete_enabled ? 1 : 0,
+        auto_delete_interval ?? '6_months',
+        auto_delete_target ?? 'candidates'
+      );
+      const updated = await db.prepare('SELECT * FROM tenant_settings WHERE tenant_id = ?').get(tenantId);
+      res.json(updated);
+    } catch (err) {
+      res.status(500).json({ error: 'Erro ao salvar configurações.' });
+    }
+  });
+
+  // Recover any files/batches left stuck in 'processing' from a previous crash
+  try {
+    const stuckFiles = db.prepare("SELECT COUNT(*) as n FROM import_files WHERE status = 'processing'").get() as any;
+    if (stuckFiles?.n > 0) {
+      db.prepare("UPDATE import_files SET status = 'uploaded', progress = 0 WHERE status = 'processing'").run();
+      console.log(`[recovery] Reset ${stuckFiles.n} stuck import_files back to 'uploaded'`);
+    }
+    const stuckBatches = db.prepare("SELECT COUNT(*) as n FROM import_batches WHERE status = 'processing'").get() as any;
+    if (stuckBatches?.n > 0) {
+      db.prepare("UPDATE import_batches SET status = 'pending' WHERE status = 'processing'").run();
+      console.log(`[recovery] Reset ${stuckBatches.n} stuck import_batches back to 'pending'`);
+    }
+  } catch (recoveryErr) {
+    console.error('[recovery] Error resetting stuck imports:', recoveryErr);
   }
 
   server.listen(PORT, '0.0.0.0', () => {

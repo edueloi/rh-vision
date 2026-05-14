@@ -526,6 +526,18 @@ model ImportBatchEvent {
   @@map("import_batch_events")
 }
 
+model TenantSetting {
+  id                          Int      @id @default(autoincrement())
+  tenant_id                   String   @unique @db.VarChar(191)
+  auto_delete_enabled         Boolean  @default(false)
+  auto_delete_interval        String   @default("6_months") @db.VarChar(50)
+  auto_delete_target          String   @default("candidates") @db.VarChar(50)
+  created_at                  DateTime @default(now()) @db.DateTime(0)
+  updated_at                  DateTime @default(now()) @updatedAt @db.DateTime(0)
+
+  @@map("tenant_settings")
+}
+
 model JobImport {
   id               Int       @id @default(autoincrement())
   tenant_id        String    @db.VarChar(191)

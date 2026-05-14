@@ -50,6 +50,7 @@ import Welcome from "./pages/Welcome";
 import SuperAdmin from "./pages/SuperAdmin";
 import Profile from "./pages/Profile";
 import AccessGuide from "./pages/AccessGuide";
+import SettingsPage from "./pages/Settings";
 import { cn } from "./lib/utils";
 import { useUnit, Unit } from "./lib/useUnit";
 import { getWelcomeStorageKey, isRootAdmin } from "./lib/auth";
@@ -77,6 +78,7 @@ const APP_MENU_ITEMS: MenuItem[] = [
   { path: "/importar-cvs", label: "Importar CVs", helper: "Upload e processamento", icon: FileUp, permissionKey: "imports" },
   { path: "/ferramentas", label: "Ferramentas", helper: "Avaliações e recursos", icon: Settings, permissionKey: "tools" },
   { path: "/administracao", label: "Administração", helper: "Usuários, unidades e acesso", icon: ShieldCheck, permissionKey: "administration" },
+  { path: "/configuracoes", label: "Configurações", helper: "Automações e preferências", icon: Settings, permissionKey: "administration" },
 ];
 
 const ROOT_SECTION_ITEMS = [
@@ -979,7 +981,7 @@ function AppContent() {
                           <button onClick={() => { setUserMenuOpen(false); navigate('/perfil'); }} className="w-full rounded-xl px-3 py-2 text-left text-[11px] font-bold text-zinc-600 transition-colors hover:bg-zinc-50 hover:text-develoi-navy flex items-center gap-2.5">
                             <User size={14} className="text-zinc-400" /> Meu Perfil
                           </button>
-                          <button className="w-full rounded-xl px-3 py-2 text-left text-[11px] font-bold text-zinc-600 transition-colors hover:bg-zinc-50 hover:text-develoi-navy flex items-center gap-2.5">
+                          <button onClick={() => { setUserMenuOpen(false); navigate('/configuracoes'); }} className="w-full rounded-xl px-3 py-2 text-left text-[11px] font-bold text-zinc-600 transition-colors hover:bg-zinc-50 hover:text-develoi-navy flex items-center gap-2.5">
                             <Settings size={14} className="text-zinc-400" /> Configurações
                           </button>
                           <button onClick={() => { setUserMenuOpen(false); navigate('/guia-de-acesso'); }} className="w-full rounded-xl px-3 py-2 text-left text-[11px] font-bold text-zinc-600 transition-colors hover:bg-zinc-50 hover:text-develoi-navy flex items-center gap-2.5">
@@ -1049,6 +1051,7 @@ function AppContent() {
               path="/super-admin"
               element={guard(isSuperAdmin && permissions.super_admin, <SuperAdmin />)}
             />
+            <Route path="/configuracoes" element={guard(permissions.administration, <SettingsPage />)} />
             <Route path="/perfil" element={<Profile />} />
             <Route path="/guia-de-acesso" element={<AccessGuide />} />
             <Route path="*" element={<Navigate to={defaultPath} replace />} />
