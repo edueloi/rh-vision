@@ -211,6 +211,7 @@ export default function ImportResumes() {
 
   // Auto-refresh while processing + notificação ao concluir
   const prevProcessedRef = useRef<number>(-1);
+  const processingToastRef = useRef<string | number | null>(null);
   useEffect(() => {
     if (view !== "details" || !selectedBatch) return;
     if (selectedBatch.status !== "processing" && selectedBatch.status !== "uploaded") return;
@@ -219,6 +220,11 @@ export default function ImportResumes() {
     // Dispara notificação uma única vez quando conclui
     if (allDone && prevProcessedRef.current !== selectedBatch.processed_files) {
       prevProcessedRef.current = selectedBatch.processed_files;
+      // Fechar o toast de processamento em andamento
+      if (processingToastRef.current !== null) {
+        toast.dismiss(processingToastRef.current);
+        processingToastRef.current = null;
+      }
       const errors = selectedBatch.error_files || 0;
       pushNotif({
         type: errors > 0 ? "warning" : "success",
@@ -231,8 +237,18 @@ export default function ImportResumes() {
     if (allDone) return;
     prevProcessedRef.current = selectedBatch.processed_files;
     const id = setInterval(() => openBatchDetails(selectedBatch), 3500);
-    return () => clearInterval(id);
+    return () => {
+      clearInterval(id);
+    };
   }, [view, selectedBatch]);
+
+  // Limpar toast de processamento ao sair da view de detalhes
+  useEffect(() => {
+    if (view !== "details" && processingToastRef.current !== null) {
+      toast.dismiss(processingToastRef.current);
+      processingToastRef.current = null;
+    }
+  }, [view]);
 
   // ─── Batch actions ──────────────────────────────────────────────────────────
 
@@ -916,7 +932,7 @@ export default function ImportResumes() {
       fetch(`/api/imports/${batchId}/start`, { method: "POST" });
 
       toast.dismiss(loadId);
-      toast.loading(`Aurora IA processando "${nbForm.name}"... (${nbQueue.length} arquivo${nbQueue.length !== 1 ? "s" : ""})`);
+      processingToastRef.current = toast.loading(`Aurora IA processando "${nbForm.name}"... (${nbQueue.length} arquivo${nbQueue.length !== 1 ? "s" : ""})`);
       pushNotif({
         type: "info",
         title: `Lote "${nbForm.name}" enviado`,
