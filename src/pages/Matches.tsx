@@ -5,7 +5,7 @@ import {
   Star, Users, Award, ChevronRight, Sparkles
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import { Badge, Button, PanelCard, EmptyState } from "@/src/components/ui";
+import { Badge, Button, PanelCard, EmptyState, PageWrapper, SectionTitle } from "@/src/components/ui";
 import { cn } from "@/src/lib/utils";
 import { Link } from "react-router-dom";
 import { useToast } from "@/src/components/ui";
@@ -154,26 +154,15 @@ export default function Matches() {
   const excellentCount = matches.filter(m => m.compatibility_score >= 90).length;
 
   return (
-    <div className="w-full space-y-0 px-4 sm:px-6 py-6 pb-20">
-      {/* ── Header ─────────────────────────────────────────────── */}
-      <div className="mb-6">
-        <div className="flex items-center gap-1.5 mb-3">
-          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-develoi-gold/10 rounded-full border border-develoi-gold/20">
-            <Zap size={10} className="text-develoi-gold" />
-            <span className="text-[9px] font-black uppercase tracking-[0.2em] text-develoi-gold">Aurora AI</span>
-          </div>
-        </div>
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-          <div>
-            <h1 className="text-xl sm:text-2xl font-black text-zinc-900 tracking-tight leading-none">
-              Aderência de Candidatos
-            </h1>
-            <p className="text-[11px] font-medium text-zinc-400 mt-1.5 tracking-wide">
-              Análise de aderência entre vagas e candidatos gerada pela IA
-            </p>
-          </div>
-
-          {/* Select de vaga */}
+    <PageWrapper className="min-h-screen bg-zinc-50/60">
+      <div className="space-y-8 px-3 py-5 sm:space-y-10 sm:px-5 sm:py-7 lg:space-y-12 lg:px-8 lg:py-10">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <SectionTitle
+            title="Aderência AI"
+            subtitle={`${currentUnit.name} · Análise de aderência gerada pela Aurora IA`}
+            icon={<Zap size={22} />}
+            className="mb-0"
+          />
           <div className="w-full sm:w-80 shrink-0">
             <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest px-1 flex items-center gap-1.5 mb-1.5">
               <Briefcase size={11} />
@@ -196,7 +185,6 @@ export default function Matches() {
             </div>
           </div>
         </div>
-      </div>
 
       {/* ── Stats Row (quando há matches) ──────────────────────── */}
       <AnimatePresence>
@@ -472,6 +460,7 @@ export default function Matches() {
           );
         })}
       </div>
-    </div>
+      </div>
+    </PageWrapper>
   );
 }

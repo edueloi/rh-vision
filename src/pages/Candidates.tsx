@@ -24,7 +24,9 @@ import {
   IconButton,
   Input,
   Select,
-  Modal
+  Modal,
+  PageWrapper,
+  SectionTitle,
 } from "@/src/components/ui";
 import { getTenantId } from "@/src/lib/auth";
 import { Candidate } from "@/src/types";
@@ -237,14 +239,16 @@ export default function Candidates() {
   };
 
   return (
-    <div className="w-full px-4 sm:px-6 py-4">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-zinc-900 tracking-tight">Gestão de Talentos</h1>
-          <p className="text-sm text-zinc-500 mt-1">{candidates.length} currículos na unidade</p>
-        </div>
-        <div className="flex items-center gap-2">
+    <PageWrapper className="min-h-screen bg-zinc-50/60">
+      <div className="space-y-8 px-3 py-5 sm:space-y-10 sm:px-5 sm:py-7 lg:space-y-12 lg:px-8 lg:py-10">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <SectionTitle
+          title="Gestão de Talentos"
+          subtitle={`${currentUnit.name} · ${candidates.length} candidatos encontrados`}
+          icon={<Users size={22} />}
+          className="mb-0"
+        />
+        <div className="flex items-center gap-2 shrink-0">
           <IconButton
             onClick={fetchCandidates}
             variant="outline"
@@ -511,6 +515,7 @@ export default function Candidates() {
           Deseja realmente remover este candidato permanentemente?
         </p>
       </Modal>
-    </div>
+      </div>
+    </PageWrapper>
   );
 }
