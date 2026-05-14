@@ -10,6 +10,7 @@ import {
   FileText,
   FileUp,
   Info,
+  Loader2,
   MapPin,
   RefreshCcw,
   ShieldCheck,
@@ -433,6 +434,7 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
   const [loading, setLoading] = useState(false);
   const [importMode, setImportMode] = useState<boolean>(startsInImportMode);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analyzeProgress, setAnalyzeProgress] = useState<{ current: number; total: number; fileName: string } | null>(null);
   const [isDropActive, setIsDropActive] = useState(false);
   const [confidence, setConfidence] = useState<Record<string, string | null> | null>(null);
   const [importedReviews, setImportedReviews] = useState<ImportedJobReview[]>([]);
@@ -523,48 +525,51 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
     if (files.length === 0) return;
 
     setIsAnalyzing(true);
+    const filesToProcess = files.slice(0, MAX_BATCH_IMPORT_FILES);
+    if (files.length > MAX_BATCH_IMPORT_FILES) {
+      toast.info(`Limite de ${MAX_BATCH_IMPORT_FILES} arquivos por lote. Os demais foram ignorados.`);
+    }
+
+    const loadingToastId = toast.loading(
+      filesToProcess.length === 1
+        ? `Aurora IA analisando "${filesToProcess[0].name}"…`
+        : `Aurora IA iniciando análise de ${filesToProcess.length} arquivos…`
+    );
+
+    const batchResults: ImportedJobReview[] = [];
     try {
-      const filesToProcess = files.slice(0, MAX_BATCH_IMPORT_FILES);
-      if (files.length > MAX_BATCH_IMPORT_FILES) {
-        toast.info(`Limite de ${MAX_BATCH_IMPORT_FILES} arquivos por lote. Os demais foram ignorados.`);
-      }
+      for (let i = 0; i < filesToProcess.length; i++) {
+        const file = filesToProcess[i];
+        setAnalyzeProgress({ current: i + 1, total: filesToProcess.length, fileName: file.name });
 
-      const batchResults: ImportedJobReview[] = [];
+        if (filesToProcess.length > 1) {
+          toast.dismiss(loadingToastId);
+          toast.loading(`Aurora IA analisando ${i + 1} de ${filesToProcess.length}: "${file.name}"…`);
+        }
 
-      for (const file of filesToProcess) {
         const body = new FormData();
         body.append("file", file);
         body.append("tenant_id", String(tenantId));
         body.append("unit_id", String(currentUnit.id));
 
-        const importRes = await fetch("/api/jobs/import", {
-          method: "POST",
-          body,
-        });
+        const importRes = await fetch("/api/jobs/import", { method: "POST", body });
         const importResponse = await importRes.json();
         if (!importRes.ok) {
           throw new Error(importResponse.error || `Erro ao enviar o arquivo ${file.name}.`);
         }
 
-        const analyzeRes = await fetch(`/api/jobs/import/${importResponse.id}/analyze`, {
-          method: "POST",
-        });
+        const analyzeRes = await fetch(`/api/jobs/import/${importResponse.id}/analyze`, { method: "POST" });
         const analyzeResponse = await analyzeRes.json();
         if (!analyzeRes.ok) {
           throw new Error(analyzeResponse.error || `Erro ao interpretar o arquivo ${file.name}.`);
         }
 
-        batchResults.push({
-          importId: importResponse.id,
-          fileName: file.name,
-          data: analyzeResponse.data,
-        });
+        batchResults.push({ importId: importResponse.id, fileName: file.name, data: analyzeResponse.data });
       }
 
-      if (batchResults.length === 0) {
-        throw new Error("Nenhuma vaga foi importada.");
-      }
+      if (batchResults.length === 0) throw new Error("Nenhuma vaga foi importada.");
 
+      toast.dismiss(loadingToastId);
       setImportedReviews((prev) => [...prev, ...batchResults]);
       if (!currentImportId) {
         loadImportedReview(batchResults[0]);
@@ -576,9 +581,11 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
           : `${batchResults.length} vagas importadas para revisão no lote atual.`
       );
     } catch (error) {
+      toast.dismiss(loadingToastId);
       toast.error(error instanceof Error ? error.message : "Erro ao analisar arquivo.");
     } finally {
       setIsAnalyzing(false);
+      setAnalyzeProgress(null);
       setIsDropActive(false);
     }
   };
@@ -862,13 +869,47 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
             )}
           </div>
 
-          <div className="mx-auto mt-6 max-w-2xl space-y-3">
-            <h3 className="text-2xl font-black tracking-tight text-zinc-900">Arraste a descrição da vaga</h3>
-            <p className="text-sm leading-relaxed text-zinc-500">
-              Envie até {MAX_BATCH_IMPORT_FILES} arquivos por lote em PDF, Word, texto ou planilha.
-              A IA organiza os campos e deixa vazio tudo o que não estiver claramente no documento.
-            </p>
-          </div>
+          <AnimatePresence mode="wait">
+            {isAnalyzing ? (
+              <motion.div
+                key="analyzing"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                className="mx-auto mt-6 max-w-2xl space-y-4"
+              >
+                <div className="flex items-center justify-center gap-3 rounded-2xl bg-develoi-navy px-6 py-4 text-white shadow-lg">
+                  <Sparkles size={16} className="text-develoi-gold shrink-0" />
+                  <div className="text-left">
+                    <p className="text-sm font-black">Aurora IA está analisando seu documento</p>
+                    {analyzeProgress && (
+                      <p className="mt-0.5 text-[11px] text-white/60 truncate max-w-xs">
+                        {analyzeProgress.total > 1
+                          ? `Arquivo ${analyzeProgress.current} de ${analyzeProgress.total}: ${analyzeProgress.fileName}`
+                          : analyzeProgress.fileName}
+                      </p>
+                    )}
+                  </div>
+                  <Loader2 size={16} className="animate-spin text-white/50 shrink-0" />
+                </div>
+                <p className="text-sm text-zinc-400">Estruturando campos da vaga a partir do documento…</p>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="idle"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                className="mx-auto mt-6 max-w-2xl space-y-3"
+              >
+                <h3 className="text-2xl font-black tracking-tight text-zinc-900">Arraste a descrição da vaga</h3>
+                <p className="text-sm leading-relaxed text-zinc-500">
+                  Envie até {MAX_BATCH_IMPORT_FILES} arquivos por lote em PDF, Word, texto ou planilha.
+                  A IA organiza os campos e deixa vazio tudo o que não estiver claramente no documento.
+                </p>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           <div className="mt-8 flex flex-col items-center gap-3">
             <input
@@ -886,7 +927,7 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
               iconLeft={<Upload size={16} />}
               onClick={() => fileInputRef.current?.click()}
             >
-              {isAnalyzing ? "Analisando arquivos" : "Selecionar arquivos"}
+              {isAnalyzing ? "Analisando arquivos…" : "Selecionar arquivos"}
             </Button>
 
             <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-400">
