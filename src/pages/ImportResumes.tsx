@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import {
   PanelCard, Badge, useToast, StatCard, EmptyState, StatGrid,
-  SectionTitle, Button, IconButton, Select, Input, Modal
+  SectionTitle, Button, IconButton, Select, Input, Modal, PageWrapper
 } from "@/src/components/ui";
 import { motion, AnimatePresence } from "motion/react";
 import { cn } from "@/src/lib/utils";
@@ -1197,274 +1197,287 @@ export default function ImportResumes() {
 
   // ─── Modal: File detail ───────────────────────────────────────────────────────
 
-  const FileDetailModal = () => (
-    <AnimatePresence>
-      {selectedFile && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8">
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setSelectedFile(null)} className="absolute inset-0 bg-zinc-900/60 backdrop-blur-sm" />
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9, y: 24 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9, y: 24 }}
-            className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col border border-zinc-100"
-          >
-            {/* Header */}
-            <div className="p-6 border-b border-zinc-100 flex items-center justify-between bg-zinc-50/50">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-develoi-navy text-white rounded-2xl flex items-center justify-center shadow-lg shadow-develoi-navy/20">
-                  <FileText size={22} />
+  const FileDetailModal = () => {
+    if (!selectedFile) return null;
+    const parsed = selectedFile.parsed_data_json ? JSON.parse(selectedFile.parsed_data_json) : null;
+
+    const statusLabel: Record<string, string> = {
+      completed: "Concluído", committed: "Efetivado", error: "Falha",
+      duplicate: "Duplicado", processing: "Processando", uploaded: "Aguardando", pending: "Pendente",
+    };
+    const statusColor: Record<string, "success"|"danger"|"warning"|"info"> = {
+      completed: "success", committed: "success", error: "danger",
+      duplicate: "warning", processing: "info", uploaded: "info", pending: "warning",
+    };
+
+    const FIELD_LABELS: Record<string, string> = {
+      name: "Nome", email: "E-mail", phone: "Telefone", cpf: "CPF",
+      city: "Cidade", state: "Estado", role: "Cargo",
+      experience_years: "Experiência (anos)", education: "Escolaridade",
+      linkedin: "LinkedIn", desired_salary: "Pretensão Salarial",
+      desired_position: "Cargo Desejado", nationality: "Nacionalidade",
+      birth_date: "Data de Nascimento", gender: "Gênero",
+      cnh: "CNH", work_model: "Modelo de Trabalho",
+      contract_type: "Tipo de Contrato", availability: "Disponibilidade",
+      languages: "Idiomas", certifications: "Certificações",
+      location: "Localização", address: "Endereço",
+    };
+
+    return (
+      <Modal
+        open={!!selectedFile}
+        onClose={() => setSelectedFile(null)}
+        title={selectedFile.file_name}
+        description={`${fmtBytes(selectedFile.file_size)} · Currículo importado`}
+        icon={<FileText size={20} />}
+        size="lg"
+        footer={
+          <div className="flex gap-3 w-full">
+            <Button variant="outline" fullWidth iconLeft={<RefreshCw size={14} />}
+              onClick={() => { reprocessFile(selectedFile.id); setSelectedFile(null); }}>
+              Reprocessar
+            </Button>
+            <Button variant="ghost" fullWidth onClick={() => setSelectedFile(null)}>
+              Fechar
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-5">
+          {/* Status badge */}
+          <div className="flex items-center gap-2">
+            <Badge color={statusColor[selectedFile.status] ?? "warning"} size="sm">
+              {statusLabel[selectedFile.status] ?? selectedFile.status}
+            </Badge>
+            {selectedFile.compatibility_score != null && (
+              <Badge color={selectedFile.compatibility_score >= 80 ? "success" : selectedFile.compatibility_score >= 50 ? "warning" : "danger"} size="sm">
+                {selectedFile.compatibility_score}% compatibilidade
+              </Badge>
+            )}
+          </div>
+
+          {/* Error alert */}
+          {selectedFile.status === "error" && (
+            <div className="flex items-start gap-3 p-4 bg-rose-50 border border-rose-100 rounded-2xl">
+              <AlertCircle size={16} className="text-rose-500 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-[10px] font-black text-rose-700 uppercase tracking-widest mb-1">Erro no Processamento</p>
+                <p className="text-xs font-medium text-rose-600 leading-relaxed">{selectedFile.error_message || "Erro inesperado. Recomenda-se reprocessamento."}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Duplicate alert */}
+          {selectedFile.duplicate_status && selectedFile.duplicate_status !== "none" && (
+            <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-100 rounded-2xl">
+              <Copy size={16} className="text-amber-500 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest mb-1">Duplicidade Detectada</p>
+                <p className="text-xs font-medium text-amber-600 leading-relaxed">Este candidato já existe na base. Verifique os dados antes de efetivar.</p>
+              </div>
+            </div>
+          )}
+
+          {/* AI Summary */}
+          {parsed?.summary && (
+            <div className="p-4 bg-develoi-navy rounded-2xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 opacity-10 pointer-events-none"><Brain size={72} className="text-develoi-gold" /></div>
+              <div className="relative z-10 flex items-start gap-3">
+                <div className="w-8 h-8 rounded-xl bg-develoi-gold/20 flex items-center justify-center shrink-0">
+                  <Sparkles size={14} className="text-develoi-gold" />
                 </div>
                 <div>
-                  <h3 className="text-base font-black text-zinc-900 truncate max-w-xs uppercase tracking-tight">{selectedFile.file_name}</h3>
-                  <Badge color={selectedFile.status === "completed" || selectedFile.status === "committed" ? "success" : selectedFile.status === "error" ? "danger" : "warning"} size="sm">
-                    {selectedFile.status}
-                  </Badge>
+                  <p className="text-[9px] font-black text-develoi-gold uppercase tracking-[0.2em] mb-1.5">Análise Aurora IA</p>
+                  <p className="text-xs font-medium text-zinc-300 leading-relaxed italic">"{parsed.summary}"</p>
                 </div>
               </div>
-              <button onClick={() => setSelectedFile(null)} className="p-3 bg-white border border-zinc-200 rounded-xl hover:bg-zinc-900 hover:text-white transition-all active:scale-90">
-                <X size={18} />
-              </button>
             </div>
+          )}
 
-            {/* Body */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-6">
-              {selectedFile.status === "error" && (
-                <div className="p-5 bg-rose-50 border border-rose-100 rounded-2xl flex items-start gap-4">
-                  <AlertCircle size={20} className="text-rose-500 shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-[10px] font-black text-rose-900 uppercase tracking-widest mb-1">Erro no Processamento</p>
-                    <p className="text-sm font-bold text-rose-700/80 leading-relaxed">{selectedFile.error_message || "Erro inesperado. Recomenda-se reprocessamento."}</p>
+          {/* Structured data */}
+          {parsed ? (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Dados Estruturados</p>
+                {isEditingFile ? (
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={() => { setIsEditingFile(false); setEditedFileData(null); }}>Cancelar</Button>
+                    <Button variant="primary" size="sm" iconLeft={<Check size={12} />} onClick={handleSaveFileData}>Salvar</Button>
+                  </div>
+                ) : (
+                  <Button variant="outline" size="sm" iconLeft={<Settings size={12} />}
+                    onClick={() => { setIsEditingFile(true); setEditedFileData(parsed); }}>
+                    Editar
+                  </Button>
+                )}
+              </div>
+
+              <div className="grid sm:grid-cols-2 gap-2.5">
+                {isEditingFile && editedFileData ? (
+                  [
+                    { label: "Nome", key: "name" }, { label: "E-mail", key: "email" },
+                    { label: "Telefone", key: "phone" }, { label: "Cidade", key: "city" },
+                    { label: "Estado", key: "state" }, { label: "Cargo", key: "role" },
+                    { label: "Exp. (anos)", key: "experience_years", type: "number" },
+                  ].map(f => (
+                    <div key={f.key} className="p-3 bg-zinc-50 rounded-xl border border-zinc-100 focus-within:border-develoi-gold transition-colors">
+                      <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1 block">{f.label}</label>
+                      <input
+                        type={f.type || "text"}
+                        value={editedFileData[f.key] || ""}
+                        onChange={e => setEditedFileData({ ...editedFileData, [f.key]: f.type === "number" ? Number(e.target.value) : e.target.value })}
+                        className="w-full bg-transparent text-sm font-bold text-zinc-900 outline-none"
+                      />
+                    </div>
+                  ))
+                ) : Object.entries(parsed).map(([k, v]: [string, any]) => {
+                  if (typeof v === "object" && v !== null && !Array.isArray(v)) return null;
+                  if (["skills", "summary", "strengths", "attention_points", "compatibility_score", "recommendation", "experiences_list", "education_list", "projects_list", "languages_list"].includes(k)) return null;
+                  const dv = Array.isArray(v) ? v.join(", ") : v;
+                  if (!dv && dv !== 0) return null;
+                  const label = FIELD_LABELS[k] ?? k.replace(/_/g, " ");
+                  return (
+                    <div key={k} className="p-3 bg-zinc-50 rounded-xl border border-zinc-100 hover:border-develoi-gold/40 transition-colors group">
+                      <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-0.5 group-hover:text-develoi-gold">{label}</p>
+                      <p className="text-sm font-bold text-zinc-900 leading-snug truncate">{dv?.toString() || "—"}</p>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Skills */}
+              {parsed.skills && Array.isArray(parsed.skills) && parsed.skills.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-2.5">Skills Identificadas</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {parsed.skills.map((sk: string, i: number) => (
+                      <Badge key={i} color="primary" size="sm" icon={<Sparkles size={9} />}>{sk}</Badge>
+                    ))}
                   </div>
                 </div>
               )}
 
-              {selectedFile.duplicate_status && selectedFile.duplicate_status !== "none" && (
-                <div className="p-5 bg-amber-50 border border-amber-100 rounded-2xl flex items-start gap-4">
-                  <Copy size={20} className="text-amber-500 shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-[10px] font-black text-amber-900 uppercase tracking-widest mb-1">Duplicidade Detectada</p>
-                    <p className="text-sm font-bold text-amber-700/80 leading-relaxed">Este candidato já existe na base. Verifique os dados para confirmar ou ignorar.</p>
-                  </div>
+              {/* Job suggestions */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Vagas Sugeridas</p>
+                  {isMatching && (
+                    <span className="flex items-center gap-1.5 text-[9px] font-black text-develoi-gold uppercase tracking-widest animate-pulse">
+                      <Loader2 size={10} className="animate-spin" /> Calculando...
+                    </span>
+                  )}
                 </div>
-              )}
-
-              {selectedFile.parsed_data_json ? (() => {
-                const parsed = JSON.parse(selectedFile.parsed_data_json);
-                return (
-                  <div className="space-y-6">
-                    {/* Edit toggle */}
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Dados Estruturados pela Aurora</h4>
-                      {isEditingFile ? (
-                        <div className="flex gap-2">
-                          <button onClick={() => { setIsEditingFile(false); setEditedFileData(null); }} className="px-3 py-1.5 bg-zinc-100 text-zinc-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-zinc-200">Cancelar</button>
-                          <button onClick={handleSaveFileData} className="px-3 py-1.5 bg-develoi-gold text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-zinc-900">Salvar</button>
-                        </div>
-                      ) : (
-                        <button onClick={() => { setIsEditingFile(true); setEditedFileData(parsed); }} className="px-3 py-1.5 border border-zinc-200 text-develoi-navy rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-zinc-50 flex items-center gap-1.5">
-                          <Settings size={11} /> Editar
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="grid sm:grid-cols-2 gap-3">
-                      {isEditingFile && editedFileData ? (
-                        [{ label: "Nome", key: "name" }, { label: "Email", key: "email" }, { label: "Telefone", key: "phone" }, { label: "Cidade", key: "city" }, { label: "Estado", key: "state" }, { label: "Cargo", key: "role" }, { label: "Exp. (anos)", key: "experience_years", type: "number" }].map(f => (
-                          <div key={f.key} className="p-4 bg-zinc-50 rounded-2xl border border-zinc-100 focus-within:border-develoi-gold transition-colors">
-                            <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1.5 block">{f.label}</label>
-                            <input type={f.type || "text"} value={editedFileData[f.key] || ""} onChange={e => setEditedFileData({ ...editedFileData, [f.key]: f.type === "number" ? Number(e.target.value) : e.target.value })} className="w-full bg-transparent text-sm font-black text-zinc-900 outline-none" />
+                {aiSuggestions.length > 0 ? (
+                  <div className="space-y-2">
+                    {aiSuggestions.map((s, i) => {
+                      const job = availableJobs.find(j => j.id === s.job_id);
+                      return (
+                        <div key={i} className="flex items-center justify-between p-3 border border-zinc-100 rounded-xl hover:border-develoi-gold/40 transition-all group">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 bg-zinc-50 rounded-xl flex items-center justify-center text-zinc-400 group-hover:bg-develoi-gold group-hover:text-white transition-all shrink-0">
+                              <Briefcase size={14} />
+                            </div>
+                            <div>
+                              <p className="text-xs font-black text-zinc-900">{job?.title || "Vaga"}</p>
+                              <p className="text-[10px] text-zinc-400 font-medium">{job?.city}/{job?.state}</p>
+                            </div>
                           </div>
-                        ))
-                      ) : Object.entries(parsed).map(([k, v]: [string, any]) => {
-                        if (typeof v === "object" && v !== null && !Array.isArray(v)) return null;
-                        if (["skills", "summary", "strengths", "attention_points", "compatibility_score", "recommendation", "experiences_list", "education_list", "projects_list", "languages_list"].includes(k)) return null;
-                        const dv = Array.isArray(v) ? v.join(", ") : v;
-                        const FIELD_LABELS: Record<string, string> = {
-                          name: "Nome", email: "E-mail", phone: "Telefone", cpf: "CPF",
-                          city: "Cidade", state: "Estado", role: "Cargo",
-                          experience_years: "Experiência (anos)", education: "Escolaridade",
-                          linkedin: "LinkedIn", desired_salary: "Pretensão Salarial",
-                          desired_position: "Cargo Desejado", nationality: "Nacionalidade",
-                          birth_date: "Data de Nascimento", gender: "Gênero",
-                          cnh: "CNH", work_model: "Modelo de Trabalho",
-                          contract_type: "Tipo de Contrato", availability: "Disponibilidade",
-                          languages: "Idiomas", certifications: "Certificações",
-                          location: "Localização", address: "Endereço",
-                        };
-                        const label = FIELD_LABELS[k] ?? k.replace(/_/g, " ");
-                        return (
-                          <div key={k} className="p-4 bg-zinc-50 rounded-2xl border border-zinc-100 hover:border-develoi-gold/40 transition-colors group">
-                            <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1 group-hover:text-develoi-gold">{label}</p>
-                            <p className="text-sm font-black text-zinc-900 leading-snug">{dv?.toString() || "—"}</p>
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    {parsed.skills && Array.isArray(parsed.skills) && parsed.skills.length > 0 && (
-                      <div>
-                        <h4 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-3">Skills Identificadas</h4>
-                        <div className="flex flex-wrap gap-2">
-                          {parsed.skills.map((sk: string, i: number) => (
-                            <span key={i} className="px-3 py-1.5 bg-develoi-navy/5 text-develoi-navy rounded-xl text-[10px] font-black uppercase tracking-widest border border-develoi-navy/10 flex items-center gap-1.5">
-                              <Sparkles size={10} className="text-develoi-gold" />{sk}
-                            </span>
-                          ))}
+                          <Badge color={s.score >= 80 ? "success" : s.score >= 60 ? "warning" : "default"} size="sm">{s.score}% match</Badge>
                         </div>
-                      </div>
-                    )}
-
-                    {parsed.summary && (
-                      <div className="p-6 bg-gradient-to-br from-develoi-navy to-zinc-900 rounded-2xl relative overflow-hidden">
-                        <div className="absolute top-0 right-0 opacity-10"><Brain size={80} className="text-develoi-gold" /></div>
-                        <div className="relative z-10">
-                          <div className="flex items-center gap-2 mb-3 text-develoi-gold">
-                            <Brain size={16} className="animate-pulse" />
-                            <span className="text-[9px] font-black uppercase tracking-[0.3em]">Análise Aurora</span>
-                          </div>
-                          <p className="text-sm font-medium text-zinc-300 leading-relaxed italic">"{parsed.summary}"</p>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* AI job suggestions */}
-                    <div>
-                      <div className="flex items-center justify-between mb-4">
-                        <h4 className="text-sm font-black text-zinc-900 uppercase tracking-tight">Vagas Sugeridas</h4>
-                        {isMatching && <span className="text-[9px] font-black text-develoi-gold uppercase tracking-widest animate-pulse flex items-center gap-1.5"><Sparkles size={11} className="animate-spin" /> Calculando...</span>}
-                      </div>
-                      {aiSuggestions.length > 0 ? (
-                        <div className="space-y-3">
-                          {aiSuggestions.map((s, i) => {
-                            const job = availableJobs.find(j => j.id === s.job_id);
-                            return (
-                              <div key={i} className="p-4 border border-zinc-100 rounded-2xl hover:border-develoi-gold/40 transition-all group">
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-3">
-                                    <div className="w-9 h-9 bg-zinc-50 rounded-xl flex items-center justify-center text-zinc-400 group-hover:bg-develoi-gold group-hover:text-white transition-all">
-                                      <Briefcase size={16} />
-                                    </div>
-                                    <div>
-                                      <p className="text-sm font-black text-zinc-900 uppercase tracking-tight">{job?.title || "Vaga"}</p>
-                                      <p className="text-[10px] text-zinc-400 font-bold">{job?.city}/{job?.state}</p>
-                                    </div>
-                                  </div>
-                                  <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 border border-emerald-100 px-3 py-1.5 rounded-xl">{s.score}% match</span>
-                                </div>
-                                {s.match_reason && <p className="mt-3 text-[11px] text-zinc-500 italic leading-relaxed border-l-2 border-develoi-gold/30 pl-3">"{s.match_reason}"</p>}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      ) : !isMatching && (
-                        <div className="py-8 text-center bg-zinc-50/50 rounded-2xl border border-dashed border-zinc-200">
-                          <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Nenhuma vaga compatível no momento.</p>
-                        </div>
-                      )}
-                    </div>
+                      );
+                    })}
                   </div>
-                );
-              })() : !selectedFile.error_message && (
-                <div className="flex flex-col items-center justify-center py-20 gap-4 opacity-40">
-                  <Loader2 className="w-12 h-12 text-develoi-navy animate-spin" />
-                  <p className="text-[11px] font-black text-zinc-900 uppercase tracking-widest">Aguardando Aurora Engine...</p>
-                </div>
-              )}
+                ) : !isMatching && (
+                  <div className="py-6 text-center bg-zinc-50/50 rounded-xl border border-dashed border-zinc-200">
+                    <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Nenhuma vaga compatível.</p>
+                  </div>
+                )}
+              </div>
             </div>
-
-            {/* Footer */}
-            <div className="p-5 border-t border-zinc-100 flex gap-3 bg-zinc-50/50">
-              <button onClick={() => { reprocessFile(selectedFile.id); setSelectedFile(null); }} className="flex-1 py-3.5 bg-develoi-navy text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-develoi-gold transition-all flex items-center justify-center gap-2">
-                <RefreshCw size={13} /> Reprocessar
-              </button>
-              <button onClick={() => setSelectedFile(null)} className="flex-1 py-3.5 bg-white border border-zinc-200 text-zinc-600 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:border-zinc-900 transition-all">
-                Fechar
-              </button>
+          ) : !selectedFile.error_message && (
+            <div className="flex flex-col items-center justify-center py-16 gap-3 opacity-40">
+              <Loader2 className="w-10 h-10 text-develoi-navy animate-spin" />
+              <p className="text-[11px] font-black text-zinc-900 uppercase tracking-widest">Aguardando Aurora Engine...</p>
             </div>
-          </motion.div>
+          )}
         </div>
-      )}
-    </AnimatePresence>
-  );
+      </Modal>
+    );
+  };
 
   // ─── Modal: Delete confirm ────────────────────────────────────────────────────
 
   const DeleteModal = () => (
-    <AnimatePresence>
-      {deleteConfirm && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setDeleteConfirm(null)} className="absolute inset-0 bg-zinc-900/50 backdrop-blur-sm" />
-          <motion.div initial={{ opacity: 0, scale: 0.9, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9 }} className="bg-white rounded-3xl p-8 max-w-sm w-full relative z-10 shadow-2xl border border-zinc-100">
-            <div className="flex flex-col items-center text-center">
-              <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center mb-5"><Trash2 size={28} /></div>
-              <h3 className="text-lg font-black text-zinc-900 uppercase tracking-tighter mb-2">{deleteConfirm.title}</h3>
-              <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest leading-relaxed mb-8">Esta ação é irreversível e todos os dados vinculados serão removidos permanentemente.</p>
-              <div className="grid grid-cols-2 gap-3 w-full">
-                <button onClick={() => setDeleteConfirm(null)} className="py-4 bg-zinc-50 text-zinc-400 hover:text-zinc-900 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all">Cancelar</button>
-                <button onClick={confirmDelete} className="py-4 bg-rose-500 text-white hover:bg-rose-600 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-rose-500/20 transition-all">Excluir</button>
-              </div>
-            </div>
-          </motion.div>
+    <Modal
+      open={!!deleteConfirm}
+      onClose={() => setDeleteConfirm(null)}
+      title={deleteConfirm?.title ?? "Confirmar exclusão"}
+      description="Esta ação é irreversível e todos os dados vinculados serão removidos permanentemente."
+      icon={<Trash2 size={18} />}
+      size="sm"
+      footer={
+        <div className="flex gap-3 w-full">
+          <Button variant="outline" fullWidth onClick={() => setDeleteConfirm(null)}>Cancelar</Button>
+          <Button variant="danger" fullWidth iconLeft={<Trash2 size={14} />} onClick={confirmDelete}>Excluir</Button>
         </div>
-      )}
-    </AnimatePresence>
+      }
+    >
+      <></>
+    </Modal>
   );
 
   // ─── Root ─────────────────────────────────────────────────────────────────────
 
   return (
-    <div className="w-full px-4 sm:px-6 py-6 space-y-8">
-      {/* Page header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        {view === "dashboard" ? (
-          <>
+    <PageWrapper title="Importar CVs" subtitle="Processamento em massa via Aurora IA">
+      <div className="space-y-8 px-3 py-5 sm:px-5 sm:py-7 lg:px-8 lg:py-10">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          {view === "dashboard" ? (
             <SectionTitle
               title="Importar CVs"
               subtitle="Processamento em massa via Aurora IA — extração e estruturação automática"
               icon={<Layers size={22} />}
-              className=""
+              action={
+                <Button onClick={() => setShowNewBatch(true)} iconLeft={<Plus size={16} />}>
+                  Novo Lote
+                </Button>
+              }
             />
+          ) : (
             <div className="flex items-center gap-3">
-              <Button variant="outline" onClick={() => setView("dashboard")} className="h-11 px-5 rounded-2xl border-zinc-200" iconLeft={<LayoutDashboard size={16} />}>
-                Painel
+              <Button variant="outline" iconLeft={<ArrowLeft size={16} />} onClick={() => setView("dashboard")}>
+                Voltar ao Painel
               </Button>
-              <Button onClick={() => setShowNewBatch(true)} className="h-11 px-6 rounded-2xl shadow-xl shadow-develoi-gold/20" iconLeft={<Plus size={16} />} style={{ backgroundColor: "#C5A04D" }}>
-                Novo Lote
-              </Button>
+              <SectionTitle
+                title={selectedBatch?.name ?? "Detalhes do Lote"}
+                subtitle="Revise e efetive os currículos processados"
+                icon={<Layers size={22} />}
+                className="mb-0"
+              />
             </div>
-          </>
-        ) : (
-          <div onClick={() => setView("dashboard")} className="flex items-center gap-3 group cursor-pointer">
-            <div className="h-11 w-11 rounded-2xl border-2 border-zinc-200 flex items-center justify-center text-zinc-500 group-hover:bg-zinc-900 group-hover:text-white group-hover:border-zinc-900 transition-all">
-              <ArrowLeft size={18} />
-            </div>
-            <div className="text-left">
-              <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Voltar ao Painel</p>
-              <p className="text-sm font-black text-zinc-900 uppercase tracking-tight">Central de Importação</p>
-            </div>
-          </div>
-        )}
+          )}
+        </div>
+
+        {/* Content */}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={view}
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -16 }}
+            transition={{ duration: 0.25, ease: "easeOut" }}
+          >
+            {view === "dashboard" && renderDashboard()}
+            {view === "details" && renderDetails()}
+          </motion.div>
+        </AnimatePresence>
+
+        {/* Modals */}
+        {renderNewBatchModal()}
+        {renderAddFilesModal()}
+        <FileDetailModal />
+        <DeleteModal />
       </div>
-
-      {/* Content */}
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={view}
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -16 }}
-          transition={{ duration: 0.25, ease: "easeOut" }}
-        >
-          {view === "dashboard" && renderDashboard()}
-          {view === "details" && renderDetails()}
-        </motion.div>
-      </AnimatePresence>
-
-      {/* Modals */}
-      {renderNewBatchModal()}
-      {renderAddFilesModal()}
-      <FileDetailModal />
-      <DeleteModal />
-    </div>
+    </PageWrapper>
   );
 }
