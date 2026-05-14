@@ -87,13 +87,12 @@ export function JobFiltersBar({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-2 min-[430px]:grid-cols-2 xl:flex xl:flex-wrap">
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             variant="outline"
             size="sm"
             iconLeft={<RefreshCcw size={14} />}
             onClick={onRefresh}
-            className="justify-center min-[430px]:justify-start"
           >
             Atualizar
           </Button>
@@ -102,7 +101,6 @@ export function JobFiltersBar({
             size="sm"
             iconLeft={<Layers size={14} />}
             onClick={onImport}
-            className="justify-center min-[430px]:justify-start"
           >
             Importar vaga
           </Button>
@@ -111,8 +109,6 @@ export function JobFiltersBar({
             size="sm"
             iconLeft={<Plus size={14} />}
             onClick={onCreate}
-            className="justify-center min-[430px]:col-span-2 xl:col-span-1"
-            fullWidth
           >
             Nova vaga
           </Button>

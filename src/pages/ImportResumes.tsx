@@ -1393,7 +1393,7 @@ export default function ImportResumes() {
               title="Importar CVs"
               subtitle="Processamento em massa via Aurora IA — extração e estruturação automática"
               icon={<Layers size={22} />}
-              className="mb-0"
+              className=""
             />
             <div className="flex items-center gap-3">
               <Button variant="outline" onClick={() => setView("dashboard")} className="h-11 px-5 rounded-2xl border-zinc-200" iconLeft={<LayoutDashboard size={16} />}>

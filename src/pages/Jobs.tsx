@@ -261,7 +261,6 @@ export default function Jobs() {
           title="Gestão de Vagas"
           subtitle={resultsLabel}
           icon={<Briefcase size={22} />}
-          className="mb-0"
         />
 
         <JobsSummary jobs={jobs} />
@@ -274,7 +273,6 @@ export default function Jobs() {
           onRefresh={fetchJobs}
           onImport={() => navigate("/vagas/importar")}
           onCreate={() => navigate("/vagas/nova")}
-          className="mt-0"
         />
 
         <PanelCard

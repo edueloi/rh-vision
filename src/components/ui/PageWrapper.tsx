@@ -84,7 +84,7 @@ export const SectionTitle: React.FC<SectionTitleProps> = ({
   actions,
   className,
 }) => (
-  <div className={cn("flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8", className)}>
+  <div className={cn("flex flex-col sm:flex-row sm:items-center justify-between gap-4", className)}>
     <div className="flex items-center gap-4">
       {icon && (
         <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-zinc-900 text-white shadow-lg shadow-zinc-200">

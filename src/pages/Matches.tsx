@@ -161,7 +161,7 @@ export default function Matches() {
             title="Aderência AI"
             subtitle={`${currentUnit.name} · Análise de aderência gerada pela Aurora IA`}
             icon={<Zap size={22} />}
-            className="mb-0"
+            className=""
           />
           <div className="w-full sm:w-80 shrink-0">
             <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest px-1 flex items-center gap-1.5 mb-1.5">

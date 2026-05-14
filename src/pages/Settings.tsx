@@ -159,7 +159,7 @@ export default function Settings() {
             title="Configurações"
             subtitle="Gerencie as preferências e automações da plataforma"
             icon={<Settings2 size={22} />}
-            className="mb-0"
+            className=""
           />
           <Button
             onClick={handleSave}

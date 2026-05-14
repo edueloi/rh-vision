@@ -246,7 +246,7 @@ export default function Candidates() {
           title="Gestão de Talentos"
           subtitle={`${currentUnit.name} · ${candidates.length} candidatos encontrados`}
           icon={<Users size={22} />}
-          className="mb-0"
+          className=""
         />
         <div className="flex items-center gap-2 shrink-0">
           <IconButton
