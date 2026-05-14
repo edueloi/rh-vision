@@ -238,9 +238,24 @@ function DiscDetailModal({
   useEffect(() => {
     fetch(`/api/disc/results/${discId}`)
       .then(r => r.json())
-      .then(setData)
-      .catch(() => toastRef.current.error("Erro ao carregar resultado DISC."))
-      .finally(() => setLoading(false));
+      .then(async (d: DiscDetail) => {
+        setData(d);
+        setLoading(false);
+        // Auto-trigger AI analysis if scores are missing but answers exist
+        const hasScores = (d.disc_d || 0) + (d.disc_i || 0) + (d.disc_s || 0) + (d.disc_c || 0) > 0;
+        if (!hasScores && d.answers && d.answers.length > 0) {
+          setAnalyzing(true);
+          try {
+            const res = await fetch(`/api/disc/results/${discId}/analyze`, { method: "POST" });
+            if (res.ok) {
+              const r2 = await fetch(`/api/disc/results/${discId}`);
+              setData(await r2.json());
+              toastRef.current.success("Análise DISC gerada pela Aurora IA.");
+            }
+          } catch { /* silent */ } finally { setAnalyzing(false); }
+        }
+      })
+      .catch(() => { toastRef.current.error("Erro ao carregar resultado DISC."); setLoading(false); });
   }, [discId]);
 
   const handleReAnalyze = async () => {

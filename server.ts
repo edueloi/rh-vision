@@ -2767,10 +2767,16 @@ Retorne EXATAMENTE este JSON:
   app.get('/api/disc/results', async (req, res) => {
     const { tenantId, unitId } = req.query as any;
     try {
+      // Subquery to get the latest result per candidate (highest id)
       let q = `
         SELECT d.*, c.full_name, c.email, c.phone, c.city, c.state, c.unit_id as candidate_unit_id
         FROM candidate_disc_results d
         JOIN candidates c ON d.candidate_id = c.id
+        JOIN (
+          SELECT candidate_id, MAX(id) as max_id
+          FROM candidate_disc_results
+          GROUP BY candidate_id
+        ) latest ON d.id = latest.max_id
         WHERE c.tenant_id = ?
       `;
       const params: any[] = [tenantId];
