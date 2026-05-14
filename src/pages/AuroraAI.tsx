@@ -605,29 +605,57 @@ function AuroraSidebar({ stats, sessions, jobs, onSessionClick }: SidebarProps) 
 
       {/* Recent sessions */}
       <PanelCard title="Histórico Recente" icon={History}>
-        <div className="space-y-1 max-h-64 overflow-y-auto pr-1">
-          {sessions.length > 0 ? sessions.slice(0, 8).map((session, i) => (
-            <button
-              key={i}
-              onClick={() => onSessionClick(session)}
-              className="w-full flex items-center justify-between gap-3 group hover:bg-zinc-50 dark:hover:bg-white/5 p-2.5 rounded-xl transition-all text-left"
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="p-2 bg-zinc-50 dark:bg-white/5 rounded-xl text-zinc-400 group-hover:bg-develoi-navy group-hover:text-white transition-all shrink-0">
-                  {session.search_type === 'match-job' ? <Target size={13} /> : <MessageSquare size={13} />}
+        <div className="space-y-1 max-h-72 overflow-y-auto pr-1">
+          {sessions.length > 0 ? sessions.slice(0, 8).map((session, i) => {
+            const isMatch = session.search_type === 'match-job';
+            const f = session.filters;
+            return (
+              <button
+                key={i}
+                onClick={() => onSessionClick(session)}
+                className="w-full flex items-start justify-between gap-3 group hover:bg-zinc-50 dark:hover:bg-white/5 p-2.5 rounded-xl transition-all text-left"
+              >
+                <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                  <div className="p-2 bg-zinc-50 dark:bg-white/5 rounded-xl text-zinc-400 group-hover:bg-develoi-navy group-hover:text-white transition-all shrink-0 mt-0.5">
+                    {isMatch ? <Target size={12} /> : <MessageSquare size={12} />}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11px] font-black text-zinc-800 dark:text-white/90 truncate">
+                      {isMatch
+                        ? `${jobs.find(j => j.id === session.job_id)?.title ?? `Vaga #${session.job_id}`}`
+                        : (session.summary ?? 'Conversa Aurora')}
+                    </p>
+                    <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-1.5">{formatRelativeDate(session.created_at)}</p>
+                    {isMatch && f && (
+                      <div className="flex flex-wrap gap-1">
+                        {f.precisionMode && (
+                          <span className="text-[8px] font-black px-1.5 py-0.5 rounded-full bg-develoi-navy/8 text-develoi-navy border border-develoi-navy/10 uppercase">
+                            {f.precisionMode}
+                          </span>
+                        )}
+                        {f.minScore != null && f.minScore !== "" && (
+                          <span className="text-[8px] font-black px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 uppercase">
+                            ≥{f.minScore}%
+                          </span>
+                        )}
+                        {f.radius != null && f.radius !== "" && (
+                          <span className="text-[8px] font-black px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100 uppercase">
+                            {f.radius}km
+                          </span>
+                        )}
+                        {f.onlyWithDisc && (
+                          <span className="text-[8px] font-black px-1.5 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-100 uppercase">
+                            DISC
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div className="min-w-0">
-                  <p className="text-[11px] font-black text-zinc-800 dark:text-white/90 truncate">
-                    {session.search_type === 'match-job'
-                      ? `Aderência: ${jobs.find(j => j.id === session.job_id)?.title ?? `Vaga #${session.job_id}`}`
-                      : (session.summary ?? 'Conversa Aurora')}
-                  </p>
-                  <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">{formatRelativeDate(session.created_at)}</p>
-                </div>
-              </div>
-              <ChevronRight size={13} className="text-zinc-200 group-hover:text-develoi-navy dark:group-hover:text-white transition-colors shrink-0" />
-            </button>
-          )) : (
+                <ChevronRight size={12} className="text-zinc-200 group-hover:text-develoi-navy dark:group-hover:text-white transition-colors shrink-0 mt-1" />
+              </button>
+            );
+          }) : (
             <p className="text-[9px] font-bold text-zinc-400 uppercase text-center py-6">Sem histórico recente</p>
           )}
         </div>
@@ -930,11 +958,20 @@ export default function AuroraAI() {
   const [isMatching, setIsMatching] = useState(false);
   const [selectedMatch, setSelectedMatch] = useState<MatchResult | null>(null);
 
-  // Filters
-  const [precisionMode, setPrecisionMode] = useState('Equilibrada');
-  const [minScore, setMinScore] = useState("70");
-  const [radius, setRadius] = useState("50");
-  const [onlyWithDisc, setOnlyWithDisc] = useState(false);
+  // Filters — restored from localStorage on mount
+  const PREFS_KEY = `aurora_prefs_${tenantId}`;
+  const loadedPrefs = (() => { try { return JSON.parse(localStorage.getItem(PREFS_KEY) || '{}'); } catch { return {}; } })();
+  const [precisionMode, setPrecisionMode] = useState(loadedPrefs.precisionMode ?? 'Equilibrada');
+  const [minScore, setMinScore] = useState(loadedPrefs.minScore ?? "70");
+  const [radius, setRadius] = useState(loadedPrefs.radius ?? "50");
+  const [onlyWithDisc, setOnlyWithDisc] = useState(loadedPrefs.onlyWithDisc ?? false);
+
+  const savePrefs = (patch: object) => {
+    try {
+      const current = JSON.parse(localStorage.getItem(PREFS_KEY) || '{}');
+      localStorage.setItem(PREFS_KEY, JSON.stringify({ ...current, ...patch }));
+    } catch { /* silent */ }
+  };
 
   // Settings modal
   const [showSettings, setShowSettings] = useState(false);
@@ -1021,7 +1058,11 @@ export default function AuroraAI() {
       const res = await fetch('/api/aurora-ai/match-job', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jobId: selectedJobId, tenantId, unitId: queryUnitId, precisionMode, minScore, radius, onlyWithDisc }),
+        body: JSON.stringify({
+          jobId: selectedJobId, tenantId, unitId: queryUnitId,
+          precisionMode, minScore, radius, onlyWithDisc,
+          filters: { precisionMode, minScore, radius, onlyWithDisc },
+        }),
       });
       const data = await res.json();
       setMatchResults(data.results || []);
@@ -1034,9 +1075,21 @@ export default function AuroraAI() {
     }
   }
 
+  const handlePrecisionChange = (v: string) => { setPrecisionMode(v); savePrefs({ precisionMode: v }); };
+  const handleMinScoreChange = (v: string) => { setMinScore(v); savePrefs({ minScore: v }); };
+  const handleRadiusChange = (v: string) => { setRadius(v); savePrefs({ radius: v }); };
+  const handleDiscChange = (v: boolean) => { setOnlyWithDisc(v); savePrefs({ onlyWithDisc: v }); };
+
   function handleSessionClick(session: any) {
     if (session.search_type === 'match-job' && session.job_id) {
       setSelectedJobId(String(session.job_id));
+      // Restore filters saved with this session
+      if (session.filters) {
+        if (session.filters.precisionMode) { setPrecisionMode(session.filters.precisionMode); savePrefs({ precisionMode: session.filters.precisionMode }); }
+        if (session.filters.minScore != null) { setMinScore(String(session.filters.minScore)); savePrefs({ minScore: String(session.filters.minScore) }); }
+        if (session.filters.radius != null) { setRadius(String(session.filters.radius)); savePrefs({ radius: String(session.filters.radius) }); }
+        if (session.filters.onlyWithDisc != null) { setOnlyWithDisc(session.filters.onlyWithDisc); savePrefs({ onlyWithDisc: session.filters.onlyWithDisc }); }
+      }
       setActiveView('match');
     } else {
       setActiveView('chat');
@@ -1094,10 +1147,10 @@ export default function AuroraAI() {
                 onlyWithDisc={onlyWithDisc}
                 isMatching={isMatching}
                 onJobChange={setSelectedJobId}
-                onPrecisionChange={setPrecisionMode}
-                onMinScoreChange={setMinScore}
-                onRadiusChange={setRadius}
-                onDiscChange={setOnlyWithDisc}
+                onPrecisionChange={handlePrecisionChange}
+                onMinScoreChange={handleMinScoreChange}
+                onRadiusChange={handleRadiusChange}
+                onDiscChange={handleDiscChange}
                 onExecute={executeMatch}
               />
 
@@ -1122,39 +1175,70 @@ export default function AuroraAI() {
           )}
 
           {activeView === 'history' && (
-            <PanelCard title="Histórico de Sessões" icon={History} description="Clique em uma sessão para continuar de onde parou.">
-              <div className="space-y-1">
+            <PanelCard title="Histórico de Sessões" icon={History} description="Clique em uma sessão para restaurar os filtros e continuar de onde parou.">
+              <div className="space-y-2">
                 {sessions.length === 0 && (
                   <p className="text-xs text-zinc-400 text-center py-10">Nenhuma sessão encontrada ainda.</p>
                 )}
                 {sessions.map((session, i) => {
                   const isMatch = session.search_type === 'match-job';
                   const title = isMatch
-                    ? `Aderência: ${jobs.find(j => j.id === session.job_id)?.title ?? `Vaga #${session.job_id}`}`
+                    ? `${jobs.find(j => j.id === session.job_id)?.title ?? `Vaga #${session.job_id}`}`
                     : (session.summary ?? 'Conversa Aurora');
+                  const f = session.filters;
                   return (
                     <button
                       key={i}
                       onClick={() => handleSessionClick(session)}
-                      className="w-full flex items-center justify-between gap-4 group hover:bg-zinc-50 dark:hover:bg-white/5 p-3 rounded-2xl transition-all text-left"
+                      className="w-full flex items-start justify-between gap-4 group hover:bg-zinc-50 dark:hover:bg-white/5 p-3.5 rounded-2xl transition-all text-left border border-transparent hover:border-zinc-100"
                     >
-                      <div className="flex items-center gap-4 min-w-0">
+                      <div className="flex items-start gap-3 min-w-0 flex-1">
                         <div className={cn(
-                          'p-2.5 rounded-xl shrink-0 transition-all',
+                          'p-2.5 rounded-xl shrink-0 transition-all mt-0.5',
                           isMatch
                             ? 'bg-develoi-navy/10 dark:bg-develoi-gold/10 text-develoi-navy dark:text-develoi-gold group-hover:bg-develoi-navy group-hover:text-white'
                             : 'bg-zinc-100 dark:bg-white/5 text-zinc-400 group-hover:bg-develoi-navy group-hover:text-white'
                         )}>
-                          {isMatch ? <Target size={15} /> : <MessageSquare size={15} />}
+                          {isMatch ? <Target size={14} /> : <MessageSquare size={14} />}
                         </div>
-                        <div className="min-w-0">
-                          <p className="text-sm font-bold text-zinc-800 dark:text-white/90 truncate">{title}</p>
-                          <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mt-0.5">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {isMatch && (
+                              <span className="text-[9px] font-black text-develoi-navy/60 dark:text-develoi-gold/60 uppercase tracking-widest">Aderência</span>
+                            )}
+                            <p className="text-sm font-bold text-zinc-800 dark:text-white/90 truncate">{title}</p>
+                          </div>
+                          <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mt-0.5 mb-2">
                             {formatRelativeDate(session.created_at)}
                           </p>
+                          {/* Filtros usados */}
+                          {isMatch && f && (
+                            <div className="flex flex-wrap gap-1.5">
+                              {f.precisionMode && (
+                                <span className="inline-flex items-center gap-1 text-[9px] font-black px-2 py-0.5 rounded-full bg-develoi-navy/8 text-develoi-navy dark:bg-develoi-gold/10 dark:text-develoi-gold border border-develoi-navy/10 dark:border-develoi-gold/20 uppercase tracking-wider">
+                                  <Brain size={8} /> {f.precisionMode}
+                                </span>
+                              )}
+                              {f.minScore != null && f.minScore !== "" && (
+                                <span className="inline-flex items-center gap-1 text-[9px] font-black px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 uppercase tracking-wider">
+                                  <Target size={8} /> ≥{f.minScore}%
+                                </span>
+                              )}
+                              {f.radius != null && f.radius !== "" && (
+                                <span className="inline-flex items-center gap-1 text-[9px] font-black px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100 uppercase tracking-wider">
+                                  <MapPin size={8} /> {f.radius}km
+                                </span>
+                              )}
+                              {f.onlyWithDisc && (
+                                <span className="inline-flex items-center gap-1 text-[9px] font-black px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-100 uppercase tracking-wider">
+                                  DISC ✓
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
-                      <ChevronRight size={15} className="text-zinc-300 group-hover:text-develoi-navy dark:group-hover:text-white transition-colors shrink-0" />
+                      <ChevronRight size={14} className="text-zinc-300 group-hover:text-develoi-navy dark:group-hover:text-white transition-colors shrink-0 mt-1" />
                     </button>
                   );
                 })}
@@ -1180,11 +1264,11 @@ export default function AuroraAI() {
         minScore={minScore}
         radius={radius}
         precisionMode={precisionMode}
-        onMinScoreChange={setMinScore}
-        onRadiusChange={setRadius}
-        onPrecisionChange={setPrecisionMode}
+        onMinScoreChange={handleMinScoreChange}
+        onRadiusChange={handleRadiusChange}
+        onPrecisionChange={handlePrecisionChange}
         onClose={() => setShowSettings(false)}
-        onSave={() => { toast.success('Configurações aplicadas!'); setShowSettings(false); }}
+        onSave={() => { toast.success('Configurações salvas!'); setShowSettings(false); }}
       />
 
       {selectedMatch && (
