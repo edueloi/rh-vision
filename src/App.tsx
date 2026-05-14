@@ -388,92 +388,6 @@ function AppContent() {
             )}
           </div>
 
-          {/* Unit selector — visível apenas para Admin Mestre */}
-          {!isRootShell && isAdminMestre && (
-            <div className="px-4 pb-2 sm:pb-3">
-              <p className="px-1 text-[9px] font-black uppercase tracking-[0.28em] text-white/28">Visualizando</p>
-              <div ref={unitMenuRef} className="relative mt-2">
-                <button
-                  onClick={() => setUnitMenuOpen(v => !v)}
-                  className={cn(
-                    "flex w-full items-center gap-3 rounded-[22px] border px-3 py-2.5 text-left transition-all shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:rounded-[24px] sm:px-3.5 sm:py-3",
-                    unitMenuOpen
-                      ? "border-white/20 bg-white/[0.12] shadow-[0_18px_34px_rgba(0,0,0,0.24)]"
-                      : "border-white/[0.08] bg-white/[0.04] hover:border-white/[0.14] hover:bg-white/[0.06]"
-                  )}
-                >
-                  <div className={cn(
-                    "flex h-9 w-9 items-center justify-center rounded-2xl border shrink-0 transition-colors sm:h-10 sm:w-10",
-                    unitMenuOpen
-                      ? "border-white/15 bg-white/[0.14]"
-                      : "border-white/[0.06] bg-develoi-gold/14"
-                  )}>
-                    <Building2 size={14} className="text-develoi-gold" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[11px] font-black tracking-[0.04em] text-white">{currentUnit.name}</p>
-                    {(currentUnit.is_master === 1 || currentUnit.id === "master") ? (
-                      <p className="mt-1 truncate text-[9px] font-medium text-develoi-gold/75">Todas as unidades conectadas</p>
-                    ) : (
-                      <p className="mt-1 truncate text-[9px] font-medium text-white/38">{currentUnit.location || "Unidade ativa"}</p>
-                    )}
-                  </div>
-                  <ChevronDown size={14} className={cn("shrink-0 text-white/30 transition-transform duration-200", unitMenuOpen && "rotate-180 text-develoi-gold")} />
-                </button>
-                <AnimatePresence>
-                  {unitMenuOpen && (
-                    <div className="absolute left-0 right-0 top-full z-20 mt-2 overflow-hidden rounded-[24px] border border-white/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(246,241,230,0.96))] shadow-[0_24px_48px_rgba(0,0,0,0.35)]">
-                      <div className="p-2">
-                        <p className="px-3 py-2 text-[8px] font-black uppercase tracking-[0.28em] text-zinc-500">Selecionar unidade</p>
-                        {units.map(unit => {
-                          const isActive = currentUnit.id === unit.id;
-                          const isMasterUnit = unit.is_master === 1;
-                          return (
-                            <button
-                              key={unit.id}
-                              onClick={() => handleUnitChange(unit)}
-                              className={cn(
-                                "flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition-all",
-                                isActive
-                                  ? "bg-[#f0e1b0] text-zinc-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.5)]"
-                                  : "text-zinc-600 hover:bg-white/80 hover:text-zinc-900"
-                              )}
-                            >
-                              <div className={cn(
-                                "flex h-8 w-8 items-center justify-center rounded-xl border shrink-0",
-                                isActive
-                                  ? "border-[#d4ba72]/45 bg-white/70 text-[#8f6d21]"
-                                  : "border-black/5 bg-black/[0.03] text-zinc-500"
-                              )}>
-                                <Building2 size={12} />
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <p className="truncate text-[10px] font-black tracking-[0.06em]">{unit.name}</p>
-                                {isMasterUnit ? (
-                                  <p className={cn("mt-1 truncate text-[8px]", isActive ? "text-[#8f6d21]/85" : "text-zinc-500")}>Todas as unidades</p>
-                                ) : unit.location && unit.location !== "Todas" ? (
-                                  <p className={cn("mt-1 truncate text-[8px]", isActive ? "text-zinc-700/80" : "text-zinc-500")}>{unit.location}</p>
-                                ) : null}
-                              </div>
-                              <div className={cn(
-                                "h-5 w-5 shrink-0 rounded-full border transition-all",
-                                isActive
-                                  ? "border-[#d4ba72]/60 bg-white/75"
-                                  : "border-zinc-300 bg-transparent"
-                              )}>
-                                {isActive && <div className="mx-auto mt-[5px] h-2 w-2 rounded-full bg-[#b3872b]" />}
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-                </AnimatePresence>
-              </div>
-            </div>
-          )}
-
           {/* Nav */}
           <nav className="custom-scrollbar min-h-0 flex-1 overflow-y-auto px-3 pb-3 pt-1 sm:px-4 sm:pb-4">
             <p className="px-3 pb-3 text-[9px] font-black uppercase tracking-[0.32em] text-white/24">Menu</p>
@@ -686,7 +600,106 @@ function AppContent() {
               </div>
             )}
 
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-3 md:gap-4">
+              {!isRootShell && isAdminMestre && (
+                <div ref={unitMenuRef} className="relative">
+                  <button
+                    onClick={() => setUnitMenuOpen((v) => !v)}
+                    className={cn(
+                      "flex h-10 max-w-[3rem] items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-2.5 text-left shadow-sm transition-all hover:border-zinc-300 hover:bg-zinc-50 sm:max-w-[12rem] sm:px-3 lg:h-11 lg:max-w-[15rem] lg:px-3.5",
+                      unitMenuOpen && "border-[#d4ba72]/60 bg-[#fbf5e6] shadow-[0_14px_28px_rgba(197,160,77,0.18)]"
+                    )}
+                    title={`Unidade ativa: ${currentUnit.name}`}
+                  >
+                    <div className={cn(
+                      "flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border transition-colors lg:h-8 lg:w-8",
+                      unitMenuOpen
+                        ? "border-[#d4ba72]/45 bg-white text-[#8f6d21]"
+                        : "border-zinc-200 bg-[#f7f1e2] text-[#b3872b]"
+                    )}>
+                      <Building2 size={13} />
+                    </div>
+                    <div className="hidden min-w-0 flex-1 sm:block">
+                      <p className="truncate text-[10px] font-black tracking-[0.05em] text-develoi-navy lg:text-[11px]">
+                        {currentUnit.name}
+                      </p>
+                      <p className="mt-0.5 truncate text-[9px] font-medium text-zinc-400">
+                        {(currentUnit.is_master === 1 || currentUnit.id === "master")
+                          ? "Todas as unidades"
+                          : (currentUnit.location || "Unidade ativa")}
+                      </p>
+                    </div>
+                    <ChevronDown
+                      size={14}
+                      className={cn(
+                        "hidden shrink-0 text-zinc-400 transition-transform duration-200 sm:block",
+                        unitMenuOpen && "rotate-180 text-[#b3872b]"
+                      )}
+                    />
+                  </button>
+
+                  <AnimatePresence>
+                    {unitMenuOpen && (
+                      <div className="absolute right-0 top-full z-[120] mt-2 w-[min(22rem,calc(100vw-1.5rem))] overflow-hidden rounded-[24px] border border-[#eadfbe] bg-[linear-gradient(180deg,rgba(255,255,255,0.99),rgba(249,245,235,0.97))] shadow-[0_24px_48px_rgba(15,23,42,0.18)]">
+                        <div className="p-2">
+                          <p className="px-3 py-2 text-[8px] font-black uppercase tracking-[0.28em] text-zinc-500">
+                            Selecionar unidade
+                          </p>
+                          {units.map((unit) => {
+                            const isActive = currentUnit.id === unit.id;
+                            const isMasterUnit = unit.is_master === 1;
+
+                            return (
+                              <button
+                                key={unit.id}
+                                onClick={() => handleUnitChange(unit)}
+                                className={cn(
+                                  "flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition-all",
+                                  isActive
+                                    ? "bg-[#f0e1b0] text-zinc-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.5)]"
+                                    : "text-zinc-600 hover:bg-white/85 hover:text-zinc-900"
+                                )}
+                              >
+                                <div className={cn(
+                                  "flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border",
+                                  isActive
+                                    ? "border-[#d4ba72]/45 bg-white/70 text-[#8f6d21]"
+                                    : "border-black/5 bg-black/[0.03] text-zinc-500"
+                                )}>
+                                  <Building2 size={12} />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate text-[10px] font-black tracking-[0.06em]">
+                                    {unit.name}
+                                  </p>
+                                  {isMasterUnit ? (
+                                    <p className={cn("mt-1 truncate text-[8px]", isActive ? "text-[#8f6d21]/85" : "text-zinc-500")}>
+                                      Todas as unidades
+                                    </p>
+                                  ) : unit.location && unit.location !== "Todas" ? (
+                                    <p className={cn("mt-1 truncate text-[8px]", isActive ? "text-zinc-700/80" : "text-zinc-500")}>
+                                      {unit.location}
+                                    </p>
+                                  ) : null}
+                                </div>
+                                <div className={cn(
+                                  "h-5 w-5 shrink-0 rounded-full border transition-all",
+                                  isActive
+                                    ? "border-[#d4ba72]/60 bg-white/75"
+                                    : "border-zinc-300 bg-transparent"
+                                )}>
+                                  {isActive && <div className="mx-auto mt-[5px] h-2 w-2 rounded-full bg-[#b3872b]" />}
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              )}
+
               {/* Notification Bell */}
               <div className="relative" ref={notifRef}>
                 <button
