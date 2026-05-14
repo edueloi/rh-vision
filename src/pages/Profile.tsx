@@ -47,19 +47,34 @@ export default function Profile() {
     const file = e.target.files?.[0];
     if (!file) return;
     setUploading(true);
-    const body = new FormData();
-    body.append("file", file);
-    try {
-      const res = await fetch(`/api/users/${user.id}/photo`, { method: "POST", body });
-      if (!res.ok) throw new Error();
-      const data = await res.json();
-      persist({ ...user, photo_url: data.photo_url });
-      toast.success("Foto atualizada!");
-    } catch {
-      toast.error("Erro ao carregar foto.");
-    } finally {
+    
+    // Fallback: Read file as Base64 for local persistence
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const base64Url = e.target?.result as string;
+      
+      const body = new FormData();
+      body.append("file", file);
+      
+      try {
+        const res = await fetch(`/api/users/${user.id}/photo`, { method: "POST", body });
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        persist({ ...user, photo_url: data.photo_url || base64Url });
+        toast.success("Foto atualizada!");
+      } catch {
+        // If API fails (no backend), save base64 locally
+        persist({ ...user, photo_url: base64Url });
+        toast.success("Foto atualizada (Local)!");
+      } finally {
+        setUploading(false);
+      }
+    };
+    reader.onerror = () => {
+      toast.error("Erro ao ler arquivo.");
       setUploading(false);
-    }
+    };
+    reader.readAsDataURL(file);
   };
 
   const [showRemoveModal, setShowRemoveModal] = useState(false);
@@ -326,7 +341,9 @@ export default function Profile() {
             </Button>
           </div>
         }
-      />
+      >
+        <></>
+      </Modal>
     </div>
   );
 }

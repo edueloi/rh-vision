@@ -21,6 +21,7 @@ import {
   PanelLeftOpen,
   Sparkles,
   ChevronsRight,
+  Zap,
 } from "lucide-react";
 import { AnimatePresence } from "motion/react";
 import {
@@ -43,6 +44,7 @@ import ImportResumes from "./pages/ImportResumes";
 import PublicPortal from "./pages/PublicPortal";
 import PublicToolResponse from "./pages/PublicToolResponse";
 import AuroraAI from "./pages/AuroraAI";
+import Matches from "./pages/Matches";
 import Login from "./pages/Login";
 import Welcome from "./pages/Welcome";
 import SuperAdmin from "./pages/SuperAdmin";
@@ -69,6 +71,7 @@ const ROOT_MENU_ITEMS: MenuItem[] = [
 const APP_MENU_ITEMS: MenuItem[] = [
   { path: "/dashboard", label: "Dashboard", helper: "Resumo, metas e indicadores", icon: LayoutDashboard, permissionKey: "dashboard" },
   { path: "/aurora-ai", label: "Aurora AI", helper: "Triagem, match e inteligência", icon: Brain, permissionKey: "aurora_ai" },
+  { path: "/matches", label: "Matches AI", helper: "Afinidade de Vagas x Candidatos", icon: Zap, permissionKey: "aurora_ai" },
   { path: "/vagas", label: "Vagas", helper: "Requisições e pipeline", icon: Briefcase, permissionKey: "jobs" },
   { path: "/candidatos", label: "Candidatos", helper: "Banco de talentos", icon: Users, permissionKey: "candidates" },
   { path: "/importar-cvs", label: "Importar CVs", helper: "Upload e processamento", icon: FileUp, permissionKey: "imports" },
@@ -1019,6 +1022,7 @@ function AppContent() {
           <Routes>
             <Route path="/dashboard" element={guard(permissions.dashboard, <Dashboard />)} />
             <Route path="/aurora-ai" element={guard(permissions.aurora_ai, <AuroraAI />)} />
+            <Route path="/matches" element={guard(permissions.aurora_ai, <Matches />)} />
             <Route path="/vagas/*" element={guard(permissions.jobs, <Jobs />)} />
             <Route path="/candidatos" element={guard(permissions.candidates, <Candidates />)} />
             <Route path="/candidatos/novo" element={guard(permissions.candidates, <Candidates />)} />

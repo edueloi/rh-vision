@@ -2352,6 +2352,27 @@ Retorne EXATAMENTE este JSON:
     }
   });
 
+  app.get('/api/candidates/:candidateId/cv/download', async (req, res) => {
+    try {
+      const file = await db.prepare(`
+        SELECT cf.*
+        FROM candidate_files cf
+        JOIN candidates c ON c.id = cf.candidate_id
+        WHERE cf.candidate_id = ? AND c.deleted_at IS NULL
+        ORDER BY cf.created_at DESC
+        LIMIT 1
+      `).get(req.params.candidateId) as any;
+
+      if (!file) return res.status(404).json({ error: 'No CV found for this candidate' });
+      if (!file.file_path || !fs.existsSync(file.file_path)) return res.status(404).json({ error: 'File not found on disk' });
+
+      return res.download(file.file_path, file.file_name);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: 'Failed to download CV' });
+    }
+  });
+
   app.get('/api/candidates/:candidateId/files/:fileId', async (req, res) => {
     try {
       const file = await db.prepare(`
@@ -2666,7 +2687,7 @@ Retorne EXATAMENTE este JSON:
     try {
       const minScore = Number(req.query.minScore) || 0;
       const results = await db.prepare(`
-        SELECT r.*, c.full_name, c.city, c.state
+        SELECT r.*, c.full_name, c.city, c.state, c.email, c.phone
         FROM ai_search_results r
         JOIN candidates c ON r.candidate_id = c.id
         WHERE r.job_id = ? AND r.compatibility_score >= ?
