@@ -249,8 +249,8 @@ export default function Jobs() {
   }
 
   return (
-    <PageWrapper className="min-h-screen bg-zinc-50/60">
-      <div className="space-y-16 px-4 py-12 sm:px-6 lg:px-8">
+    <PageWrapper className="min-h-screen overflow-x-hidden bg-zinc-50/60">
+      <div className="space-y-8 px-3 py-5 sm:space-y-10 sm:px-5 sm:py-7 lg:space-y-12 lg:px-8 lg:py-10">
         <SectionTitle
           title="Gestão de Vagas"
           subtitle={resultsLabel}
@@ -268,17 +268,19 @@ export default function Jobs() {
           onRefresh={fetchJobs}
           onImport={() => navigate("/vagas/importar")}
           onCreate={() => navigate("/vagas/nova")}
-          className="mt-12"
+          className="mt-0"
         />
 
         <PanelCard
           title="Oportunidades"
           description="Gerencie, publique, pause e revise as vagas da unidade com uma listagem padronizada."
           icon={Briefcase}
-          className="overflow-visible"
+          className="overflow-visible rounded-[1.75rem] sm:rounded-[2rem]"
+          headerClassName="px-4 py-4 sm:px-6 sm:py-5"
+          contentClassName="p-3 sm:p-5 lg:p-6"
         >
           {loading ? (
-            <div className="flex flex-col items-center justify-center gap-4 px-6 py-24">
+            <div className="flex flex-col items-center justify-center gap-4 px-4 py-16 sm:px-6 sm:py-24">
               <Loader2 size={28} className="animate-spin text-develoi-navy" />
               <p className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-400">
                 Carregando vagas
@@ -301,7 +303,7 @@ export default function Jobs() {
                 className={cn(
                   "",
                   viewMode === "grid"
-                    ? "grid gap-5 lg:grid-cols-2 2xl:grid-cols-3"
+                    ? "grid gap-4 md:grid-cols-2 xl:gap-5 2xl:grid-cols-3"
                     : "space-y-4"
                 )}
               >

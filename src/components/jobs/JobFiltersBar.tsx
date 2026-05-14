@@ -45,11 +45,11 @@ export function JobFiltersBar({
   className,
 }: JobFiltersBarProps) {
   return (
-    <ContentCard className={cn("space-y-8", className)}>
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-        <div className="flex items-center gap-4">
-          <div>
-            <p className="text-sm font-black tracking-tight text-zinc-900">Filtros da listagem</p>
+    <ContentCard className={cn("space-y-5 sm:space-y-6", className)}>
+      <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
+          <div className="min-w-0">
+            <p className="text-sm font-black tracking-tight text-zinc-900 sm:text-[15px]">Filtros da listagem</p>
             <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-400">
               Refine a busca por status, modelo e texto livre
             </p>
@@ -57,11 +57,11 @@ export function JobFiltersBar({
 
           <div className="hidden h-8 w-px bg-zinc-100 lg:block" />
 
-          <div className="hidden items-center gap-1 rounded-xl bg-zinc-50 p-1 lg:flex">
+          <div className="grid grid-cols-2 items-center gap-1 rounded-2xl border border-zinc-200 bg-zinc-50 p-1 sm:inline-grid">
             <button
               onClick={() => onViewModeChange("grid")}
               className={cn(
-                "flex h-7 w-7 items-center justify-center rounded-lg transition-all",
+                "flex h-9 min-w-[4.25rem] items-center justify-center gap-1 rounded-xl px-3 transition-all",
                 viewMode === "grid"
                   ? "bg-white text-develoi-navy shadow-sm ring-1 ring-zinc-200"
                   : "text-zinc-400 hover:text-zinc-600"
@@ -69,11 +69,12 @@ export function JobFiltersBar({
               title="Visualização em Grade"
             >
               <LayoutGrid size={14} />
+              <span className="text-[10px] font-black uppercase tracking-[0.14em]">Grade</span>
             </button>
             <button
               onClick={() => onViewModeChange("list")}
               className={cn(
-                "flex h-7 w-7 items-center justify-center rounded-lg transition-all",
+                "flex h-9 min-w-[4.25rem] items-center justify-center gap-1 rounded-xl px-3 transition-all",
                 viewMode === "list"
                   ? "bg-white text-develoi-navy shadow-sm ring-1 ring-zinc-200"
                   : "text-zinc-400 hover:text-zinc-600"
@@ -81,30 +82,51 @@ export function JobFiltersBar({
               title="Visualização em Lista"
             >
               <List size={14} />
+              <span className="text-[10px] font-black uppercase tracking-[0.14em]">Lista</span>
             </button>
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" iconLeft={<RefreshCcw size={14} />} onClick={onRefresh}>
+        <div className="grid grid-cols-1 gap-2 min-[430px]:grid-cols-2 xl:flex xl:flex-wrap">
+          <Button
+            variant="outline"
+            size="sm"
+            iconLeft={<RefreshCcw size={14} />}
+            onClick={onRefresh}
+            className="justify-center min-[430px]:justify-start"
+          >
             Atualizar
           </Button>
-          <Button variant="outline" size="sm" iconLeft={<Layers size={14} />} onClick={onImport}>
+          <Button
+            variant="outline"
+            size="sm"
+            iconLeft={<Layers size={14} />}
+            onClick={onImport}
+            className="justify-center min-[430px]:justify-start"
+          >
             Importar vaga
           </Button>
-          <Button variant="secondary" size="sm" iconLeft={<Plus size={14} />} onClick={onCreate}>
+          <Button
+            variant="secondary"
+            size="sm"
+            iconLeft={<Plus size={14} />}
+            onClick={onCreate}
+            className="justify-center min-[430px]:col-span-2 xl:col-span-1"
+            fullWidth
+          >
             Nova vaga
           </Button>
         </div>
       </div>
 
-      <div className="grid gap-8 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)]">
         <Input
           label="Pesquisar"
           icon={<Search size={15} />}
           placeholder="Título, cidade ou departamento"
           value={filters.search}
           onChange={(event) => onChange({ ...filters, search: event.target.value })}
+          containerClassName="md:col-span-2 xl:col-span-1"
         />
 
         <div className="space-y-1.5">
@@ -136,4 +158,3 @@ export function JobFiltersBar({
     </ContentCard>
   );
 }
-

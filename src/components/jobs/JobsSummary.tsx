@@ -1,6 +1,6 @@
 import React from "react";
 import { Briefcase, FileClock, Globe, PauseCircle } from "lucide-react";
-import { StatCard, StatGrid } from "@/src/components/ui";
+import { StatCard } from "@/src/components/ui";
 import { Job } from "@/src/types";
 
 interface JobsSummaryProps {
@@ -15,8 +15,9 @@ export function JobsSummary({ jobs }: JobsSummaryProps) {
   const paused = jobs.filter((job) => job.status === "Pausada").length;
 
   return (
-    <StatGrid cols={5}>
+    <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-5">
       <StatCard
+        className="col-span-2 xl:col-span-1"
         title="Total de vagas"
         value={total}
         description="Oportunidades ativas e históricas"
@@ -56,6 +57,6 @@ export function JobsSummary({ jobs }: JobsSummaryProps) {
         color="warning"
         delay={0.16}
       />
-    </StatGrid>
+    </div>
   );
 }
