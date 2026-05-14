@@ -3074,68 +3074,32 @@ Retorne EXATAMENTE este JSON:
         ? candidates.filter((c: any) => c.disc && c.disc.predominant_profile)
         : candidates;
 
-      const candidatesToProcess = filteredCandidates.slice(0, 50);
+      // Limit to 30 candidates max and trim text fields to keep prompt + output within token budget
+      const candidatesToProcess = filteredCandidates.slice(0, 30);
 
       const prompt = `
-        Você é a Aurora AI, um sistema extremamente crítico e analítico de recrutamento corporativo.
-        Sua tarefa é comparar rigorosamente uma lista de candidatos com uma vaga específica.
-        
-        CRITÉRIOS DE AVALIAÇÃO:
-        1. Aderência de Experiência (CRÍTICO): Verifique se a experiência passada (cargos anteriores) tem relação direta ou transferível com a vaga. Anos de experiência não importam se forem em áreas completamente não relacionadas (ex: 10 anos de Produção não qualificam para Coordenador Administrativo). Penalize o fit drasticamente se a área for incompatível.
-        2. Localização: Se presencial, deve estar na mesma cidade ou região viável.
-        3. Formação e Habilidades: Verifique aderência real.
-        4. Senioridade e Risco de Turnover (Overqualification): Identifique se o candidato é "superqualificado" para a vaga (ex: um Pleno/Sênior aplicando para uma vaga Júnior). Nesses casos, o fit técnico pode ser alto, mas você DEVE adicionar um ponto de atenção sobre o risco de desmotivação ou turnover rápido devido ao nível superior ao cargo oferecido.
-        
-        Vaga:
-        Título: ${job.title}
-        Local: ${job.city}/${job.state}
-        Modelo: ${job.work_model}
-        Requisitos: ${job.mandatory_requirements}
-        Descrição: ${job.description}
-        Experiência Mínima Exigida: ${job.min_experience_years} anos
-        
-        Configuração de Busca:
-        Precisão: ${precisionMode} (Se "Rigorosa", zere o FIT de candidatos sem experiência na exata área solicitada)
-        Raio Max Distância: ${radius} km
-        Regra Localização: ${locationRule}
-        
-        Candidatos a Avaliar:
-        ${candidatesToProcess.map(c => `
-          --- Candidato ID: ${c.id} ---
-          Nome: ${c.full_name}
-          Local: ${c.city}/${c.state}
-          Objetivo/Área: ${c.desired_position || ''} - ${c.desired_area || ''}
-          Formação: ${c.education_level || ''} | ${c.academic_education?.substring(0, 300) || ''}
-          Idiomas: ${c.languages || 'N/A'}
-          Resumo: ${c.professional_summary?.substring(0, 500) || ''}
-          Experiência Profissional (Detalhada): ${c.professional_experiences?.substring(0, 1500) || 'Não informado'}
-          Skills Técnicas: ${c.hard_skills || 'N/A'}
-          Skills Comportamentais: ${c.soft_skills || 'N/A'}
-          Perfil DISC: ${c.disc?.predominant_profile ? `${c.disc.predominant_profile} (D:${c.disc.disc_d||0} I:${c.disc.disc_i||0} S:${c.disc.disc_s||0} C:${c.disc.disc_c||0})` : 'Não avaliado'}
-        `).join('\n')}
-        
-        Regras de Negócio de Fit (0-100):
-        - 0-40: Incompatível (ex: experiência de 10 anos mas em área totalmente diferente da exigida).
-        - 40-69: Fit Baixo/Moderado (Pode ser considerado mas não tem a vivência ideal).
-        - 70-89: Alto Fit (Experiência na área, competências batem).
-        - 90-100: Altíssimo Fit (Candidato perfeito, na mesma área, mesma cidade).
-        
-        Retorne APENAS um JSON estrito no formato abaixo, sem markdown:
-        {
-          "results": [
-            {
-              "candidate_id": number,
-              "compatibility_score": number,
-              "classification": string,
-              "distance_km": number,
-              "strengths": string[],
-              "attention_points": string[],
-              "recommendation_reason": string,
-              "risk_reason": string
-            }
-          ],
-          "summary": string
-        }
+        Você é a Aurora AI, sistema de recrutamento corporativo. Compare os candidatos abaixo com a vaga e retorne JSON.
+
+        CRITÉRIOS:
+        1. Experiência na área (CRÍTICO): área incompatível = score baixo.
+        2. Localização: presencial exige cidade/região viável.
+        3. Formação e habilidades: aderência real.
+        4. Superqualificação: se muito acima do nível, mencione risco de turnover.
+        Precisão: ${precisionMode} (Rigorosa = zere fit sem experiência exata na área)
+
+        VAGA:
+        Título: ${job.title} | Local: ${job.city}/${job.state} | Modelo: ${job.work_model}
+        Requisitos: ${(job.mandatory_requirements || '').substring(0, 400)}
+        Descrição: ${(job.description || '').substring(0, 300)}
+        Exp. mínima: ${job.min_experience_years} anos | Raio: ${radius} km
+
+        CANDIDATOS:
+        ${candidatesToProcess.map(c => `[ID:${c.id}] ${c.full_name} | ${c.city}/${c.state} | ${c.desired_position || ''} | Exp: ${(c.professional_experiences || '').substring(0, 600)} | Skills: ${(c.hard_skills || '').substring(0, 150)} | DISC: ${c.disc?.predominant_profile || 'N/A'}`).join('\n')}
+
+        Scores: 0-40=Incompatível, 41-69=Baixo, 70-89=Alto, 90-100=Altíssimo.
+
+        Retorne SOMENTE JSON válido (sem markdown):
+        {"results":[{"candidate_id":number,"compatibility_score":number,"classification":"string","distance_km":number,"strengths":["string"],"attention_points":["string"],"recommendation_reason":"string","risk_reason":"string"}],"summary":"string"}
       `;
 
       const aiResult = await ai.models.generateContent({
@@ -3143,13 +3107,34 @@ Retorne EXATAMENTE este JSON:
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         config: {
           responseMimeType: 'application/json',
-          maxOutputTokens: 2600,
-          reasoningEffort: 'medium',
+          maxOutputTokens: 8000,
+          reasoningEffort: 'low',
           operationLabel: 'match inteligente de vaga',
         }
       });
 
-      const analysis = JSON.parse(aiResult.text || '{"results": [], "summary": ""}');
+      let analysis: any;
+      try {
+        analysis = JSON.parse(aiResult.text || '{"results":[],"summary":""}');
+      } catch {
+        // AI truncated JSON — try to extract partial results array
+        const partial = aiResult.text || '';
+        const match = partial.match(/"results"\s*:\s*(\[[\s\S]*)/);
+        if (match) {
+          // Close the array and object as best we can
+          let arr = match[1];
+          // Remove trailing incomplete object
+          const lastComplete = arr.lastIndexOf('}');
+          if (lastComplete !== -1) arr = arr.substring(0, lastComplete + 1) + ']';
+          try {
+            analysis = { results: JSON.parse(arr), summary: 'Análise parcial (resposta truncada)' };
+          } catch {
+            analysis = { results: [], summary: 'Erro ao processar resposta da IA' };
+          }
+        } else {
+          analysis = { results: [], summary: 'Erro ao processar resposta da IA' };
+        }
+      }
       
       // Delete previous results for this job to avoid duplicates
       await db.prepare('DELETE FROM ai_search_results WHERE job_id = ?').run(jobId);
