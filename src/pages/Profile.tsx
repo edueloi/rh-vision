@@ -1,7 +1,7 @@
 import React, { useState, useRef } from "react";
 import { User, Mail, ShieldCheck, Camera, Save, X, Trash2, Upload, Briefcase, Loader2, Building2, KeyRound } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import { Badge, Button, useToast } from "@/src/components/ui";
+import { Badge, Button, Modal, useToast } from "@/src/components/ui";
 import { cn } from "@/src/lib/utils";
 
 export default function Profile() {
@@ -62,8 +62,10 @@ export default function Profile() {
     }
   };
 
+  const [showRemoveModal, setShowRemoveModal] = useState(false);
+
   const handlePhotoRemove = async () => {
-    if (!confirm("Remover foto de perfil?")) return;
+    setShowRemoveModal(false);
     setUploading(true);
     try {
       const res = await fetch(`/api/users/${user.id}/photo`, { method: "DELETE" });
@@ -176,7 +178,7 @@ export default function Profile() {
                 </button>
                 {user.photo_url && (
                   <button
-                    onClick={handlePhotoRemove}
+                    onClick={() => setShowRemoveModal(true)}
                     className="w-full h-10 rounded-2xl text-rose-400 text-[10px] font-black uppercase tracking-widest hover:bg-rose-50 transition-all flex items-center justify-center gap-2"
                   >
                     <Trash2 size={13} /> Remover Foto
@@ -306,6 +308,25 @@ export default function Profile() {
           </AnimatePresence>
         </div>
       </div>
+
+      <Modal
+        open={showRemoveModal}
+        onClose={() => setShowRemoveModal(false)}
+        title="Remover Foto de Perfil"
+        description="Tem certeza que deseja remover sua foto de perfil? Uma imagem com as suas iniciais será gerada automaticamente."
+        icon={<Trash2 size={20} />}
+        size="sm"
+        footer={
+          <div className="flex items-center justify-end gap-3 w-full">
+            <Button variant="outline" onClick={() => setShowRemoveModal(false)}>
+              Cancelar
+            </Button>
+            <Button variant="danger" onClick={handlePhotoRemove} iconLeft={<Trash2 size={16} />}>
+              Remover Foto
+            </Button>
+          </div>
+        }
+      />
     </div>
   );
 }
