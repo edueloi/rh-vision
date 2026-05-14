@@ -337,6 +337,15 @@ function AppContent() {
       <style>{`
         html { font-size: 14.4px; } 
         @media (min-width: 1536px) { html { font-size: 16px; } }
+
+        .custom-scrollbar::-webkit-scrollbar { width: 5px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.13); border-radius: 999px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.22); }
+
+        @media (max-height: 720px) {
+          .custom-scrollbar { padding-bottom: 0.5rem; }
+        }
       `}</style>
       {sidebarOpen && (
         <div
@@ -346,7 +355,7 @@ function AppContent() {
       )}
 
       <aside className={cn(
-        "fixed inset-y-0 left-0 z-[50] flex h-screen w-72 flex-col overflow-hidden border-r border-white/[0.06] shadow-[22px_0_60px_rgba(3,8,20,0.24)] transition-transform duration-300 lg:sticky lg:translate-x-0",
+        "fixed inset-y-0 left-0 z-[50] flex h-[100dvh] w-[84vw] max-w-[18rem] flex-col overflow-hidden border-r border-white/[0.06] shadow-[22px_0_60px_rgba(3,8,20,0.24)] transition-transform duration-300 sm:w-72 lg:sticky lg:translate-x-0",
         isRootShell ? "bg-[#040e1f]" : theme === 'dark' ? "bg-[#071325]" : "bg-develoi-navy",
         sidebarOpen ? "translate-x-0" : "-translate-x-full"
       )}>
@@ -358,9 +367,9 @@ function AppContent() {
 
         <div className="relative z-10 flex h-full flex-col">
           {/* Logo */}
-          <div className="flex items-start justify-between px-5 pb-5 pt-6">
+          <div className="flex items-start justify-between px-4 pb-3 pt-4 sm:px-5 sm:pb-5 sm:pt-6">
             {isRootShell ? (
-              <div className="flex flex-1 items-center gap-3 rounded-[24px] border border-white/[0.07] bg-white/[0.04] px-3.5 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+              <div className="flex flex-1 items-center gap-3 rounded-[22px] border border-white/[0.07] bg-white/[0.04] px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] sm:rounded-[24px] sm:px-3.5 sm:py-3">
                 <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-develoi-gold/20 bg-develoi-gold/15 shrink-0">
                   <Brain size={20} className="text-develoi-gold" />
                 </div>
@@ -370,8 +379,8 @@ function AppContent() {
                 </div>
               </div>
             ) : (
-              <div className="flex flex-1 items-center gap-3 rounded-[24px] border border-white/[0.07] bg-white/[0.04] px-3.5 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white shadow-[0_10px_30px_rgba(255,255,255,0.14)] shrink-0 overflow-hidden">
+              <div className="flex flex-1 items-center gap-3 rounded-[22px] border border-white/[0.07] bg-white/[0.04] px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] sm:rounded-[24px] sm:px-3.5 sm:py-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white shadow-[0_10px_30px_rgba(255,255,255,0.14)] shrink-0 overflow-hidden sm:h-11 sm:w-11">
                   <img src="/icon_logo_recruteia.png" alt="Recrute IA" className="h-7 w-7 object-contain" />
                 </div>
                 <div className="min-w-0">
@@ -390,20 +399,20 @@ function AppContent() {
 
           {/* Unit selector — visível apenas para Admin Mestre */}
           {!isRootShell && isAdminMestre && (
-            <div className="px-4 pb-3">
+            <div className="px-4 pb-2 sm:pb-3">
               <p className="px-1 text-[9px] font-black uppercase tracking-[0.28em] text-white/28">Visualizando</p>
               <div ref={unitMenuRef} className="relative mt-2">
                 <button
                   onClick={() => setUnitMenuOpen(v => !v)}
                   className={cn(
-                    "flex w-full items-center gap-3 rounded-[24px] border px-3.5 py-3 text-left transition-all shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]",
+                    "flex w-full items-center gap-3 rounded-[22px] border px-3 py-2.5 text-left transition-all shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:rounded-[24px] sm:px-3.5 sm:py-3",
                     unitMenuOpen
                       ? "border-white/20 bg-white/[0.12] shadow-[0_18px_34px_rgba(0,0,0,0.24)]"
                       : "border-white/[0.08] bg-white/[0.04] hover:border-white/[0.14] hover:bg-white/[0.06]"
                   )}
                 >
                   <div className={cn(
-                    "flex h-10 w-10 items-center justify-center rounded-2xl border shrink-0 transition-colors",
+                    "flex h-9 w-9 items-center justify-center rounded-2xl border shrink-0 transition-colors sm:h-10 sm:w-10",
                     unitMenuOpen
                       ? "border-white/15 bg-white/[0.14]"
                       : "border-white/[0.06] bg-develoi-gold/14"
@@ -475,8 +484,8 @@ function AppContent() {
           )}
 
           {/* Nav */}
-          <nav className="custom-scrollbar flex-1 overflow-y-auto px-4 pb-4 pt-1">
-            <div className="rounded-[30px] border border-white/[0.05] bg-black/10 px-2.5 py-3 backdrop-blur-sm">
+          <nav className="custom-scrollbar min-h-0 flex-1 overflow-y-auto px-3 pb-3 pt-1 sm:px-4 sm:pb-4">
+            <div className="rounded-[26px] border border-white/[0.05] bg-black/10 px-2 py-2.5 backdrop-blur-sm sm:rounded-[30px] sm:px-2.5 sm:py-3">
               <p className="px-3 pb-3 text-[9px] font-black uppercase tracking-[0.32em] text-white/24">Menu</p>
               {isRootShell ? (
                 <>
@@ -489,7 +498,7 @@ function AppContent() {
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-[11px] font-black tracking-[0.06em] text-white">Central Root</p>
-                      <p className="mt-1 text-[9px] text-white/40">{ROOT_MENU_ITEMS[0]?.helper}</p>
+                      <p className="mt-1 hidden text-[9px] text-white/40 sm:block">{ROOT_MENU_ITEMS[0]?.helper}</p>
                     </div>
                     <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/[0.05] text-white/35">
                       <ChevronRight size={15} />
@@ -497,7 +506,7 @@ function AppContent() {
                   </button>
                   <div className="pt-4">
                     <p className="px-3 pb-2 text-[8px] font-black uppercase tracking-[0.32em] text-white/20">Seções</p>
-                    <div className="space-y-2">
+                    <div className="space-y-1.5 sm:space-y-2">
                       {ROOT_SECTION_ITEMS.map(item => {
                         const Icon = item.icon;
                         const active = (location.hash || "#superadmin-overview") === item.href;
@@ -514,7 +523,7 @@ function AppContent() {
                             )}
                           >
                             <div className={cn(
-                              "flex h-10 w-10 items-center justify-center rounded-2xl border shrink-0 transition-all",
+                              "flex h-9 w-9 items-center justify-center rounded-2xl border shrink-0 transition-all sm:h-10 sm:w-10",
                               active
                                 ? "border-develoi-gold/20 bg-develoi-gold/18 text-develoi-gold"
                                 : "border-white/[0.05] bg-white/[0.04] text-white/45 group-hover:border-white/[0.1] group-hover:text-white"
@@ -523,7 +532,7 @@ function AppContent() {
                             </div>
                             <div className="min-w-0 flex-1">
                               <p className="truncate text-[11px] font-black tracking-[0.04em]">{item.label}</p>
-                              <p className="mt-1 truncate text-[9px] text-white/34">{item.helper}</p>
+                              <p className="mt-1 hidden truncate text-[9px] text-white/34 sm:block">{item.helper}</p>
                             </div>
                             <div className={cn(
                               "flex h-8 w-8 items-center justify-center rounded-full transition-all",
@@ -540,7 +549,7 @@ function AppContent() {
                   </div>
                 </>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-1.5 sm:space-y-2">
                   {menuItems.map(item => {
                     const Icon = item.icon;
                     const active = location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
@@ -549,14 +558,14 @@ function AppContent() {
                         key={item.path}
                         onClick={() => { navigate(item.path); setSidebarOpen(false); }}
                         className={cn(
-                          "group flex w-full items-center gap-3 rounded-[24px] border px-3.5 py-3 text-left transition-all duration-200",
+                          "group flex w-full items-center gap-3 rounded-[22px] border px-3 py-2.5 text-left transition-all duration-200 sm:rounded-[24px] sm:px-3.5 sm:py-3",
                           active
                             ? "border-[#d7b25d]/55 bg-[linear-gradient(135deg,#d7b25d_0%,#c5963c_100%)] text-[#091829] shadow-[0_18px_38px_rgba(197,160,77,0.28)]"
                             : "border-transparent text-white/60 hover:border-white/[0.08] hover:bg-white/[0.05] hover:text-white"
                         )}
                       >
                         <div className={cn(
-                          "flex h-10 w-10 items-center justify-center rounded-2xl border shrink-0 transition-all",
+                          "flex h-9 w-9 items-center justify-center rounded-2xl border shrink-0 transition-all sm:h-10 sm:w-10",
                           active
                             ? "border-white/35 bg-[#fff4d1]/80 text-[#091829]"
                             : "border-white/[0.05] bg-white/[0.04] text-white/48 group-hover:border-white/[0.1] group-hover:bg-white/[0.07] group-hover:text-white"
@@ -571,7 +580,7 @@ function AppContent() {
                             {item.label}
                           </p>
                           <p className={cn(
-                            "mt-1 truncate text-[9px]",
+                            "mt-1 hidden truncate text-[9px] sm:block",
                             active ? "text-[#523c12]/80" : "text-white/34"
                           )}>
                             {item.helper}
@@ -594,9 +603,9 @@ function AppContent() {
           </nav>
 
           {/* User card footer */}
-          <div className="px-4 pb-4 pt-1">
-            <div className="flex items-center gap-3 rounded-[26px] border border-white/[0.07] bg-white/[0.05] px-3.5 py-3 shadow-[0_14px_30px_rgba(0,0,0,0.18)]">
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-develoi-gold/20 bg-develoi-gold/18 shrink-0 text-[11px] font-black text-develoi-gold">
+          <div className="px-3 pb-3 pt-1 sm:px-4 sm:pb-4">
+            <div className="flex items-center gap-3 rounded-[24px] border border-white/[0.07] bg-white/[0.05] px-3 py-2.5 shadow-[0_14px_30px_rgba(0,0,0,0.18)] sm:rounded-[26px] sm:px-3.5 sm:py-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-2xl border border-develoi-gold/20 bg-develoi-gold/18 shrink-0 text-[11px] font-black text-develoi-gold sm:h-10 sm:w-10">
                 {(user?.full_name || "U").split(" ").slice(0, 2).map((n: string) => n[0]).join("").toUpperCase()}
               </div>
               <div className="min-w-0 flex-1">
@@ -606,7 +615,7 @@ function AppContent() {
               <button
                 onClick={handleLogout}
                 title="Sair"
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-white/[0.07] bg-white/[0.04] text-white/30 transition-colors hover:border-rose-400/20 hover:bg-rose-500/10 hover:text-rose-300"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-2xl border border-white/[0.07] bg-white/[0.04] text-white/30 transition-colors hover:border-rose-400/20 hover:bg-rose-500/10 hover:text-rose-300 sm:h-9 sm:w-9"
               >
                 <LogOut size={15} />
               </button>

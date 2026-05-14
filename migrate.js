@@ -29,11 +29,22 @@ function normalizeStatement(statement) {
 
 function assertSafeStatement(statement, filename) {
   const normalized = normalizeStatement(statement);
+  const allowedPatterns = [
+    /^CREATE\b/,
+    /^ALTER\b/,
+    /^UPDATE\b/,
+    /^INSERT\b/,
+    /^SET\b/,
+    /^START\s+TRANSACTION\b/,
+    /^COMMIT\b/,
+    /^ROLLBACK\b/,
+  ];
 
   const blockedPatterns = [
     { regex: /^DROP\s+(DATABASE|SCHEMA|TABLE|INDEX)\b/, reason: "DROP não é permitido" },
     { regex: /^TRUNCATE\b/, reason: "TRUNCATE não é permitido" },
     { regex: /^DELETE\s+FROM\b/, reason: "DELETE não é permitido" },
+    { regex: /^REPLACE\s+INTO\b/, reason: "REPLACE INTO não é permitido" },
     { regex: /^RENAME\s+TABLE\b/, reason: "RENAME TABLE não é permitido" },
     { regex: /^ALTER\s+TABLE\b.*\bDROP\s+(COLUMN|INDEX|PRIMARY\s+KEY|FOREIGN\s+KEY)\b/, reason: "ALTER TABLE com DROP não é permitido" },
   ];
@@ -44,6 +55,12 @@ function assertSafeStatement(statement, filename) {
         `Migração bloqueada por segurança em ${filename}: ${rule.reason}.`
       );
     }
+  }
+
+  if (!allowedPatterns.some((pattern) => pattern.test(normalized))) {
+    throw new Error(
+      `Migração bloqueada por segurança em ${filename}: apenas CREATE, ALTER, UPDATE, INSERT, SET e transações simples são permitidos.`
+    );
   }
 }
 
