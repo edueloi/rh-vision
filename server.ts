@@ -29,7 +29,7 @@ const OPENAI_RETRY_ATTEMPTS = Math.max(1, Number.parseInt(process.env.OPENAI_RET
 const OPENAI_RETRY_BASE_DELAY_MS = Math.max(250, Number.parseInt(process.env.OPENAI_RETRY_BASE_DELAY_MS?.trim() || '900', 10) || 900);
 const IMPORT_UPLOADS_DIR = path.join(__dirname, 'storage', 'imports');
 const CANDIDATE_UPLOADS_DIR = path.join(__dirname, 'storage', 'candidate-files');
-const CANDIDATE_BATCH_IMPORT_MAX_FILES = 30;
+const CANDIDATE_BATCH_IMPORT_MAX_FILES = 100;
 const CANDIDATE_BATCH_IMPORT_MAX_FILE_SIZE_BYTES = 8 * 1024 * 1024;
 const CANDIDATE_BATCH_IMPORT_MAX_TOTAL_SIZE_BYTES = 96 * 1024 * 1024;
 const CANDIDATE_BATCH_IMPORT_EXTENSIONS = ['.pdf', '.docx', '.txt', '.csv', '.xls', '.xlsx'];
@@ -3685,11 +3685,20 @@ Retorne EXATAMENTE este JSON:
 
       try {
         const batchId = req.params.id;
-        const batch = await db.prepare('SELECT id, tenant_id, unit_id, total_files FROM import_batches WHERE id = ?').get(batchId) as any;
+        const batch = await db.prepare('SELECT id, tenant_id, unit_id, total_files, status FROM import_batches WHERE id = ?').get(batchId) as any;
         const files = (req.files as any[]) || [];
 
         if (!batch) {
           return res.status(404).json({ error: 'Batch not found' });
+        }
+
+        if (batch.status === 'processing') {
+          return res.status(409).json({ error: 'O lote está sendo processado agora. Aguarde terminar.' });
+        }
+
+        // Reopen completed/committed batch so new files can be added and reprocessed
+        if (batch.status === 'completed' || batch.status === 'committed') {
+          await db.prepare("UPDATE import_batches SET status = 'pending' WHERE id = ?").run(batchId);
         }
 
         if (files.length === 0) {

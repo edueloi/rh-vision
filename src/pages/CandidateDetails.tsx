@@ -68,7 +68,10 @@ export default function CandidateDetailsPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
-    if (!candidateId) return;
+    if (!candidateId || Number(candidateId) <= 0) {
+      navigate("/candidatos", { replace: true });
+      return;
+    }
     setPageLoading(true);
     fetch(`/api/candidates/${candidateId}`)
       .then(r => {
@@ -81,7 +84,7 @@ export default function CandidateDetailsPage() {
         navigate("/candidatos", { replace: true });
       })
       .finally(() => setPageLoading(false));
-  }, [candidateId, navigate, toast]);
+  }, [candidateId]);
 
   const fetchEvaluations = async () => {
     try {

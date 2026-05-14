@@ -60,7 +60,7 @@ interface ImportCapacity {
 }
 
 const DEFAULT_CAPACITY: ImportCapacity = {
-  max_files_per_batch: 30,
+  max_files_per_batch: 100,
   max_file_size_bytes: 8 * 1024 * 1024,
   max_file_size_mb: 8,
   max_total_size_bytes: 96 * 1024 * 1024,

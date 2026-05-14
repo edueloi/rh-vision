@@ -88,17 +88,15 @@ export default function Jobs() {
 
   const fetchJob = useCallback(
     async (id: number) => {
+      if (!id || id <= 0) { navigate("/vagas", { replace: true }); return; }
       setSelectedJobLoading(true);
       try {
         const response = await fetch(`/api/jobs/${id}`);
-        if (!response.ok) {
-          throw new Error("Job not found");
-        }
-
+        if (!response.ok) throw new Error("Job not found");
         const data = await response.json();
         setSelectedJob(data);
       } catch {
-        toast.error("Erro ao carregar vaga.");
+        toast.error("Vaga não encontrada.");
         navigate("/vagas", { replace: true });
       } finally {
         setSelectedJobLoading(false);
@@ -108,8 +106,15 @@ export default function Jobs() {
   );
 
   useEffect(() => {
-    if (routeJobId) {
+    if (routeJobId && routeJobId > 0) {
       fetchJob(routeJobId);
+      return;
+    }
+
+    // slug presente mas decode falhou → redireciona uma única vez
+    const slug = editMatch?.params.jobId ?? detailsMatch?.params.jobId;
+    if (slug && !routeJobId) {
+      navigate("/vagas", { replace: true });
       return;
     }
 
