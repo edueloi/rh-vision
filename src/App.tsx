@@ -70,8 +70,8 @@ const ROOT_MENU_ITEMS: MenuItem[] = [
 
 const APP_MENU_ITEMS: MenuItem[] = [
   { path: "/dashboard", label: "Dashboard", helper: "Resumo, metas e indicadores", icon: LayoutDashboard, permissionKey: "dashboard" },
-  { path: "/aurora-ai", label: "Aurora AI", helper: "Triagem, match e inteligência", icon: Brain, permissionKey: "aurora_ai" },
-  { path: "/matches", label: "Matches AI", helper: "Afinidade de Vagas x Candidatos", icon: Zap, permissionKey: "aurora_ai" },
+  { path: "/aurora-ai", label: "Aurora AI", helper: "Triagem, aderência e inteligência", icon: Brain, permissionKey: "aurora_ai" },
+  { path: "/matches", label: "Aderência AI", helper: "Aderência de candidatos por vaga", icon: Zap, permissionKey: "aurora_ai" },
   { path: "/vagas", label: "Vagas", helper: "Requisições e pipeline", icon: Briefcase, permissionKey: "jobs" },
   { path: "/candidatos", label: "Candidatos", helper: "Banco de talentos", icon: Users, permissionKey: "candidates" },
   { path: "/importar-cvs", label: "Importar CVs", helper: "Upload e processamento", icon: FileUp, permissionKey: "imports" },
@@ -96,6 +96,45 @@ const LEGACY_TAB_TO_PATH: Record<string, string> = {
   tools: "/ferramentas",
   admin: "/administracao",
 };
+
+function SidebarTooltip({ label, helper, children }: { label: string; helper?: string; children: React.ReactNode }) {
+  const [rect, setRect] = React.useState<DOMRect | null>(null);
+  const ref = React.useRef<HTMLDivElement>(null);
+
+  const show = () => {
+    if (ref.current) setRect(ref.current.getBoundingClientRect());
+  };
+  const hide = () => setRect(null);
+
+  return (
+    <div ref={ref} onMouseEnter={show} onMouseLeave={hide}>
+      {children}
+      {rect && label && (
+        <div
+          className="fixed z-[9999] pointer-events-none"
+          style={{
+            top: rect.top + rect.height / 2,
+            left: rect.right + 10,
+            transform: "translateY(-50%)",
+          }}
+        >
+          {/* Seta */}
+          <div
+            className="absolute left-0 top-1/2 -translate-x-full -translate-y-1/2 border-[6px] border-transparent"
+            style={{ borderRightColor: "#0c1e38" }}
+          />
+          {/* Balão */}
+          <div className="bg-[#0c1e38] rounded-xl shadow-2xl border border-white/10 px-3 py-2.5 min-w-[110px]">
+            <p className="text-[11px] font-black text-white whitespace-nowrap leading-none">{label}</p>
+            {helper && (
+              <p className="text-[9px] font-medium text-white/50 whitespace-nowrap mt-1 leading-none">{helper}</p>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function getDefaultPath(user: any) {
   const permissions = getPermissionsForUser(user);
@@ -367,38 +406,8 @@ function AppContent() {
           height: 0;
         }
 
-        /* Collapsed icon tooltip */
-        .sidebar-collapsed .sidebar-icon-btn {
-          position: relative;
-        }
-        .sidebar-collapsed .sidebar-icon-btn::after {
-          content: attr(data-tooltip);
-          position: absolute;
-          left: calc(100% + 12px);
-          top: 50%;
-          transform: translateY(-50%) scale(0.92);
-          background: #0c1e38;
-          color: #fff;
-          font-size: 10px;
-          font-weight: 700;
-          letter-spacing: 0.04em;
-          padding: 5px 10px;
-          border-radius: 8px;
-          white-space: nowrap;
-          opacity: 0;
-          pointer-events: none;
-          transition: opacity 180ms ease, transform 180ms ease;
-          z-index: 200;
-          box-shadow: 0 4px 16px rgba(0,0,0,0.25);
-          border: 1px solid rgba(255,255,255,0.08);
-        }
-        .sidebar-collapsed .sidebar-icon-btn:hover::after {
-          opacity: 1;
-          transform: translateY(-50%) scale(1);
-        }
-
         /* Collapsed icon glow on hover */
-        .sidebar-collapsed .sidebar-icon-btn:hover .sidebar-icon-ring {
+        .sidebar-collapsed .sidebar-icon-ring:hover {
           box-shadow: 0 0 16px rgba(197,160,77,0.18);
         }
       `}</style>
@@ -411,7 +420,7 @@ function AppContent() {
 
       <aside className={cn(
         "fixed inset-y-0 left-0 z-[50] flex h-[100dvh] flex-col border-r border-white/[0.06] shadow-[22px_0_60px_rgba(3,8,20,0.24)] transition-transform duration-300 sidebar-transition",
-        sidebarCollapsed ? "overflow-hidden lg:overflow-visible" : "overflow-hidden",
+        "overflow-hidden",
         "lg:sticky lg:translate-x-0",
         sidebarCollapsed
           ? "w-[84vw] max-w-[18rem] sm:w-72 lg:w-[4.75rem] lg:min-w-[4.75rem] lg:max-w-[4.75rem]"
@@ -547,13 +556,12 @@ function AppContent() {
                 {menuItems.map(item => {
                   const Icon = item.icon;
                   const active = location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
-                  return (
+                  const btn = (
                     <button
                       key={item.path}
                       onClick={() => { navigate(item.path); setSidebarOpen(false); }}
-                      data-tooltip={item.label}
                       className={cn(
-                        "sidebar-icon-btn group flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition-all duration-200",
+                        "group flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition-all duration-200",
                         active
                           ? "border border-[#d7b25d]/40 bg-[linear-gradient(135deg,rgba(215,178,93,0.18)_0%,rgba(197,150,60,0.12)_100%)] text-white shadow-[0_8px_24px_rgba(197,160,77,0.12)]"
                           : "border border-transparent text-white/55 hover:bg-white/[0.04] hover:text-white",
@@ -593,6 +601,9 @@ function AppContent() {
                       )}
                     </button>
                   );
+                  return sidebarCollapsed
+                    ? <SidebarTooltip key={item.path} label={item.label} helper={item.helper}>{btn}</SidebarTooltip>
+                    : <React.Fragment key={item.path}>{btn}</React.Fragment>;
                 })}
               </div>
             )}
@@ -611,11 +622,11 @@ function AppContent() {
               <p className={cn(
                 "px-3 pb-2 text-[9px] font-black uppercase tracking-[0.32em] text-white/24 sidebar-content-fade"
               )}>Atalhos</p>
+              <SidebarTooltip label={sidebarCollapsed ? "Expandir menu" : ""} helper={sidebarCollapsed ? "Clique para expandir" : ""}>
               <button
                 onClick={toggleSidebar}
-                data-tooltip={sidebarCollapsed ? "Expandir" : "Recolher"}
                 className={cn(
-                  "sidebar-icon-btn group flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition-all duration-200 border border-transparent text-white/55 hover:bg-white/[0.04] hover:text-white",
+                  "group flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition-all duration-200 border border-transparent text-white/55 hover:bg-white/[0.04] hover:text-white",
                   sidebarCollapsed && "lg:justify-center lg:px-0 lg:py-2 lg:rounded-xl"
                 )}
               >
@@ -644,6 +655,7 @@ function AppContent() {
                   <PanelLeftClose size={14} />
                 </div>
               </button>
+              </SidebarTooltip>
             </div>
           </nav>
 
@@ -677,9 +689,8 @@ function AppContent() {
               <button
                 onClick={handleLogout}
                 title="Sair"
-                data-tooltip="Sair"
                 className={cn(
-                  "sidebar-icon-btn flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/[0.04] text-white/30 transition-colors hover:bg-rose-500/10 hover:text-rose-300 sm:h-9 sm:w-9",
+                  "flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/[0.04] text-white/30 transition-colors hover:bg-rose-500/10 hover:text-rose-300 sm:h-9 sm:w-9",
                   sidebarCollapsed && "lg:h-10 lg:w-10 lg:rounded-[14px] lg:bg-white/[0.05]"
                 )}
               >

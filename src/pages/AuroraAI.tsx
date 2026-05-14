@@ -231,10 +231,10 @@ export default function AuroraAI() {
       });
       const data = await res.json();
       setMatchResults(data.results || []);
-      toast.success('Análise de match concluída!');
+      toast.success('Análise de aderência concluída!');
       fetchSessions(); // O match também gera sessão
     } catch (error) {
-      toast.error('Erro ao realizar match');
+      toast.error('Erro ao calcular aderência.');
     } finally {
       setIsMatching(false);
     }
@@ -273,7 +273,7 @@ export default function AuroraAI() {
         <div className="flex items-center gap-1 bg-zinc-100 dark:bg-white/5 p-1 rounded-2xl border border-zinc-200 dark:border-white/10 shadow-sm transition-colors">
           {[
             { id: 'chat', label: 'Conversa', icon: MessageSquare },
-            { id: 'match', label: 'Match', icon: Target },
+            { id: 'match', label: 'Aderência', icon: Target },
             { id: 'history', label: 'Histórico', icon: History }
           ].map(view => (
             <button 
@@ -396,7 +396,7 @@ export default function AuroraAI() {
           {activeView === 'match' && (
             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
               <PanelCard 
-                title="Match Inteligente de Vagas" 
+                title="Aderência de Candidatos por Vaga"
                 icon={Target}
                 description="Use nossa IA neural para encontrar os candidatos ideais baseado em competências, comportamento e localização."
               >
@@ -501,7 +501,7 @@ export default function AuroraAI() {
                         </div>
                         <div className="text-right shrink-0">
                           <div className="text-xl font-black text-blue-600 dark:text-develoi-gold">{rec.compatibility_score}%</div>
-                          <p className="text-[8px] font-bold text-zinc-400 uppercase tracking-tighter">Match AI</p>
+                          <p className="text-[8px] font-bold text-zinc-400 uppercase tracking-tighter">Aderência AI</p>
                         </div>
                       </div>
                       
@@ -563,7 +563,7 @@ export default function AuroraAI() {
                  {[
                    { title: 'Vagas Ativas', value: stats?.active_jobs || '0', desc: 'Em recrutamento' },
                    { title: 'Processados', value: `+${stats?.new_candidates || '0'}`, desc: 'Candidatos novos' },
-                   { title: 'Compatíveis', value: stats?.compatible_candidates || '0', desc: 'Acima de 80% match' }
+                   { title: 'Compatíveis', value: stats?.compatible_candidates || '0', desc: 'Acima de 80% de aderência' }
                  ].map((insight, i) => (
                    <div key={i} className="flex justify-between items-end border-b border-develoi-navy/10 dark:border-develoi-gold/10 pb-4">
                       <div>
@@ -598,7 +598,7 @@ export default function AuroraAI() {
                          <div>
                             <h5 className="text-[11px] font-black text-zinc-800 dark:text-white/90 line-clamp-1" title={session.summary || ''}>
                                {session.search_type === 'match-job' 
-                                 ? `Match: ${jobs.find(j => j.id === session.job_id)?.title || `Vaga #${session.job_id}`}` 
+                                 ? `Aderência: ${jobs.find(j => j.id === session.job_id)?.title || `Vaga #${session.job_id}`}`
                                  : (session.summary || "Conversa Aurora")
                                }
                             </h5>
@@ -637,7 +637,7 @@ export default function AuroraAI() {
       >
         <div className="space-y-6">
            <div className="space-y-4">
-              <h4 className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Parâmetros de Match</h4>
+              <h4 className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Parâmetros de Aderência</h4>
               <div className="grid grid-cols-2 gap-4">
                  <div className="space-y-2">
                     <label className="text-[10px] font-bold text-zinc-500 uppercase">Limite Global (%)</label>
@@ -717,7 +717,9 @@ export default function AuroraAI() {
                   <div className="text-right">
                     <div className="text-3xl font-black text-develoi-navy dark:text-develoi-gold">{selectedMatchForDetails.compatibility_score}%</div>
                     <Badge color={selectedMatchForDetails.classification === 'Alto Fit' || selectedMatchForDetails.classification === 'Altíssimo Fit' ? 'success' : 'gold'}>
-                      {selectedMatchForDetails.classification}
+                      {selectedMatchForDetails.classification === 'Altíssimo Fit' ? 'Alta Aderência'
+                        : selectedMatchForDetails.classification === 'Alto Fit' ? 'Boa Aderência'
+                        : selectedMatchForDetails.classification}
                     </Badge>
                   </div>
                 </div>

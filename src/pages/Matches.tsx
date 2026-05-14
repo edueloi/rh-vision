@@ -39,7 +39,7 @@ function getScoreConfig(score: number) {
     ring: "ring-emerald-400",
     bar: "bg-emerald-500",
     badge: "success" as const,
-    label: "Excelente",
+    label: "Alta Aderência",
   };
   if (score >= 80) return {
     color: "text-blue-600",
@@ -48,7 +48,7 @@ function getScoreConfig(score: number) {
     ring: "ring-blue-400",
     bar: "bg-blue-500",
     badge: "info" as const,
-    label: "Muito Bom",
+    label: "Boa Aderência",
   };
   return {
     color: "text-amber-600",
@@ -88,6 +88,15 @@ function ScoreRing({ score }: { score: number }) {
   );
 }
 
+const classificationLabel: Record<string, string> = {
+  "ALTÍSSIMO FIT": "Alta Aderência",
+  "ALTO FIT":      "Boa Aderência",
+  "BOM FIT":       "Boa Aderência",
+  "FIT MÉDIO":     "Aderência Parcial",
+  "FIT BAIXO":     "Baixa Aderência",
+  "REVISÃO":       "Revisão",
+};
+
 export default function Matches() {
   const toast = useToast();
   const { currentUnit } = useUnit();
@@ -120,7 +129,7 @@ export default function Matches() {
       const res = await fetch(`/api/aurora-ai/matches/${selectedJobId}?minScore=70`);
       if (res.ok) setMatches((await res.json()) || []);
     } catch {
-      toast.error("Erro ao carregar os matches.");
+      toast.error("Erro ao carregar as aderências.");
     } finally {
       setLoading(false);
     }
@@ -157,10 +166,10 @@ export default function Matches() {
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div>
             <h1 className="text-xl sm:text-2xl font-black text-zinc-900 tracking-tight leading-none">
-              Matches Inteligentes
+              Aderência de Candidatos
             </h1>
             <p className="text-[11px] font-medium text-zinc-400 mt-1.5 tracking-wide">
-              Afinidade detalhada entre vagas e candidatos gerada pela IA
+              Análise de aderência entre vagas e candidatos gerada pela IA
             </p>
           </div>
 
@@ -200,8 +209,8 @@ export default function Matches() {
           >
             {[
               { icon: Users, label: "Candidatos", value: matches.length, color: "text-blue-600", bg: "bg-blue-50" },
-              { icon: Star, label: "Melhor Score", value: `${topScore}%`, color: "text-emerald-600", bg: "bg-emerald-50" },
-              { icon: Award, label: "Excelentes", value: excellentCount, color: "text-amber-600", bg: "bg-amber-50" },
+              { icon: Star, label: "Maior Aderência", value: `${topScore}%`, color: "text-emerald-600", bg: "bg-emerald-50" },
+              { icon: Award, label: "Alta Aderência", value: excellentCount, color: "text-amber-600", bg: "bg-amber-50" },
             ].map((stat, i) => (
               <motion.div
                 key={stat.label}
@@ -232,7 +241,7 @@ export default function Matches() {
             <EmptyState
               icon={<Target size={40} />}
               title="Nenhuma Vaga Selecionada"
-              description="Selecione uma vaga no filtro acima para visualizar os matches inteligentes encontrados pela Aurora AI."
+              description="Selecione uma vaga no filtro acima para visualizar a aderência dos candidatos analisada pela Aurora AI."
               className="py-20"
             />
           </PanelCard>
@@ -247,7 +256,7 @@ export default function Matches() {
               </div>
               <div className="absolute inset-0 rounded-full bg-develoi-gold/5 animate-ping" />
             </div>
-            <p className="text-xs font-black text-zinc-400 uppercase tracking-widest">Analisando compatibilidades...</p>
+            <p className="text-xs font-black text-zinc-400 uppercase tracking-widest">Calculando aderências...</p>
           </div>
         )}
 
@@ -256,7 +265,7 @@ export default function Matches() {
           <PanelCard padding={false}>
             <EmptyState
               icon={<Sparkles size={40} />}
-              title="Nenhum Match Encontrado"
+              title="Nenhum Candidato com Aderência"
               description="A IA não encontrou candidatos com aderência mínima de 70% para esta vaga. Tente ampliar o banco de candidatos."
               className="py-20"
             />
@@ -298,7 +307,7 @@ export default function Matches() {
                     <div className="flex flex-wrap items-center gap-2 mb-1">
                       <h3 className="text-sm font-black text-zinc-900">{match.full_name}</h3>
                       <Badge size="sm" color={cfg.badge}>
-                        {match.classification || cfg.label}
+                        {classificationLabel[match.classification?.toUpperCase()] || cfg.label}
                       </Badge>
                       {match.has_disc && (
                         <Badge size="sm" color="primary" icon={<Brain size={9} />}>
