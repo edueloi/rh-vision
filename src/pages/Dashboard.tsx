@@ -53,9 +53,27 @@ export default function Dashboard() {
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [period, setPeriod] = useState("30d");
   const [data, setData] = useState<any>(null);
   const [selectedUnit, setSelectedUnit] = useState<string>(queryUnitId);
+
+  // ── Filtro de período (opções fixas + user preference) ──
+  const PERIOD_OPTIONS = [
+    { v: "7d",   label: "7 dias" },
+    { v: "30d",  label: "1 mês" },
+    { v: "90d",  label: "3 meses" },
+    { v: "180d", label: "6 meses" },
+    { v: "365d", label: "1 ano" },
+  ] as const;
+  type PeriodValue = typeof PERIOD_OPTIONS[number]["v"];
+
+  const PERIOD_PREF_KEY = "dashboard_period_v2";
+  const savedPeriod = (() => { try { return localStorage.getItem(PERIOD_PREF_KEY) as PeriodValue | null; } catch { return null; } })();
+  const [period, setPeriod] = useState<PeriodValue>(savedPeriod ?? "30d");
+
+  const handlePeriodChange = (v: PeriodValue) => {
+    setPeriod(v);
+    try { localStorage.setItem(PERIOD_PREF_KEY, v); } catch { /* silent */ }
+  };
 
   // ── Checklist ──
   const storageKey = (() => {
@@ -101,7 +119,8 @@ export default function Dashboard() {
   const fetchData = async (silent = false) => {
     try {
       silent ? setRefreshing(true) : setLoading(true);
-      const res = await fetch(`/api/dashboard/overview?tenantId=${tenantId}&unitId=${selectedUnit}&period=${period}`);
+      const params = new URLSearchParams({ tenantId: String(tenantId), unitId: String(selectedUnit), period });
+      const res = await fetch(`/api/dashboard/overview?${params}`);
       setData(await res.json());
     } catch (e) { console.error(e); }
     finally { setLoading(false); setRefreshing(false); }
@@ -134,73 +153,92 @@ export default function Dashboard() {
       <div className="w-full space-y-6 px-4 sm:px-6 py-6 pb-20">
 
         {/* ── HEADER ── */}
-        <div className="relative overflow-hidden rounded-3xl border border-zinc-100 bg-white p-5 sm:p-6 shadow-sm">
-          {/* Subtle decorative elements */}
+        <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl border border-zinc-100 bg-white shadow-sm">
           <div className="pointer-events-none absolute -top-16 -right-16 h-40 w-40 rounded-full bg-develoi-gold/5 blur-3xl" />
           <div className="pointer-events-none absolute -bottom-12 -left-12 h-32 w-32 rounded-full bg-blue-400/5 blur-3xl" />
 
-          <div className="relative flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-            {/* Left: Title area */}
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <div className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-400">
-                  <Building2 size={10} className="text-develoi-gold" />
+          <div className="relative px-4 pt-4 pb-3 sm:px-6 sm:pt-5 sm:pb-4">
+            {/* Linha 1: título + ações */}
+            <div className="flex items-start justify-between gap-3 mb-3">
+              <div>
+                {/* breadcrumb só desktop */}
+                <div className="hidden sm:flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-400 mb-1.5">
+                  <Building2 size={9} className="text-develoi-gold" />
                   <span>{currentUnit.name}</span>
-                  <ChevronRight size={8} className="text-zinc-300" />
+                  <ChevronRight size={7} className="text-zinc-300" />
                   <span className="text-zinc-500">Dashboard</span>
                 </div>
+                {/* mobile: unidade pequena acima */}
+                <p className="sm:hidden text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-0.5 flex items-center gap-1">
+                  <Building2 size={9} className="text-develoi-gold" />{currentUnit.name}
+                </p>
+                <h1 className="text-xl sm:text-2xl font-black text-zinc-900 tracking-tight leading-none">Dashboard</h1>
+                <p className="text-[10px] font-medium text-zinc-400 mt-1 tracking-wide">
+                  Visão geral · {PERIOD_OPTIONS.find(o => o.v === period)?.label}
+                </p>
               </div>
-              <h1 className="text-xl sm:text-2xl font-black text-zinc-900 tracking-tight leading-none">
-                Dashboard
-              </h1>
-              <p className="text-[10px] font-medium text-zinc-400 mt-1.5 tracking-wide">
-                Visão geral do recrutamento
-              </p>
+
+              {/* Ações: refresh + nova vaga */}
+              <div className="flex items-center gap-2 shrink-0">
+                <button onClick={() => fetchData(true)} disabled={refreshing}
+                  className="h-9 w-9 flex items-center justify-center rounded-2xl border border-zinc-200 bg-white text-zinc-400 hover:text-develoi-navy hover:border-zinc-300 transition-all shadow-sm disabled:opacity-40">
+                  <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
+                </button>
+                <Link to="/vagas/nova"
+                  className="h-9 px-4 flex items-center gap-1.5 rounded-2xl bg-develoi-navy text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#0a1e3a] transition-all shadow-lg shadow-develoi-navy/15">
+                  <Plus size={14} />
+                  Nova Vaga
+                </Link>
+              </div>
             </div>
 
-            {/* Right: Actions */}
-            <div className="flex flex-wrap items-center gap-2.5">
-              {/* Period selector */}
-              <div className="flex items-center gap-0.5 rounded-2xl bg-zinc-50 border border-zinc-100 p-1">
-                {[{ v: "7d", label: "7D" }, { v: "30d", label: "30D" }, { v: "90d", label: "90D" }, { v: "all", label: "Hist." }].map(opt => (
-                  <button key={opt.v} onClick={() => setPeriod(opt.v)} className={cn(
-                    "relative px-3.5 py-1.5 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all duration-200",
-                    period === opt.v
-                      ? "bg-develoi-navy text-white shadow-md shadow-develoi-navy/20"
-                      : "text-zinc-400 hover:text-zinc-700 hover:bg-white"
-                  )}>{opt.label}</button>
+            {/* Linha 2: filtros */}
+            <div className="flex items-center gap-2 overflow-x-auto scrollbar-none -mx-1 px-1 pb-1">
+              {/* Pills no desktop */}
+              <div className="hidden sm:flex items-center gap-0.5 rounded-2xl bg-zinc-50 border border-zinc-100 p-1 shrink-0">
+                {PERIOD_OPTIONS.map(opt => (
+                  <button key={opt.v} onClick={() => handlePeriodChange(opt.v)}
+                    className={cn(
+                      "px-3.5 py-1.5 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all duration-200 whitespace-nowrap",
+                      period === opt.v ? "bg-develoi-navy text-white shadow-md shadow-develoi-navy/20" : "text-zinc-400 hover:text-zinc-700 hover:bg-white"
+                    )}>
+                    {opt.label}
+                  </button>
                 ))}
               </div>
 
-              {/* Unit filter */}
+              {/* Chips horizontais no mobile */}
+              <div className="flex sm:hidden items-center gap-1.5 shrink-0">
+                {PERIOD_OPTIONS.map(opt => (
+                  <button key={opt.v} onClick={() => handlePeriodChange(opt.v)}
+                    className={cn(
+                      "h-8 px-3.5 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap transition-all shrink-0",
+                      period === opt.v
+                        ? "bg-develoi-navy text-white shadow-md shadow-develoi-navy/20"
+                        : "bg-zinc-100 text-zinc-500 hover:bg-zinc-200"
+                    )}>
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Unidade (se multi-unit) */}
               {units.length > 1 && (
-                <div className="relative">
+                <div className="relative shrink-0 ml-auto">
                   <select value={selectedUnit} onChange={e => setSelectedUnit(e.target.value)}
-                    className="h-9 appearance-none rounded-2xl border border-zinc-200 bg-white text-[10px] font-black text-zinc-700 pl-3 pr-8 outline-none cursor-pointer hover:border-zinc-300 transition-colors shadow-sm">
+                    className="h-8 appearance-none rounded-full border border-zinc-200 bg-white text-[10px] font-black text-zinc-600 pl-3 pr-7 outline-none cursor-pointer hover:border-zinc-300 transition-colors">
                     <option value="master">Todas</option>
                     {units.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
                   </select>
-                  <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
+                  <ChevronDown size={10} className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
                 </div>
               )}
-
-              {/* Refresh */}
-              <button onClick={() => fetchData(true)} disabled={refreshing}
-                className="h-9 w-9 flex items-center justify-center rounded-2xl border border-zinc-200 bg-white text-zinc-400 hover:text-develoi-navy hover:border-zinc-300 transition-all shadow-sm disabled:opacity-40">
-                <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
-              </button>
-
-              {/* CTA */}
-              <Link to="/vagas/nova"
-                className="h-9 px-4 flex items-center gap-2 rounded-2xl bg-develoi-navy text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#0a1e3a] transition-all shadow-lg shadow-develoi-navy/15">
-                <Plus size={14} /> Nova Vaga
-              </Link>
             </div>
           </div>
         </div>
 
         {/* ── STATS ── */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-4">
           {[
             { label: "Vagas Ativas",     value: stats.active_jobs,           icon: Briefcase,  color: "navy"    as const, trend: { value: 12, isUp: true }, desc: "abertas agora" },
             { label: "Candidatos",       value: stats.total_candidates,      icon: Users,      color: "navy"    as const, trend: { value: 8,  isUp: true }, desc: "cadastrados" },
@@ -215,15 +253,16 @@ export default function Dashboard() {
 
         {/* ── FUNIL ── */}
         <PanelCard title="Funil de Recrutamento" icon={TrendingUp} description="Distribuição de candidatos por etapa"
-          action={<span className="text-[10px] font-black text-zinc-400 dark:text-white/30 uppercase tracking-widest">{funnelTotal} candidatos mapeados</span>}>
-          <div className="grid grid-cols-3 sm:grid-cols-6 gap-3 py-2">
+          action={<span className="text-[10px] font-black text-zinc-400 dark:text-white/30 uppercase tracking-widest hidden sm:block">{funnelTotal} candidatos mapeados</span>}>
+          {/* Mobile: scroll horizontal | Desktop: grid */}
+          <div className="flex sm:grid sm:grid-cols-6 gap-3 py-2 overflow-x-auto scrollbar-none -mx-1 px-1">
             {FUNNEL_STAGES.map((stage, i) => {
               const count = funnel.find((f: any) => f.status === stage.key)?.count || 0;
               const pct = funnelTotal > 0 ? Math.round((count / funnelTotal) * 100) : 0;
               return (
-                <div key={i} className="flex flex-col items-center gap-2 group">
-                  <div className={cn("w-full h-12 sm:h-14 rounded-2xl flex flex-col items-center justify-center gap-0.5 font-black transition-all group-hover:scale-105", stage.color)}>
-                    <span className="text-base sm:text-lg leading-none">{count}</span>
+                <div key={i} className="flex flex-col items-center gap-2 group shrink-0 w-20 sm:w-auto">
+                  <div className={cn("w-full h-14 rounded-2xl flex flex-col items-center justify-center gap-0.5 font-black transition-all group-hover:scale-105", stage.color)}>
+                    <span className="text-lg leading-none">{count}</span>
                     {funnelTotal > 0 && <span className="text-[8px] opacity-60">{pct}%</span>}
                   </div>
                   <p className="text-[8px] font-black text-zinc-400 dark:text-white/30 uppercase tracking-wider text-center whitespace-nowrap">{stage.label}</p>
