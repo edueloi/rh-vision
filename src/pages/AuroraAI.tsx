@@ -2,9 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Brain, Sparkles, Bot, Send, Target, CheckCircle2, AlertCircle,
   MessageSquare, History, Settings as SettingsIcon, ChevronRight,
-  Zap, User, MapPin, Cpu
+  Zap, User, MapPin, Cpu, Users, Search, BarChart3, Save, Loader2
 } from 'lucide-react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/src/lib/utils';
 import { getAuthHeaders, getTenantId } from '@/src/lib/auth';
 import { useUnit } from '@/src/lib/useUnit';
@@ -187,6 +187,159 @@ function ChatView({ messages, input, isTyping, scrollRef, onInputChange, onSend,
         </div>
       </div>
     </div>
+  );
+}
+
+// ─── Analysis progress overlay ───────────────────────────────────────────────
+
+const ANALYSIS_STAGES = [
+  { icon: Search,    label: "Buscando candidatos",         detail: "Carregando banco de talentos..." },
+  { icon: Users,     label: "Carregando perfis",           detail: "Processando dados e histórico..." },
+  { icon: Brain,     label: "Aurora analisando perfis",    detail: "IA neural comparando competências..." },
+  { icon: BarChart3, label: "Calculando aderência",        detail: "Atribuindo scores e classificações..." },
+  { icon: Save,      label: "Salvando resultados",         detail: "Registrando análises no sistema..." },
+];
+
+function AnalysisProgressOverlay({ jobTitle, visible }: { jobTitle: string; visible: boolean }) {
+  const [stage, setStage] = useState(0);
+  const [dots, setDots] = useState(0);
+
+  useEffect(() => {
+    if (!visible) { setStage(0); return; }
+    setStage(0);
+
+    // Advance through stages with realistic timing
+    const timings = [800, 1800, 0, 2200, 1200]; // ms each stage lasts (stage 2 stays until done)
+    let idx = 0;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+
+    const advance = () => {
+      idx++;
+      if (idx < ANALYSIS_STAGES.length - 1) {
+        setStage(idx);
+        if (timings[idx] > 0) {
+          timers.push(setTimeout(advance, timings[idx]));
+        }
+      } else {
+        setStage(idx); // stay on last stage
+      }
+    };
+
+    timers.push(setTimeout(advance, timings[0]));
+    return () => timers.forEach(clearTimeout);
+  }, [visible]);
+
+  // Animated dots
+  useEffect(() => {
+    if (!visible) return;
+    const t = setInterval(() => setDots(d => (d + 1) % 4), 450);
+    return () => clearInterval(t);
+  }, [visible]);
+
+  return (
+    <AnimatePresence>
+      {visible && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.96, y: 12 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.96, y: 12 }}
+          transition={{ duration: 0.25 }}
+          className="mt-4 rounded-3xl border border-develoi-navy/20 bg-develoi-navy overflow-hidden shadow-2xl"
+        >
+          {/* Top glow bar */}
+          <div className="h-1 bg-gradient-to-r from-develoi-gold via-amber-300 to-develoi-gold animate-shimmer bg-[length:200%_100%]" />
+
+          <div className="px-6 py-5">
+            {/* Header */}
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-10 h-10 rounded-2xl bg-develoi-gold/10 border border-develoi-gold/20 flex items-center justify-center shrink-0">
+                <Sparkles size={18} className="text-develoi-gold animate-pulse" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-black text-white uppercase tracking-[0.15em]">Aurora AI · Processando análise</p>
+                <p className="text-[10px] text-white/40 font-medium truncate mt-0.5">{jobTitle}</p>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 bg-develoi-gold rounded-full animate-ping" />
+                <span className="text-[9px] font-black text-develoi-gold uppercase tracking-widest">Live</span>
+              </div>
+            </div>
+
+            {/* Stage list */}
+            <div className="space-y-2 mb-5">
+              {ANALYSIS_STAGES.map((s, i) => {
+                const isDone    = i < stage;
+                const isCurrent = i === stage;
+                const isPending = i > stage;
+                const Icon = s.icon;
+
+                return (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, x: -8 }}
+                    animate={{ opacity: isPending ? 0.3 : 1, x: 0 }}
+                    transition={{ delay: i * 0.06 }}
+                    className={cn(
+                      "flex items-center gap-3 rounded-2xl px-4 py-2.5 transition-all duration-300",
+                      isCurrent && "bg-white/5 border border-white/10",
+                      isDone && "opacity-60",
+                    )}
+                  >
+                    <div className={cn(
+                      "w-7 h-7 rounded-xl flex items-center justify-center shrink-0 transition-all",
+                      isDone    && "bg-emerald-500/20 text-emerald-400",
+                      isCurrent && "bg-develoi-gold/20 text-develoi-gold",
+                      isPending && "bg-white/5 text-white/20",
+                    )}>
+                      {isDone
+                        ? <CheckCircle2 size={14} />
+                        : isCurrent
+                          ? <Icon size={14} className="animate-pulse" />
+                          : <Icon size={14} />
+                      }
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className={cn(
+                        "text-xs font-black leading-none",
+                        isDone    && "text-white/50 line-through",
+                        isCurrent && "text-white",
+                        isPending && "text-white/20",
+                      )}>
+                        {s.label}
+                      </p>
+                      {isCurrent && (
+                        <p className="text-[10px] text-white/40 font-medium mt-0.5">
+                          {s.detail.replace(/\.\.\.$/, '.'.repeat(dots + 1))}
+                        </p>
+                      )}
+                    </div>
+                    {isCurrent && (
+                      <Loader2 size={13} className="text-develoi-gold animate-spin shrink-0" />
+                    )}
+                    {isDone && (
+                      <span className="text-[9px] text-emerald-400 font-black uppercase tracking-widest shrink-0">OK</span>
+                    )}
+                  </motion.div>
+                );
+              })}
+            </div>
+
+            {/* Progress bar */}
+            <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+              <motion.div
+                className="h-full bg-gradient-to-r from-develoi-gold to-amber-300 rounded-full"
+                initial={{ width: "5%" }}
+                animate={{ width: `${Math.max(5, ((stage + 1) / ANALYSIS_STAGES.length) * 95)}%` }}
+                transition={{ duration: 0.6, ease: "easeOut" }}
+              />
+            </div>
+            <p className="text-[9px] text-white/30 font-bold uppercase tracking-widest mt-2 text-right">
+              Etapa {stage + 1} de {ANALYSIS_STAGES.length}
+            </p>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
 
@@ -821,7 +974,12 @@ export default function AuroraAI() {
                 onExecute={executeMatch}
               />
 
-              {matchResults.length > 0 && (
+              <AnalysisProgressOverlay
+                visible={isMatching}
+                jobTitle={jobs.find(j => String(j.id) === String(selectedJobId))?.title ?? 'vaga selecionada'}
+              />
+
+              {!isMatching && matchResults.length > 0 && (
                 <div className="grid sm:grid-cols-2 gap-4 animate-in fade-in duration-300">
                   {matchResults.map((rec, i) => (
                     <MatchCard

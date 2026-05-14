@@ -73,6 +73,14 @@
   font-weight: 800;
 }
 
+@keyframes shimmer {
+  0%   { background-position: 200% center; }
+  100% { background-position: -200% center; }
+}
+.animate-shimmer {
+  animation: shimmer 2s linear infinite;
+}
+
 /* Global Scrollbar Styles — Sleek & Minimal */
 ::-webkit-scrollbar {
   width: 6px;
