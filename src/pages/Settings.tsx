@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Settings2, Trash2, Clock, Loader2, Save, ShieldAlert, Users, FileUp } from "lucide-react";
 import {
   PageWrapper,
@@ -95,6 +95,8 @@ function SegmentedPicker<T extends string>({
 export default function Settings() {
   const tenantId = getTenantId();
   const toast = useToast();
+  const toastRef = useRef(toast);
+  toastRef.current = toast;
 
   const [settings, setSettings] = useState<TenantSettings>(DEFAULT);
   const [loading, setLoading] = useState(true);
@@ -113,11 +115,11 @@ export default function Settings() {
         auto_delete_target: data.auto_delete_target ?? DEFAULT.auto_delete_target,
       });
     } catch {
-      toast.error("Erro ao carregar configurações.");
+      toastRef.current.error("Erro ao carregar configurações.");
     } finally {
       setLoading(false);
     }
-  }, [tenantId, toast]);
+  }, [tenantId]); // toast removido — via ref para não recriar fetchSettings
 
   useEffect(() => { fetchSettings(); }, [fetchSettings]);
 

@@ -9,7 +9,8 @@ import { cn } from '@/src/lib/utils';
 import { getAuthHeaders, getTenantId } from '@/src/lib/auth';
 import { useUnit } from '@/src/lib/useUnit';
 import {
-  useToast, PanelCard, Button, IconButton, Badge, Input, Select, Switch, Modal
+  useToast, PanelCard, Button, IconButton, Badge, Input, Select, Switch, Modal,
+  PageWrapper, SectionTitle,
 } from '@/src/components/ui';
 
 // ─── SegmentedControl ────────────────────────────────────────────────────────
