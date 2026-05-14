@@ -4033,99 +4033,91 @@ Retorne EXATAMENTE este JSON:
       // Responder imediatamente para não travar o cliente/servidor
       res.json({ success: true, message: 'Processamento iniciado em segundo plano' });
 
-      // Processamento em Background
+      // Processamento em Background com concorrência controlada
       (async () => {
         const ai = createGeminiClient();
+        const CONCURRENCY = 4;
 
-        try {
-          for (const file of files) {
+        const processFile = async (file: any) => {
+          try {
+            await db.prepare("UPDATE import_files SET status = 'processing', progress = 10, duplicate_status = 'none', duplicate_candidate_id = NULL, error_message = NULL WHERE id = ?").run(file.id);
+
+            const extractedText = await extractResumeTextFromStoredFile(file);
+            const prompt = buildStructuredResumeBatchPrompt(extractedText, {
+              job_title: batch.job_title,
+              job_description: batch.job_description,
+            });
+
             try {
-              await db.prepare("UPDATE import_files SET status = 'processing', progress = 10, duplicate_status = 'none', duplicate_candidate_id = NULL, error_message = NULL WHERE id = ?").run(file.id);
-
-              const extractedText = await extractResumeTextFromStoredFile(file);
-              
-              const prompt = buildStructuredResumeBatchPrompt(extractedText, {
-                job_title: batch.job_title,
-                job_description: batch.job_description,
+              const aiResult = await ai.models.generateContent({
+                model: GEMINI_MODEL,
+                contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                config: {
+                  responseMimeType: 'application/json',
+                  temperature: 0.2,
+                  maxOutputTokens: 2600,
+                  reasoningEffort: 'medium',
+                  operationLabel: 'pré-análise em lote',
+                }
               });
 
-              try {
-                const aiResult = await ai.models.generateContent({
-                  model: GEMINI_MODEL,
-                  contents: [{ role: 'user', parts: [{ text: prompt }] }],
-                  config: {
-                    responseMimeType: 'application/json',
-                    temperature: 0.2,
-                    maxOutputTokens: 2600,
-                    reasoningEffort: 'medium',
-                    operationLabel: 'pré-análise em lote',
-                  }
-                });
-                
-                const data = normalizeResumeParsedData(
-                  parseJsonFromAiResponseSafe(aiResult.text || '{}'),
-                  Boolean(batch.job_title || batch.job_description)
-                );
+              const data = normalizeResumeParsedData(
+                parseJsonFromAiResponseSafe(aiResult.text || '{}'),
+                Boolean(batch.job_title || batch.job_description)
+              );
 
-                const existing = data.email
-                  ? await db.prepare('SELECT id FROM candidates WHERE email = ? AND tenant_id = ?').get(data.email, batch.tenant_id) as any
-                  : null;
-                
-                let status = 'completed';
-                let duplicateStatus = 'none';
-                let duplicateCandidateId = null;
+              const existing = data.email
+                ? await db.prepare('SELECT id FROM candidates WHERE email = ? AND tenant_id = ?').get(data.email, batch.tenant_id) as any
+                : null;
 
-                if (existing) {
-                  status = 'duplicate';
-                  duplicateStatus = 'email';
-                  duplicateCandidateId = existing.id;
-                }
+              const status = existing ? 'duplicate' : 'completed';
+              const duplicateStatus = existing ? 'email' : 'none';
+              const duplicateCandidateId = existing ? existing.id : null;
 
-                await db.prepare(`
-                  UPDATE import_files
-                  SET status = ?,
-                      progress = 100,
-                      extracted_text = ?,
-                      parsed_data_json = ?,
-                      ai_summary = ?,
-                      duplicate_status = ?,
-                      duplicate_candidate_id = ?,
-                      compatibility_score = ?,
-                      compatibility_classification = ?,
-                      updated_at = CURRENT_TIMESTAMP
-                  WHERE id = ?
-                `).run(
-                  status,
-                  extractedText,
-                  JSON.stringify(data),
-                  data.summary,
-                  duplicateStatus,
-                  duplicateCandidateId,
-                  data.compatibility_score,
-                  data.recommendation,
-                  file.id
-                );
+              await db.prepare(`
+                UPDATE import_files
+                SET status = ?,
+                    progress = 100,
+                    extracted_text = ?,
+                    parsed_data_json = ?,
+                    ai_summary = ?,
+                    duplicate_status = ?,
+                    duplicate_candidate_id = ?,
+                    compatibility_score = ?,
+                    compatibility_classification = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+              `).run(
+                status, extractedText, JSON.stringify(data), data.summary,
+                duplicateStatus, duplicateCandidateId,
+                data.compatibility_score, data.recommendation, file.id
+              );
 
-                await db.prepare(`
-                  UPDATE import_batches
-                  SET processed_files = processed_files + 1,
-                      duplicate_files = duplicate_files + ${duplicateStatus !== 'none' ? 1 : 0},
-                      updated_at = CURRENT_TIMESTAMP
-                  WHERE id = ?
-                `).run(batchId);
+              await db.prepare(`
+                UPDATE import_batches
+                SET processed_files = processed_files + 1,
+                    duplicate_files = duplicate_files + ${duplicateStatus !== 'none' ? 1 : 0},
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+              `).run(batchId);
 
-              } catch (err: any) {
-                console.error(`AI Error for file ${file.id}:`, err);
-                await db.prepare("UPDATE import_files SET status = 'error', error_message = ? WHERE id = ?").run(err.message || String(err), file.id);
-                await db.prepare('UPDATE import_batches SET error_files = error_files + 1 WHERE id = ?').run(batchId);
-                // Also increment processed_files so the batch can complete
-                await db.prepare('UPDATE import_batches SET processed_files = processed_files + 1 WHERE id = ?').run(batchId);
-              }
-            } catch (err) {
-              console.error(`Error extraction for file ${file.id}:`, err);
-              await db.prepare("UPDATE import_files SET status = 'error', error_message = ? WHERE id = ?").run(String(err), file.id);
+            } catch (err: any) {
+              console.error(`AI Error for file ${file.id}:`, err);
+              await db.prepare("UPDATE import_files SET status = 'error', error_message = ? WHERE id = ?").run(err.message || String(err), file.id);
               await db.prepare('UPDATE import_batches SET processed_files = processed_files + 1, error_files = error_files + 1 WHERE id = ?').run(batchId);
             }
+          } catch (err) {
+            console.error(`Extraction error for file ${file.id}:`, err);
+            await db.prepare("UPDATE import_files SET status = 'error', error_message = ? WHERE id = ?").run(String(err), file.id);
+            await db.prepare('UPDATE import_batches SET processed_files = processed_files + 1, error_files = error_files + 1 WHERE id = ?').run(batchId);
+          }
+        };
+
+        try {
+          // Processar em grupos de CONCURRENCY arquivos simultaneamente
+          for (let i = 0; i < files.length; i += CONCURRENCY) {
+            const chunk = files.slice(i, i + CONCURRENCY);
+            await Promise.all(chunk.map(processFile));
           }
         } catch (criticalError) {
           console.error("Critical background processing error:", criticalError);
