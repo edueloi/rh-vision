@@ -44,9 +44,11 @@ import { motion, AnimatePresence } from "motion/react";
 import { cn } from "@/src/lib/utils";
 import { useUnit } from "@/src/lib/useUnit";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { decodeId, encodeId } from "@/src/lib/hashid";
 
 export default function CandidateDetailsPage() {
-  const { candidateId } = useParams<{ candidateId: string }>();
+  const { candidateId: candidateSlug } = useParams<{ candidateId: string }>();
+  const candidateId = candidateSlug ? String(decodeId(candidateSlug)) : undefined;
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const toast = useToast();
@@ -221,7 +223,7 @@ export default function CandidateDetailsPage() {
               variant="outline"
               size="sm"
               iconLeft={<Edit size={14} />}
-              onClick={() => navigate(`/candidatos/${candidateId}/editar`)}
+              onClick={() => navigate(`/candidatos/${encodeId(Number(candidateId))}/editar`)}
             >
               Editar
             </Button>

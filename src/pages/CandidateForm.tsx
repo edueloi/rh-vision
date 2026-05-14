@@ -412,6 +412,38 @@ export default function CandidateForm({ candidate, onBack, onSuccess }: Candidat
                 </div>
               </Section>
 
+              <Section title="Objetivos" icon={Rocket}>
+                <div className="space-y-2">
+                  <Input
+                    placeholder="Pressione Enter para adicionar..."
+                    className="h-8 bg-white text-xs"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        const val = e.currentTarget.value.trim();
+                        if (val && !objectives.includes(val)) {
+                          setObjectives(prev => [...prev, val]);
+                          e.currentTarget.value = '';
+                        }
+                      }
+                    }}
+                  />
+                  <div className="flex flex-wrap gap-2">
+                    {objectives.map((obj, i) => (
+                      <span key={i} className="inline-flex items-start gap-1.5 pl-3 pr-1.5 py-1.5 rounded-xl bg-amber-50 text-amber-700 border border-amber-100 text-xs font-semibold break-words max-w-full">
+                        <span className="break-words">{obj}</span>
+                        <button type="button" onClick={() => setObjectives(prev => prev.filter((_, idx) => idx !== i))} className="p-0.5 hover:bg-amber-200 rounded transition-colors text-amber-400 shrink-0 mt-px">
+                          <CloseIcon size={10} />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                  {objectives.length === 0 && (
+                    <p className="text-center text-[10px] text-zinc-400 py-3">Nenhum objetivo adicionado</p>
+                  )}
+                </div>
+              </Section>
+
               <Section title="Resumo Profissional" icon={FileText}>
                 <Textarea 
                   label="Biografia"
@@ -645,6 +677,7 @@ export default function CandidateForm({ candidate, onBack, onSuccess }: Candidat
                      )}
                 </div>
               </Section>
+
             </div>
 
             {/* Right Column - Quick Info */}
@@ -692,42 +725,6 @@ export default function CandidateForm({ candidate, onBack, onSuccess }: Candidat
                     <option value="Portal">Portal</option>
                     <option value="Outro">Outro</option>
                   </Select>
-                </div>
-              </Section>
-
-              <Section title="Objetivos" icon={Rocket}>
-                <div className="space-y-2">
-                  <div className="relative mb-2">
-                    <Input 
-                      placeholder="Pressione Enter..."
-                      className="h-8 bg-white text-xs"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          const val = e.currentTarget.value.trim();
-                          if (val && !objectives.includes(val)) { 
-                            setObjectives(prev => [...prev, val]); 
-                            e.currentTarget.value = ''; 
-                          }
-                        }
-                      }}
-                    />
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                     {objectives.map((obj, i) => (
-                       <Badge key={i} className="pl-2 pr-1 py-1 rounded-lg bg-amber-50 text-amber-700 border-amber-100 text-[9px] font-semibold flex items-center gap-1.5">
-                         {obj}
-                         <button type="button" onClick={() => setObjectives(prev => prev.filter((_, idx) => idx !== i))} className="p-0.5 hover:bg-amber-200 rounded transition-colors text-amber-400">
-                           <CloseIcon size={10} />
-                         </button>
-                       </Badge>
-                     ))}
-                  </div>
-                  {objectives.length === 0 && (
-                     <div className="text-center py-3 text-zinc-400">
-                       <p className="text-[10px]">Nenhum objetivo adicionado</p>
-                     </div>
-                  )}
                 </div>
               </Section>
 

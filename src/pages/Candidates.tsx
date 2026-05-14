@@ -33,6 +33,7 @@ import CandidateForm from "./CandidateForm";
 import { motion } from "motion/react";
 import { cn } from "@/src/lib/utils";
 import { useMatch, useNavigate } from "react-router-dom";
+import { encodeId, decodeId } from "@/src/lib/hashid";
 
 type SortField = 'name' | 'date';
 type SortDir = 'asc' | 'desc';
@@ -63,7 +64,7 @@ export default function Candidates() {
   const editMatch = useMatch("/candidatos/:candidateId/editar");
   const isCreateRoute = Boolean(createMatch);
   const isEditRoute = Boolean(editMatch);
-  const routeCandidateId = Number(editMatch?.params.candidateId ?? 0) || null;
+  const routeCandidateId = decodeId(editMatch?.params.candidateId ?? '') || null;
   const [candidateForEdit, setCandidateForEdit] = useState<Candidate | null>(null);
   const [candidateEditLoading, setCandidateEditLoading] = useState(false);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
@@ -198,7 +199,7 @@ export default function Candidates() {
     return (
       <CandidateForm
         candidate={isEditRoute ? candidateForEdit : null}
-        onBack={() => navigate(isEditRoute && routeCandidateId ? `/candidatos/${routeCandidateId}` : "/candidatos")}
+        onBack={() => navigate(isEditRoute && routeCandidateId ? `/candidatos/${encodeId(routeCandidateId)}` : "/candidatos")}
         onSuccess={() => {
           navigate("/candidatos");
           fetchCandidates();
@@ -445,7 +446,7 @@ export default function Candidates() {
                 {/* Actions */}
                 <div className="w-36 flex items-center justify-end gap-1">
                   <IconButton
-                    onClick={() => navigate(`/candidatos/${c.id}`)}
+                    onClick={() => navigate(`/candidatos/${encodeId(c.id)}`)}
                     variant="ghost"
                     className="h-7 w-7 text-zinc-400 hover:text-develoi-navy hover:bg-develoi-navy/5"
                     aria-label="Ver perfil"
@@ -454,7 +455,7 @@ export default function Candidates() {
                     <Eye size={14} />
                   </IconButton>
                   <IconButton
-                    onClick={() => navigate(`/candidatos/${c.id}?tab=evaluations`)}
+                    onClick={() => navigate(`/candidatos/${encodeId(c.id)}?tab=evaluations`)}
                     variant="ghost"
                     className="h-7 w-7 text-zinc-400 hover:text-purple-600 hover:bg-purple-50"
                     aria-label="Avaliações"
@@ -463,7 +464,7 @@ export default function Candidates() {
                     <ClipboardCheck size={14} />
                   </IconButton>
                   <IconButton
-                    onClick={() => navigate(`/candidatos/${c.id}/editar`)}
+                    onClick={() => navigate(`/candidatos/${encodeId(c.id)}/editar`)}
                     variant="ghost"
                     className="h-7 w-7 text-zinc-400 hover:text-blue-600 hover:bg-blue-50"
                     aria-label="Editar"

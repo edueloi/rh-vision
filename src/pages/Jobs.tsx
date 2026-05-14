@@ -25,6 +25,7 @@ import {
 import JobDetails from "./JobDetails";
 import JobForm from "./JobForm";
 import { cn } from "@/src/lib/utils";
+import { encodeId, decodeId } from "@/src/lib/hashid";
 
 export default function Jobs() {
   const { currentUnit } = useUnit();
@@ -41,7 +42,7 @@ export default function Jobs() {
   const isCreateRoute = Boolean(createMatch || importMatch);
   const isEditRoute = Boolean(editMatch);
   const isDetailsRoute = Boolean(detailsMatch) && !isEditRoute;
-  const routeJobId = Number(editMatch?.params.jobId ?? detailsMatch?.params.jobId ?? 0) || null;
+  const routeJobId = decodeId(editMatch?.params.jobId ?? detailsMatch?.params.jobId ?? '') || null;
 
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [selectedJobLoading, setSelectedJobLoading] = useState(false);
@@ -239,7 +240,7 @@ export default function Jobs() {
       <JobForm
         job={isEditRoute ? selectedJob : null}
         initialData={importMatch ? ({ _importMode: true } as Partial<Job>) : null}
-        onBack={() => navigate(isEditRoute && routeJobId ? `/vagas/${routeJobId}` : "/vagas")}
+        onBack={() => navigate(isEditRoute && routeJobId ? `/vagas/${encodeId(routeJobId)}` : "/vagas")}
         onSuccess={() => {
           navigate("/vagas");
           fetchJobs();
@@ -312,8 +313,8 @@ export default function Jobs() {
                     key={job.id}
                     job={job}
                     variant={viewMode}
-                    onOpen={(item) => navigate(`/vagas/${item.id}`)}
-                    onEdit={(item) => navigate(`/vagas/${item.id}/editar`)}
+                    onOpen={(item) => navigate(`/vagas/${encodeId(item.id)}`)}
+                    onEdit={(item) => navigate(`/vagas/${encodeId(item.id)}/editar`)}
                     onDuplicate={handleDuplicate}
                     onTogglePublication={togglePublication}
                     onStatusChange={handleStatusChange}
@@ -340,7 +341,7 @@ export default function Jobs() {
           <JobDetails
             job={selectedJob}
             onClose={() => navigate("/vagas")}
-            onEdit={() => navigate(`/vagas/${selectedJob.id}/editar`)}
+            onEdit={() => navigate(`/vagas/${encodeId(selectedJob.id)}/editar`)}
           />
         )}
       </AnimatePresence>
