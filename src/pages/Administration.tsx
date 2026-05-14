@@ -18,6 +18,7 @@ import {
   Users,
 } from "lucide-react";
 import { getAuthHeaders, getAuthUser, getTenantId } from "@/src/lib/auth";
+import { formatPhoneBr } from "@/src/lib/masks";
 import { useUnit, Unit } from "@/src/lib/useUnit";
 import {
   ACCESS_PERMISSION_KEYS,
@@ -31,6 +32,8 @@ import {
 import {
   Badge,
   Button,
+  Combobox,
+  ComboboxOption,
   ContentCard,
   EmptyState,
   FormRow,
@@ -61,6 +64,7 @@ interface UserProfile {
 
 const initialUnitForm = {
   name: "",
+  country: "Brasil",
   city: "",
   state: "",
   company_name: "",
@@ -80,8 +84,79 @@ const initialUserForm = {
   access_profile: "rh-operacao" as AccessProfile,
 };
 
+const COUNTRY_OPTIONS: ComboboxOption[] = [
+  "Brasil",
+  "Argentina",
+  "Bolívia",
+  "Chile",
+  "Colômbia",
+  "Paraguai",
+  "Peru",
+  "Uruguai",
+  "Venezuela",
+  "México",
+  "Estados Unidos",
+  "Canadá",
+  "Portugal",
+  "Espanha",
+  "França",
+  "Alemanha",
+  "Itália",
+  "Reino Unido",
+  "Japão",
+  "China",
+  "Austrália",
+].map((country) => ({
+  value: country,
+  label: country,
+}));
+
+const STATE_OPTIONS: ComboboxOption[] = [
+  ["AC", "Acre"],
+  ["AL", "Alagoas"],
+  ["AP", "Amapá"],
+  ["AM", "Amazonas"],
+  ["BA", "Bahia"],
+  ["CE", "Ceará"],
+  ["DF", "Distrito Federal"],
+  ["ES", "Espírito Santo"],
+  ["GO", "Goiás"],
+  ["MA", "Maranhão"],
+  ["MT", "Mato Grosso"],
+  ["MS", "Mato Grosso do Sul"],
+  ["MG", "Minas Gerais"],
+  ["PA", "Pará"],
+  ["PB", "Paraíba"],
+  ["PR", "Paraná"],
+  ["PE", "Pernambuco"],
+  ["PI", "Piauí"],
+  ["RJ", "Rio de Janeiro"],
+  ["RN", "Rio Grande do Norte"],
+  ["RS", "Rio Grande do Sul"],
+  ["RO", "Rondônia"],
+  ["RR", "Roraima"],
+  ["SC", "Santa Catarina"],
+  ["SP", "São Paulo"],
+  ["SE", "Sergipe"],
+  ["TO", "Tocantins"],
+].map(([value, label]) => ({
+  value,
+  label: `${value} · ${label}`,
+  subtitle: label,
+}));
+
 function getUnitLocation(unit: Unit) {
-  return unit.location || [unit.city, unit.state].filter(Boolean).join(", ") || "Local não informado";
+  return (
+    unit.location ||
+    [
+      [unit.city, unit.state].filter(Boolean).join(", "),
+      unit.country && unit.country !== "Brasil" ? unit.country : null,
+    ]
+      .filter(Boolean)
+      .join(" · ") ||
+    unit.country ||
+    "Local não informado"
+  );
 }
 
 function formatLastLogin(value?: string) {
@@ -189,11 +264,12 @@ export default function Administration() {
     setEditingUnit(unit);
     setUnitForm({
       name: unit.name || "",
+      country: unit.country || "Brasil",
       city: unit.city || "",
-      state: unit.state || "",
+      state: (unit.state || "").toUpperCase(),
       company_name: unit.company_name || "",
       responsible_name: unit.responsible_name || "",
-      phone: unit.phone || "",
+      phone: formatPhoneBr(unit.phone || ""),
       email: unit.email || "",
       parent_id: unit.parent_id || "",
     });
@@ -862,9 +938,28 @@ export default function Administration() {
             <Input
               label="Telefone / WhatsApp"
               value={unitForm.phone}
-              onChange={(event) => setUnitForm({ ...unitForm, phone: event.target.value })}
+              onChange={(event) =>
+                setUnitForm({ ...unitForm, phone: formatPhoneBr(event.target.value) })
+              }
               placeholder="(00) 00000-0000"
             />
+
+            <div className="flex w-full flex-col gap-1.5">
+              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 select-none">
+                País
+              </label>
+              <Combobox
+                options={COUNTRY_OPTIONS}
+                value={unitForm.country}
+                onChange={(value) =>
+                  setUnitForm({ ...unitForm, country: String(value), state: "" })
+                }
+                placeholder="Selecione o país"
+                searchPlaceholder="Buscar país"
+                emptyMessage="Nenhum país encontrado."
+                className="w-full"
+              />
+            </div>
 
             <Input
               label="Cidade"
@@ -873,12 +968,29 @@ export default function Administration() {
               placeholder="Cidade"
             />
 
-            <Input
-              label="UF"
-              value={unitForm.state}
-              onChange={(event) => setUnitForm({ ...unitForm, state: event.target.value })}
-              placeholder="SP"
-            />
+            {unitForm.country === "Brasil" ? (
+              <div className="flex w-full flex-col gap-1.5">
+                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 select-none">
+                  UF
+                </label>
+                <Combobox
+                  options={STATE_OPTIONS}
+                  value={unitForm.state}
+                  onChange={(value) => setUnitForm({ ...unitForm, state: String(value) })}
+                  placeholder="Selecione a UF"
+                  searchPlaceholder="Buscar UF ou estado"
+                  emptyMessage="Nenhuma UF encontrada."
+                  className="w-full"
+                />
+              </div>
+            ) : (
+              <Input
+                label="Estado / Província"
+                value={unitForm.state}
+                onChange={(event) => setUnitForm({ ...unitForm, state: event.target.value })}
+                placeholder="Ex: Lisboa, Califórnia"
+              />
+            )}
           </FormRow>
         </form>
       </Modal>

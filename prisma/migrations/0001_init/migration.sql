@@ -21,6 +21,7 @@ CREATE TABLE `units` (
     `email` VARCHAR(255) NULL,
     `city` VARCHAR(255) NULL,
     `state` VARCHAR(255) NULL,
+    `country` VARCHAR(255) NULL,
     `latitude` DOUBLE NULL,
     `longitude` DOUBLE NULL,
     `is_master` BOOLEAN NOT NULL DEFAULT false,

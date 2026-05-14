@@ -37,6 +37,7 @@ model Unit {
   email            String?  @db.VarChar(255)
   city             String?  @db.VarChar(255)
   state            String?  @db.VarChar(255)
+  country          String?  @db.VarChar(255)
   latitude         Float?
   longitude        Float?
   is_master        Boolean  @default(false)

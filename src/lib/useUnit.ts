@@ -4,6 +4,7 @@ import { getAuthHeaders, getSelectedUnitStorageKey, getTenantId } from "./auth";
 export type Unit = {
   id: string;
   name: string;
+  country?: string;
   city?: string;
   state?: string;
   location?: string;
@@ -34,7 +35,13 @@ export function useUnit() {
         const data = await res.json();
         const formatted = data.map((u: any) => ({
           ...u,
-          location: u.city ? `${u.city}, ${u.state}` : 'Todas'
+          location:
+            [
+              u.city ? [u.city, u.state].filter(Boolean).join(", ") : null,
+              u.country && u.country !== "Brasil" ? u.country : null,
+            ]
+              .filter(Boolean)
+              .join(" · ") || "Todas"
         }));
         setUnits(formatted);
         

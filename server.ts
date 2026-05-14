@@ -138,6 +138,30 @@ function normalizeTextVerbosity(value: string | undefined, fallback: AITextVerbo
   return fallback;
 }
 
+async function ensureUnitCountryColumn() {
+  const existingColumn = await prisma.$queryRawUnsafe<any[]>(`
+    SELECT COLUMN_NAME
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'units'
+      AND COLUMN_NAME = 'country'
+    LIMIT 1
+  `);
+
+  if (!Array.isArray(existingColumn) || existingColumn.length === 0) {
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE units
+      ADD COLUMN country VARCHAR(255) NULL AFTER state
+    `);
+  }
+
+  await prisma.$executeRawUnsafe(`
+    UPDATE units
+    SET country = 'Brasil'
+    WHERE country IS NULL OR TRIM(country) = ''
+  `);
+}
+
 function buildAIInstructions(extraInstructions?: string | null) {
   return [AI_CORE_INSTRUCTIONS, extraInstructions?.trim()].filter(Boolean).join('\n\n');
 }
@@ -1302,6 +1326,7 @@ async function startServer() {
 
   // Initialize DB
   await initDb();
+  await ensureUnitCountryColumn();
 
   app.use(cors());
   app.use(express.json());
@@ -4351,9 +4376,9 @@ Retorne EXATAMENTE este JSON:
       // 2. Create Master Unit for this Tenant
       const unitId = 'master-' + tenantId;
       await db.prepare(`
-        INSERT INTO units (id, tenant_id, name, company_name, responsible_name, phone, email, is_master)
-        VALUES (?, ?, ?, ?, ?, ?, ?, 1)
-      `).run(unitId, tenantId, `Matriz - ${name}`, name, responsible_name, phone, email);
+        INSERT INTO units (id, tenant_id, name, company_name, responsible_name, phone, email, country, is_master)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+      `).run(unitId, tenantId, `Matriz - ${name}`, name, responsible_name, phone, email, 'Brasil');
 
       // 3. Create First User (Admin of this Tenant)
       const userId = 'admin-' + tenantId;
@@ -4631,8 +4656,8 @@ Retorne EXATAMENTE este JSON:
     try {
       const id = unit.id || Math.random().toString(36).substr(2, 9);
       await db.prepare(`
-        INSERT INTO units (id, tenant_id, parent_id, name, company_name, responsible_name, phone, email, city, state, is_master)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO units (id, tenant_id, parent_id, name, company_name, responsible_name, phone, email, city, state, country, is_master)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         id,
         tenantId,
@@ -4644,6 +4669,7 @@ Retorne EXATAMENTE este JSON:
         unit.email || null,
         unit.city || null,
         unit.state || null,
+        unit.country || 'Brasil',
         0
       );
       res.json({ id, ...unit });
@@ -4663,12 +4689,12 @@ Retorne EXATAMENTE este JSON:
       await db.prepare(`
         UPDATE units SET
           name = ?, parent_id = ?, company_name = ?, responsible_name = ?,
-          phone = ?, email = ?, city = ?, state = ?, updated_at = CURRENT_TIMESTAMP
+          phone = ?, email = ?, city = ?, state = ?, country = ?, updated_at = CURRENT_TIMESTAMP
         WHERE id = ?
       `).run(
         unit.name, unit.parent_id || null, unit.company_name || null,
         unit.responsible_name || null, unit.phone || null, unit.email || null,
-        unit.city || null, unit.state || null, id
+        unit.city || null, unit.state || null, unit.country || 'Brasil', id
       );
       res.json({ success: true });
     } catch (error) {

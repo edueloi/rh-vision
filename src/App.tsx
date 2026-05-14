@@ -46,6 +46,7 @@ import Login from "./pages/Login";
 import Welcome from "./pages/Welcome";
 import SuperAdmin from "./pages/SuperAdmin";
 import Profile from "./pages/Profile";
+import AccessGuide from "./pages/AccessGuide";
 import { cn } from "./lib/utils";
 import { useUnit, Unit } from "./lib/useUnit";
 import { getWelcomeStorageKey, isRootAdmin } from "./lib/auth";
@@ -181,7 +182,13 @@ function AppContent() {
     const currentHash = location.hash || "#superadmin-overview";
     return ROOT_SECTION_ITEMS.find((item) => item.href === currentHash) || ROOT_SECTION_ITEMS[0];
   }, [isRootShell, location.hash]);
-  const activeLabel = activeItem?.label ?? (location.pathname === '/perfil' ? 'Meu Perfil' : (menuItems[0]?.label || "Painel"));
+  const activeLabel = activeItem?.label ?? (
+    location.pathname === "/perfil"
+      ? "Meu Perfil"
+      : location.pathname === "/guia-de-acesso"
+        ? "Guia de Acesso"
+        : (menuItems[0]?.label || "Painel")
+  );
 
   useEffect(() => {
     let nextTitle = "Recrute IA | Plataforma de Recrutamento";
@@ -790,8 +797,8 @@ function AppContent() {
                           <button className="w-full rounded-xl px-3 py-2 text-left text-[11px] font-bold text-zinc-600 transition-colors hover:bg-zinc-50 hover:text-develoi-navy flex items-center gap-2.5">
                             <Settings size={14} className="text-zinc-400" /> Configurações
                           </button>
-                          <button className="w-full rounded-xl px-3 py-2 text-left text-[11px] font-bold text-zinc-600 transition-colors hover:bg-zinc-50 hover:text-develoi-navy flex items-center gap-2.5">
-                            <HelpCircle size={14} className="text-zinc-400" /> Suporte
+                          <button onClick={() => { setUserMenuOpen(false); navigate('/guia-de-acesso'); }} className="w-full rounded-xl px-3 py-2 text-left text-[11px] font-bold text-zinc-600 transition-colors hover:bg-zinc-50 hover:text-develoi-navy flex items-center gap-2.5">
+                            <HelpCircle size={14} className="text-zinc-400" /> Guia de Acesso
                           </button>
                           <button 
                             onClick={toggleTheme}
@@ -875,6 +882,7 @@ function AppContent() {
               element={guard(isSuperAdmin && permissions.super_admin, <SuperAdmin />)}
             />
             <Route path="/perfil" element={<Profile />} />
+            <Route path="/guia-de-acesso" element={<AccessGuide />} />
             <Route path="*" element={<Navigate to={defaultPath} replace />} />
           </Routes>
         </div>
