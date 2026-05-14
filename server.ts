@@ -1379,6 +1379,28 @@ async function ensureContactStatusTable() {
   }
 }
 
+async function ensureUserPreferencesTable() {
+  try {
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS user_preferences (
+        id         INT NOT NULL AUTO_INCREMENT,
+        user_id    VARCHAR(191) NOT NULL,
+        tenant_id  VARCHAR(191) NOT NULL,
+        \`key\`    VARCHAR(100) NOT NULL,
+        value      LONGTEXT NOT NULL,
+        updated_at DATETIME(0) NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        UNIQUE KEY uq_user_key (user_id, \`key\`),
+        KEY idx_tenant_id (tenant_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+  } catch (err: any) {
+    if (!err?.message?.includes('already exists')) {
+      console.warn('[ensureUserPreferencesTable]', err?.message);
+    }
+  }
+}
+
 async function startServer() {
   const app = express();
   const PORT = Number(process.env.PORT || 3000);
@@ -1387,6 +1409,7 @@ async function startServer() {
   await initDb();
   await ensureUnitCountryColumn();
   await ensureContactStatusTable();
+  await ensureUserPreferencesTable();
 
   app.use(cors());
   app.use(express.json());
@@ -5333,6 +5356,64 @@ Retorne EXATAMENTE este JSON:
     } catch (err) {
       console.error('[settings PUT]', err);
       res.status(500).json({ error: 'Erro ao salvar configurações.' });
+    }
+  });
+
+  // ─── User Preferences ────────────────────────────────────────────────────────
+
+  // GET /api/user-preferences?userId=&key=   → returns { key, value (parsed JSON) }
+  // GET /api/user-preferences?userId=         → returns all prefs as { [key]: value }
+  app.get('/api/user-preferences', async (req, res) => {
+    const { userId, key } = req.query as { userId?: string; key?: string };
+    if (!userId) return res.status(400).json({ error: 'userId required' });
+    try {
+      if (key) {
+        const rows = await prisma.$queryRawUnsafe<any[]>(
+          'SELECT `key`, value FROM user_preferences WHERE user_id = ? AND `key` = ? LIMIT 1',
+          userId, key
+        );
+        if (!rows[0]) return res.json({ key, value: null });
+        let parsed: any = rows[0].value;
+        try { parsed = JSON.parse(rows[0].value); } catch { /* keep string */ }
+        return res.json({ key, value: parsed });
+      }
+      const rows = await prisma.$queryRawUnsafe<any[]>(
+        'SELECT `key`, value FROM user_preferences WHERE user_id = ?',
+        userId
+      );
+      const result: Record<string, any> = {};
+      for (const r of rows) {
+        try { result[r.key] = JSON.parse(r.value); } catch { result[r.key] = r.value; }
+      }
+      return res.json(result);
+    } catch (err) {
+      console.error('[user-preferences GET]', err);
+      res.status(500).json({ error: 'Erro ao carregar preferências.' });
+    }
+  });
+
+  // PUT /api/user-preferences  body: { userId, tenantId, key, value }
+  //   or bulk: { userId, tenantId, prefs: { [key]: value } }
+  app.put('/api/user-preferences', async (req, res) => {
+    const { userId, tenantId, key, value, prefs } = req.body;
+    if (!userId || !tenantId) return res.status(400).json({ error: 'userId and tenantId required' });
+    try {
+      const entries: Array<{ key: string; value: string }> = prefs
+        ? Object.entries(prefs).map(([k, v]) => ({ key: k, value: JSON.stringify(v) }))
+        : [{ key, value: JSON.stringify(value) }];
+
+      for (const e of entries) {
+        await prisma.$executeRawUnsafe(
+          `INSERT INTO user_preferences (user_id, tenant_id, \`key\`, value)
+           VALUES (?, ?, ?, ?)
+           ON DUPLICATE KEY UPDATE value = VALUES(value), updated_at = CURRENT_TIMESTAMP`,
+          userId, tenantId, e.key, e.value
+        );
+      }
+      res.json({ ok: true });
+    } catch (err) {
+      console.error('[user-preferences PUT]', err);
+      res.status(500).json({ error: 'Erro ao salvar preferências.' });
     }
   });
 

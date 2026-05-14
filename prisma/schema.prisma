@@ -554,6 +554,19 @@ model TenantSetting {
   @@map("tenant_settings")
 }
 
+model UserPreference {
+  id           Int      @id @default(autoincrement())
+  user_id      String   @db.VarChar(191)
+  tenant_id    String   @db.VarChar(191)
+  key          String   @db.VarChar(100)
+  value        String   @db.LongText
+  updated_at   DateTime @default(now()) @updatedAt @db.DateTime(0)
+
+  @@unique([user_id, key])
+  @@index([tenant_id])
+  @@map("user_preferences")
+}
+
 model JobImport {
   id               Int       @id @default(autoincrement())
   tenant_id        String    @db.VarChar(191)

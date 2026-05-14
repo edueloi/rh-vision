@@ -40,6 +40,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { cn } from "@/src/lib/utils";
 import { useMatch, useNavigate } from "react-router-dom";
 import { encodeId, decodeId } from "@/src/lib/hashid";
+import { useUserPreferences } from "@/src/lib/useUserPreferences";
 
 type SortField = 'name' | 'date';
 type SortDir = 'asc' | 'desc';
@@ -122,7 +123,8 @@ export default function Candidates() {
   const [sortDir, setSortDir] = useState<SortDir>(savedPrefs?.sortDir ?? 'asc');
 
   const PAGE_SIZE_OPTIONS = [5, 10, 20, 50, 100, 200] as const;
-  const [pageSize, setPageSize] = useState<number>(savedPrefs?.pageSize ?? 20);
+  const { get: getPref, set: setPref } = useUserPreferences();
+  const [pageSize, setPageSize] = useState<number>(() => getPref<number>("candidates_pageSize", savedPrefs?.pageSize ?? 20));
   const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
@@ -133,8 +135,8 @@ export default function Candidates() {
   }, [searchInput]);
 
   useEffect(() => {
-    savePrefs(tenantId, { ...filters, search: searchInput, sortField, sortDir, pageSize });
-  }, [filters, searchInput, sortField, sortDir, pageSize, tenantId]);
+    savePrefs(tenantId, { ...filters, search: searchInput, sortField, sortDir });
+  }, [filters, searchInput, sortField, sortDir, tenantId]);
 
   // Reset to page 1 when filters/sort change
   useEffect(() => { setCurrentPage(1); }, [filters, searchInput, sortField, sortDir]);
@@ -709,7 +711,7 @@ export default function Candidates() {
                 {/* Page size selector */}
                 <select
                   value={pageSize}
-                  onChange={e => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
+                  onChange={e => { const n = Number(e.target.value); setPageSize(n); setPref("candidates_pageSize", n); setCurrentPage(1); }}
                   className="h-7 appearance-none rounded-lg border border-zinc-200 bg-white text-[10px] font-black text-zinc-600 pl-2.5 pr-6 outline-none cursor-pointer hover:border-zinc-300 transition-colors"
                   title="Itens por página"
                 >

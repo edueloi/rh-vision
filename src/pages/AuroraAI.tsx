@@ -7,6 +7,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/src/lib/utils';
 import { getAuthHeaders, getTenantId } from '@/src/lib/auth';
+import { useUserPreferences } from '@/src/lib/useUserPreferences';
 import { useUnit } from '@/src/lib/useUnit';
 import {
   useToast, PanelCard, Button, IconButton, Badge, Input, Select, Switch, Modal,
@@ -958,20 +959,12 @@ export default function AuroraAI() {
   const [isMatching, setIsMatching] = useState(false);
   const [selectedMatch, setSelectedMatch] = useState<MatchResult | null>(null);
 
-  // Filters — restored from localStorage on mount
-  const PREFS_KEY = `aurora_prefs_${tenantId}`;
-  const loadedPrefs = (() => { try { return JSON.parse(localStorage.getItem(PREFS_KEY) || '{}'); } catch { return {}; } })();
-  const [precisionMode, setPrecisionMode] = useState(loadedPrefs.precisionMode ?? 'Equilibrada');
-  const [minScore, setMinScore] = useState(loadedPrefs.minScore ?? "70");
-  const [radius, setRadius] = useState(loadedPrefs.radius ?? "50");
-  const [onlyWithDisc, setOnlyWithDisc] = useState(loadedPrefs.onlyWithDisc ?? false);
-
-  const savePrefs = (patch: object) => {
-    try {
-      const current = JSON.parse(localStorage.getItem(PREFS_KEY) || '{}');
-      localStorage.setItem(PREFS_KEY, JSON.stringify({ ...current, ...patch }));
-    } catch { /* silent */ }
-  };
+  // Filters — restored from backend user preferences
+  const { get: getPref, set: setPref } = useUserPreferences();
+  const [precisionMode, setPrecisionMode] = useState(() => getPref<string>("aurora_precisionMode", 'Equilibrada'));
+  const [minScore, setMinScore] = useState(() => getPref<string>("aurora_minScore", "70"));
+  const [radius, setRadius] = useState(() => getPref<string>("aurora_radius", "50"));
+  const [onlyWithDisc, setOnlyWithDisc] = useState(() => getPref<boolean>("aurora_onlyWithDisc", false));
 
   // Settings modal
   const [showSettings, setShowSettings] = useState(false);
@@ -1075,20 +1068,20 @@ export default function AuroraAI() {
     }
   }
 
-  const handlePrecisionChange = (v: string) => { setPrecisionMode(v); savePrefs({ precisionMode: v }); };
-  const handleMinScoreChange = (v: string) => { setMinScore(v); savePrefs({ minScore: v }); };
-  const handleRadiusChange = (v: string) => { setRadius(v); savePrefs({ radius: v }); };
-  const handleDiscChange = (v: boolean) => { setOnlyWithDisc(v); savePrefs({ onlyWithDisc: v }); };
+  const handlePrecisionChange = (v: string) => { setPrecisionMode(v); setPref("aurora_precisionMode", v); };
+  const handleMinScoreChange = (v: string) => { setMinScore(v); setPref("aurora_minScore", v); };
+  const handleRadiusChange = (v: string) => { setRadius(v); setPref("aurora_radius", v); };
+  const handleDiscChange = (v: boolean) => { setOnlyWithDisc(v); setPref("aurora_onlyWithDisc", v); };
 
   function handleSessionClick(session: any) {
     if (session.search_type === 'match-job' && session.job_id) {
       setSelectedJobId(String(session.job_id));
       // Restore filters saved with this session
       if (session.filters) {
-        if (session.filters.precisionMode) { setPrecisionMode(session.filters.precisionMode); savePrefs({ precisionMode: session.filters.precisionMode }); }
-        if (session.filters.minScore != null) { setMinScore(String(session.filters.minScore)); savePrefs({ minScore: String(session.filters.minScore) }); }
-        if (session.filters.radius != null) { setRadius(String(session.filters.radius)); savePrefs({ radius: String(session.filters.radius) }); }
-        if (session.filters.onlyWithDisc != null) { setOnlyWithDisc(session.filters.onlyWithDisc); savePrefs({ onlyWithDisc: session.filters.onlyWithDisc }); }
+        if (session.filters.precisionMode) { setPrecisionMode(session.filters.precisionMode); setPref("aurora_precisionMode", session.filters.precisionMode); }
+        if (session.filters.minScore != null) { setMinScore(String(session.filters.minScore)); setPref("aurora_minScore", String(session.filters.minScore)); }
+        if (session.filters.radius != null) { setRadius(String(session.filters.radius)); setPref("aurora_radius", String(session.filters.radius)); }
+        if (session.filters.onlyWithDisc != null) { setOnlyWithDisc(session.filters.onlyWithDisc); setPref("aurora_onlyWithDisc", session.filters.onlyWithDisc); }
       }
       setActiveView('match');
     } else {
