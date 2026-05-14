@@ -1321,6 +1321,31 @@ function getTenantContractStatus(expiresAt?: string | null, status?: string | nu
   return status || 'Ativo';
 }
 
+async function ensureContactStatusTable() {
+  try {
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS candidate_contact_statuses (
+        id             INT NOT NULL AUTO_INCREMENT,
+        tenant_id      VARCHAR(191) NOT NULL,
+        candidate_id   INT NOT NULL,
+        job_id         INT NOT NULL,
+        contact_status VARCHAR(50) NOT NULL DEFAULT '',
+        contact_notes  TEXT,
+        updated_at     DATETIME(0) NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        UNIQUE KEY uq_candidate_job (candidate_id, job_id),
+        KEY idx_tenant_id (tenant_id),
+        KEY idx_candidate_id (candidate_id),
+        KEY idx_job_id (job_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+  } catch (err: any) {
+    if (!err?.message?.includes('already exists')) {
+      console.warn('[ensureContactStatusTable]', err?.message);
+    }
+  }
+}
+
 async function startServer() {
   const app = express();
   const PORT = Number(process.env.PORT || 3000);
@@ -1328,6 +1353,7 @@ async function startServer() {
   // Initialize DB
   await initDb();
   await ensureUnitCountryColumn();
+  await ensureContactStatusTable();
 
   app.use(cors());
   app.use(express.json());
@@ -2688,25 +2714,50 @@ Retorne EXATAMENTE este JSON:
     try {
       const minScore = Number(req.query.minScore) || 0;
       const results = await db.prepare(`
-        SELECT r.*, c.full_name, c.city, c.state, c.email, c.phone
+        SELECT r.*, c.full_name, c.city, c.state, c.email, c.phone,
+               COALESCE(cs.contact_status, '') as contact_status,
+               cs.contact_notes
         FROM ai_search_results r
         JOIN candidates c ON r.candidate_id = c.id
+        LEFT JOIN candidate_contact_statuses cs ON cs.candidate_id = r.candidate_id AND cs.job_id = r.job_id
         WHERE r.job_id = ? AND r.compatibility_score >= ?
         ORDER BY r.compatibility_score DESC, c.full_name ASC
         LIMIT 50
       `).all(req.params.jobId, minScore) as any[];
-      
-      const parsedResults = results.map((r: any) => ({
-        ...r,
-        has_disc: r.has_disc === 1,
-        strengths: typeof r.strengths === 'string' ? JSON.parse(r.strengths || '[]') : r.strengths,
-        attention_points: typeof r.attention_points === 'string' ? JSON.parse(r.attention_points || '[]') : r.attention_points
-      }));
-      
+
+      const BLOCKING_STATUSES = ['ja_trabalhando', 'sem_interesse', 'nao_sucedido'];
+      const parsedResults = results
+        .filter((r: any) => !BLOCKING_STATUSES.includes(r.contact_status))
+        .map((r: any) => ({
+          ...r,
+          has_disc: r.has_disc === 1,
+          strengths: typeof r.strengths === 'string' ? JSON.parse(r.strengths || '[]') : r.strengths,
+          attention_points: typeof r.attention_points === 'string' ? JSON.parse(r.attention_points || '[]') : r.attention_points
+        }));
+
       res.json(parsedResults);
     } catch (error) {
       console.error(error);
       res.status(500).json({ error: 'Failed to fetch matches' });
+    }
+  });
+
+  app.patch('/api/aurora-ai/matches/:jobId/contact/:candidateId', async (req, res) => {
+    try {
+      const { jobId, candidateId } = req.params;
+      const { contact_status, contact_notes, tenant_id } = req.body;
+      await db.prepare(`
+        INSERT INTO candidate_contact_statuses (tenant_id, candidate_id, job_id, contact_status, contact_notes, updated_at)
+        VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        ON DUPLICATE KEY UPDATE
+          contact_status = VALUES(contact_status),
+          contact_notes  = VALUES(contact_notes),
+          updated_at     = CURRENT_TIMESTAMP
+      `).run(tenant_id, candidateId, jobId, contact_status ?? '', contact_notes ?? null);
+      res.json({ ok: true });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: 'Failed to save contact status' });
     }
   });
 

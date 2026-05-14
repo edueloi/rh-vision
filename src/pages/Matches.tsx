@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Target, ChevronDown, Download, Mail, Phone,
   Brain, FileText, CheckCircle2, Zap, Briefcase, Loader2, MapPin,
-  Star, Users, Award, ChevronRight, Sparkles
+  Star, Users, Award, ChevronRight, Sparkles, MessageSquare, PhoneCall,
+  Clock, XCircle, AlertCircle, Ban, CheckCheck, HelpCircle, Save
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Badge, Button, PanelCard, EmptyState, PageWrapper, SectionTitle } from "@/src/components/ui";
@@ -11,6 +12,8 @@ import { Link } from "react-router-dom";
 import { useToast } from "@/src/components/ui";
 import { getTenantId } from "@/src/lib/auth";
 import { useUnit } from "@/src/lib/useUnit";
+
+// ── Tipos ──────────────────────────────────────────────────────────────────────
 
 interface MatchResult {
   candidate_id: number;
@@ -29,7 +32,258 @@ interface MatchResult {
   attention_points: string[];
   recommendation_reason: string;
   risk_reason: string;
+  contact_status: string;
+  contact_notes?: string;
 }
+
+// ── Status de contato ──────────────────────────────────────────────────────────
+
+interface ContactStatusOption {
+  value: string;
+  label: string;
+  color: string;
+  bgLight: string;
+  borderLight: string;
+  textLight: string;
+  icon: React.ReactNode;
+  blocks: boolean;
+}
+
+const CONTACT_STATUSES: ContactStatusOption[] = [
+  {
+    value: "",
+    label: "Não informado",
+    color: "text-zinc-400",
+    bgLight: "bg-zinc-50",
+    borderLight: "border-zinc-200",
+    textLight: "text-zinc-500",
+    icon: <HelpCircle size={13} />,
+    blocks: false,
+  },
+  {
+    value: "em_andamento",
+    label: "Em andamento",
+    color: "text-blue-600",
+    bgLight: "bg-blue-50",
+    borderLight: "border-blue-200",
+    textLight: "text-blue-700",
+    icon: <PhoneCall size={13} />,
+    blocks: false,
+  },
+  {
+    value: "aguardando",
+    label: "Aguardando resposta",
+    color: "text-amber-600",
+    bgLight: "bg-amber-50",
+    borderLight: "border-amber-200",
+    textLight: "text-amber-700",
+    icon: <Clock size={13} />,
+    blocks: false,
+  },
+  {
+    value: "sem_resposta",
+    label: "Sem resposta",
+    color: "text-orange-600",
+    bgLight: "bg-orange-50",
+    borderLight: "border-orange-200",
+    textLight: "text-orange-700",
+    icon: <MessageSquare size={13} />,
+    blocks: false,
+  },
+  {
+    value: "pendente",
+    label: "Pendente",
+    color: "text-purple-600",
+    bgLight: "bg-purple-50",
+    borderLight: "border-purple-200",
+    textLight: "text-purple-700",
+    icon: <AlertCircle size={13} />,
+    blocks: false,
+  },
+  {
+    value: "ja_trabalhando",
+    label: "Já está trabalhando",
+    color: "text-red-600",
+    bgLight: "bg-red-50",
+    borderLight: "border-red-200",
+    textLight: "text-red-700",
+    icon: <Ban size={13} />,
+    blocks: true,
+  },
+  {
+    value: "sem_interesse",
+    label: "Sem interesse",
+    color: "text-red-600",
+    bgLight: "bg-red-50",
+    borderLight: "border-red-200",
+    textLight: "text-red-700",
+    icon: <XCircle size={13} />,
+    blocks: true,
+  },
+  {
+    value: "nao_sucedido",
+    label: "Não sucedido",
+    color: "text-zinc-600",
+    bgLight: "bg-zinc-100",
+    borderLight: "border-zinc-300",
+    textLight: "text-zinc-600",
+    icon: <CheckCheck size={13} />,
+    blocks: true,
+  },
+];
+
+function getContactStatusOption(value: string): ContactStatusOption {
+  return CONTACT_STATUSES.find(s => s.value === value) ?? CONTACT_STATUSES[0];
+}
+
+// ── Componente do painel de contato ────────────────────────────────────────────
+
+function ContactStatusPanel({
+  match,
+  jobId,
+  tenantId,
+  onSaved,
+}: {
+  match: MatchResult;
+  jobId: string;
+  tenantId: string;
+  onSaved: (candidateId: number, status: string, notes: string) => void;
+}) {
+  const toast = useToast();
+  const [status, setStatus] = useState(match.contact_status ?? "");
+  const [notes, setNotes] = useState(match.contact_notes ?? "");
+  const [saving, setSaving] = useState(false);
+  const [dropOpen, setDropOpen] = useState(false);
+  const dropRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setStatus(match.contact_status ?? "");
+    setNotes(match.contact_notes ?? "");
+  }, [match.contact_status, match.contact_notes]);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (dropRef.current && !dropRef.current.contains(e.target as Node)) {
+        setDropOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const selected = getContactStatusOption(status);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/aurora-ai/matches/${jobId}/contact/${match.candidate_id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contact_status: status, contact_notes: notes, tenant_id: tenantId }),
+      });
+      if (!res.ok) throw new Error();
+      onSaved(match.candidate_id, status, notes);
+      toast.success("Status de contato salvo.");
+    } catch {
+      toast.error("Erro ao salvar status de contato.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      <p className="text-[9px] font-black uppercase tracking-widest text-zinc-400 flex items-center gap-1.5">
+        <PhoneCall size={11} />
+        Status do contato
+      </p>
+
+      {/* Dropdown de status */}
+      <div className="relative" ref={dropRef}>
+        <button
+          type="button"
+          onClick={() => setDropOpen(!dropOpen)}
+          className={cn(
+            "w-full flex items-center gap-2 px-3 py-2.5 rounded-2xl border text-sm font-bold transition-all shadow-sm",
+            selected.bgLight, selected.borderLight, selected.textLight
+          )}
+        >
+          <span className={selected.color}>{selected.icon}</span>
+          <span className="flex-1 text-left text-xs">{selected.label}</span>
+          <ChevronDown size={12} className={cn("shrink-0 transition-transform", dropOpen && "rotate-180")} />
+        </button>
+
+        <AnimatePresence>
+          {dropOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: -4, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -4, scale: 0.97 }}
+              transition={{ duration: 0.12 }}
+              className="absolute z-50 top-full mt-1 left-0 right-0 bg-white rounded-2xl border border-zinc-200 shadow-xl overflow-hidden"
+            >
+              {CONTACT_STATUSES.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => { setStatus(opt.value); setDropOpen(false); }}
+                  className={cn(
+                    "w-full flex items-center gap-2.5 px-3 py-2.5 text-left text-xs font-bold transition-colors hover:bg-zinc-50",
+                    status === opt.value && "bg-zinc-50"
+                  )}
+                >
+                  <span className={opt.color}>{opt.icon}</span>
+                  <span className="flex-1 text-zinc-700">{opt.label}</span>
+                  {opt.blocks && (
+                    <span className="text-[8px] font-black uppercase tracking-wide text-red-400 bg-red-50 border border-red-100 rounded-full px-1.5 py-0.5">
+                      oculta
+                    </span>
+                  )}
+                  {status === opt.value && <CheckCircle2 size={11} className="shrink-0 text-develoi-navy" />}
+                </button>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* Aviso de bloqueio */}
+      {selected.blocks && (
+        <div className="flex items-start gap-2 rounded-xl bg-red-50 border border-red-100 p-2.5">
+          <Ban size={11} className="shrink-0 mt-0.5 text-red-400" />
+          <p className="text-[10px] font-medium text-red-600 leading-relaxed">
+            Candidato ficará <strong>oculto</strong> nesta vaga na próxima consulta da IA.
+          </p>
+        </div>
+      )}
+
+      {/* Observações */}
+      <div className="space-y-1">
+        <label className="text-[9px] font-black uppercase tracking-widest text-zinc-400">Observações</label>
+        <textarea
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="Ex: Enviou email no dia 10/05, aguardando retorno..."
+          rows={3}
+          className="w-full resize-none rounded-2xl border border-zinc-200 bg-white px-3 py-2.5 text-xs font-medium text-zinc-800 outline-none placeholder:text-zinc-300 focus:border-develoi-gold/60 focus:ring-2 focus:ring-develoi-gold/20 transition-all"
+        />
+      </div>
+
+      <Button
+        size="sm"
+        variant="secondary"
+        iconLeft={saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+        onClick={handleSave}
+        disabled={saving}
+        className="w-full justify-center"
+      >
+        {saving ? "Salvando..." : "Salvar status"}
+      </Button>
+    </div>
+  );
+}
+
+// ── Helpers de score ───────────────────────────────────────────────────────────
 
 function getScoreConfig(score: number) {
   if (score >= 90) return {
@@ -97,6 +351,8 @@ const classificationLabel: Record<string, string> = {
   "REVISÃO":       "Revisão",
 };
 
+// ── Página principal ───────────────────────────────────────────────────────────
+
 export default function Matches() {
   const toast = useToast();
   const { currentUnit } = useUnit();
@@ -133,6 +389,14 @@ export default function Matches() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleContactSaved = (candidateId: number, status: string, notes: string) => {
+    setMatches(prev => prev.map(m =>
+      m.candidate_id === candidateId
+        ? { ...m, contact_status: status, contact_notes: notes }
+        : m
+    ));
   };
 
   const handleDownloadCV = (e: React.MouseEvent, candidateId: number) => {
@@ -186,7 +450,7 @@ export default function Matches() {
           </div>
         </div>
 
-      {/* ── Stats Row (quando há matches) ──────────────────────── */}
+      {/* ── Stats Row ─────────────────────────────────────────────── */}
       <AnimatePresence>
         {matches.length > 0 && !loading && (
           <motion.div
@@ -220,10 +484,9 @@ export default function Matches() {
         )}
       </AnimatePresence>
 
-      {/* ── Conteúdo Principal ─────────────────────────────────── */}
+      {/* ── Conteúdo Principal ─────────────────────────────────────── */}
       <div className="space-y-3 pb-20">
 
-        {/* Estado vazio — sem vaga selecionada */}
         {!selectedJobId && (
           <PanelCard padding={false}>
             <EmptyState
@@ -235,7 +498,6 @@ export default function Matches() {
           </PanelCard>
         )}
 
-        {/* Loading */}
         {selectedJobId && loading && (
           <div className="flex flex-col items-center justify-center py-24">
             <div className="relative mb-5">
@@ -248,7 +510,6 @@ export default function Matches() {
           </div>
         )}
 
-        {/* Sem matches */}
         {selectedJobId && !loading && matches.length === 0 && (
           <PanelCard padding={false}>
             <EmptyState
@@ -260,10 +521,10 @@ export default function Matches() {
           </PanelCard>
         )}
 
-        {/* Lista de Matches */}
         {!loading && matches.map((match, idx) => {
           const isExpanded = expanded === match.candidate_id;
           const cfg = getScoreConfig(match.compatibility_score);
+          const contactOpt = getContactStatusOption(match.contact_status);
 
           return (
             <motion.div
@@ -277,20 +538,17 @@ export default function Matches() {
                 isExpanded ? "border-develoi-gold/40 shadow-md" : "border-zinc-200 hover:border-zinc-300 hover:shadow"
               )}>
 
-                {/* ── Card Header ─────────────────────────────── */}
+                {/* ── Card Header ─────────────────────────────────────── */}
                 <button
                   className="w-full text-left p-4 sm:p-5 flex items-start sm:items-center gap-4 hover:bg-zinc-50/60 transition-colors cursor-pointer"
                   onClick={() => setExpanded(isExpanded ? null : match.candidate_id)}
                 >
-                  {/* Posição ranking */}
                   <span className="hidden sm:flex w-5 text-[10px] font-black text-zinc-300 shrink-0 pt-0.5">
                     #{idx + 1}
                   </span>
 
-                  {/* Score Ring */}
                   <ScoreRing score={match.compatibility_score} />
 
-                  {/* Info principal */}
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-2 mb-1">
                       <h3 className="text-sm font-black text-zinc-900">{match.full_name}</h3>
@@ -302,12 +560,20 @@ export default function Matches() {
                           {match.disc_profile}
                         </Badge>
                       )}
+                      {/* Badge de status de contato */}
+                      {match.contact_status && (
+                        <span className={cn(
+                          "inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wide px-2 py-0.5 rounded-full border",
+                          contactOpt.bgLight, contactOpt.borderLight, contactOpt.textLight
+                        )}>
+                          {contactOpt.icon}
+                          {contactOpt.label}
+                        </span>
+                      )}
                     </div>
                     <p className="text-xs font-semibold text-zinc-500 truncate mb-1.5">
                       {match.desired_position}
                     </p>
-
-                    {/* Score bar (mobile-friendly) */}
                     <div className="flex items-center gap-2">
                       <div className="flex-1 h-1 bg-zinc-100 rounded-full overflow-hidden max-w-[120px]">
                         <div
@@ -322,7 +588,6 @@ export default function Matches() {
                     </div>
                   </div>
 
-                  {/* Chevron */}
                   <div className={cn(
                     "w-7 h-7 rounded-full flex items-center justify-center shrink-0 transition-all duration-200 border",
                     isExpanded
@@ -333,7 +598,7 @@ export default function Matches() {
                   </div>
                 </button>
 
-                {/* ── Painel Expandido ─────────────────────────── */}
+                {/* ── Painel Expandido ─────────────────────────────────── */}
                 <AnimatePresence initial={false}>
                   {isExpanded && (
                     <motion.div
@@ -347,7 +612,7 @@ export default function Matches() {
                       <div className="border-t border-zinc-100 bg-zinc-50/40 p-4 sm:p-5">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
-                          {/* Coluna 1 — Contato */}
+                          {/* Coluna 1 — Contato + Status */}
                           <div className="space-y-3">
                             <p className="text-[9px] font-black uppercase tracking-widest text-zinc-400 mb-2">
                               Contato
@@ -373,7 +638,6 @@ export default function Matches() {
                               </div>
                             </div>
 
-                            {/* Pontos de atenção */}
                             {match.attention_points?.length > 0 && (
                               <div className="bg-amber-50 border border-amber-100 rounded-2xl p-3">
                                 <p className="text-[8px] font-black text-amber-600 uppercase tracking-widest mb-1.5">Atenção</p>
@@ -387,6 +651,16 @@ export default function Matches() {
                                 </ul>
                               </div>
                             )}
+
+                            {/* Status de contato */}
+                            <div className="bg-white rounded-2xl border border-zinc-100 shadow-sm p-3">
+                              <ContactStatusPanel
+                                match={match}
+                                jobId={selectedJobId}
+                                tenantId={tenantId}
+                                onSaved={handleContactSaved}
+                              />
+                            </div>
                           </div>
 
                           {/* Coluna 2–3 — Análise IA */}
@@ -395,7 +669,6 @@ export default function Matches() {
                               Análise Aurora AI
                             </p>
 
-                            {/* Recomendação */}
                             <div className="bg-white rounded-2xl border border-zinc-100 shadow-sm p-4 relative overflow-hidden">
                               <div className="absolute top-0 right-0 w-28 h-28 bg-develoi-gold/5 rounded-full blur-2xl -mr-8 -mt-8 pointer-events-none" />
                               <div className="flex items-start gap-3 relative z-10">
@@ -411,7 +684,6 @@ export default function Matches() {
                               </div>
                             </div>
 
-                            {/* Pontos fortes */}
                             {match.strengths?.length > 0 && (
                               <div className="flex flex-wrap gap-1.5">
                                 {match.strengths.slice(0, 5).map((s, i) => (
@@ -426,7 +698,6 @@ export default function Matches() {
                               </div>
                             )}
 
-                            {/* Ações */}
                             <div className="flex flex-wrap items-center gap-2 pt-1">
                               <Button variant="outline" size="sm" iconLeft={<Download size={13} />} onClick={(e) => handleDownloadCV(e, match.candidate_id)}>
                                 Baixar CV

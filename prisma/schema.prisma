@@ -320,6 +320,22 @@ model CandidateJobMatch {
   @@map("candidate_job_matches")
 }
 
+model CandidateContactStatus {
+  id             Int      @id @default(autoincrement())
+  tenant_id      String   @db.VarChar(191)
+  candidate_id   Int
+  job_id         Int
+  contact_status String   @default("") @db.VarChar(50)
+  contact_notes  String?  @db.Text
+  updated_at     DateTime @default(now()) @updatedAt @db.DateTime(0)
+
+  @@unique([candidate_id, job_id])
+  @@index([tenant_id])
+  @@index([candidate_id])
+  @@index([job_id])
+  @@map("candidate_contact_statuses")
+}
+
 model CandidateDiscResult {
   id                  Int      @id @default(autoincrement())
   candidate_id        Int
