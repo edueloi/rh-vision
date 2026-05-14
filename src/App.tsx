@@ -45,6 +45,7 @@ import PublicPortal from "./pages/PublicPortal";
 import PublicToolResponse from "./pages/PublicToolResponse";
 import AuroraAI from "./pages/AuroraAI";
 import Matches from "./pages/Matches";
+import Disc from "./pages/Disc";
 import Login from "./pages/Login";
 import Welcome from "./pages/Welcome";
 import SuperAdmin from "./pages/SuperAdmin";
@@ -77,6 +78,7 @@ const APP_MENU_ITEMS: MenuItem[] = [
   { path: "/candidatos", label: "Candidatos", helper: "Banco de talentos", icon: Users, permissionKey: "candidates" },
   { path: "/importar-cvs", label: "Importar CVs", helper: "Upload e processamento", icon: FileUp, permissionKey: "imports" },
   { path: "/ferramentas", label: "Ferramentas", helper: "Avaliações e recursos", icon: Settings, permissionKey: "tools" },
+  { path: "/disc", label: "DISC", helper: "Perfis comportamentais e análises", icon: Brain, permissionKey: "tools" },
   { path: "/administracao", label: "Administração", helper: "Usuários, unidades e acesso", icon: ShieldCheck, permissionKey: "administration" },
   { path: "/configuracoes", label: "Configurações", helper: "Automações e preferências", icon: Settings, permissionKey: "administration" },
 ];
@@ -1043,6 +1045,7 @@ function AppContent() {
             <Route path="/candidatos/:candidateId" element={guard(permissions.candidates, <CandidateDetailsPage />)} />
             <Route path="/importar-cvs" element={guard(permissions.imports, <ImportResumes />)} />
             <Route path="/ferramentas" element={guard(permissions.tools, <HRTools />)} />
+            <Route path="/disc" element={guard(permissions.tools, <Disc />)} />
             <Route
               path="/administracao"
               element={guard(permissions.administration, <Administration />)}
