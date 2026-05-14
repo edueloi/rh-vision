@@ -370,7 +370,7 @@ async function extractPdfTextFromBuffer(buffer: Buffer) {
   let parser: {
     getText: () => Promise<{ text?: string }>;
     destroy?: () => Promise<void> | void;
-  } | null = null;
+  } | undefined;
   console.log('[PDF] Iniciando extração de texto do buffer...');
   try {
     const pdfModule: any = await import('pdf-parse');
@@ -397,8 +397,9 @@ async function extractPdfTextFromBuffer(buffer: Buffer) {
         throw new Error('Modulo pdf-parse sem API compativel para extracao de texto.');
       }
 
-      parser = new PDFParseClass({ data: buffer });
-      data = await parser.getText();
+      const instance: { getText: () => Promise<{ text?: string }>; destroy?: () => Promise<void> | void } = new PDFParseClass({ data: buffer });
+      parser = instance;
+      data = await instance.getText();
     }
 
     const text = data?.text || '';
@@ -4854,6 +4855,28 @@ Retorne EXATAMENTE este JSON:
     } catch (error) {
       console.error(error);
       res.status(500).json({ error: 'Failed to update user' });
+    }
+  });
+
+  app.patch('/api/users/:id/password', async (req, res) => {
+    const { id } = req.params;
+    const { current_password, new_password } = req.body;
+    if (!current_password || !new_password) {
+      return res.status(400).json({ error: 'Senha atual e nova senha são obrigatórias.' });
+    }
+    if (new_password.length < 6) {
+      return res.status(400).json({ error: 'A nova senha deve ter pelo menos 6 caracteres.' });
+    }
+    try {
+      const user = await db.prepare('SELECT id, password FROM users WHERE id = ?').get(id) as any;
+      if (!user) return res.status(404).json({ error: 'Usuário não encontrado.' });
+      if (user.password !== current_password) {
+        return res.status(401).json({ error: 'Senha atual incorreta.' });
+      }
+      await db.prepare('UPDATE users SET password = ? WHERE id = ?').run(new_password, id);
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ error: 'Erro ao alterar senha.' });
     }
   });
 

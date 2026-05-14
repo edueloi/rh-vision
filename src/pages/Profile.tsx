@@ -1,5 +1,5 @@
 import React, { useState, useRef } from "react";
-import { User, Mail, ShieldCheck, Camera, Save, X, Trash2, Upload, Briefcase, Loader2, Building2, KeyRound } from "lucide-react";
+import { User, Mail, ShieldCheck, Camera, Save, X, Trash2, Upload, Briefcase, Loader2, Building2, KeyRound, Lock, Eye, EyeOff } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Badge, Button, Modal, useToast } from "@/src/components/ui";
 import { cn } from "@/src/lib/utils";
@@ -78,6 +78,34 @@ export default function Profile() {
   };
 
   const [showRemoveModal, setShowRemoveModal] = useState(false);
+
+  const [passwordForm, setPasswordForm] = useState({ current: "", next: "", confirm: "" });
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [showCurrent, setShowCurrent] = useState(false);
+  const [showNext, setShowNext] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+
+  const handleChangePassword = async () => {
+    if (!passwordForm.current) { toast.error("Informe a senha atual."); return; }
+    if (passwordForm.next.length < 6) { toast.error("A nova senha deve ter pelo menos 6 caracteres."); return; }
+    if (passwordForm.next !== passwordForm.confirm) { toast.error("A confirmação não corresponde à nova senha."); return; }
+    setPasswordLoading(true);
+    try {
+      const res = await fetch(`/api/users/${user.id}/password`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ current_password: passwordForm.current, new_password: passwordForm.next }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erro ao alterar senha.");
+      setPasswordForm({ current: "", next: "", confirm: "" });
+      toast.success("Senha alterada com sucesso!");
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao alterar senha.");
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
 
   const handlePhotoRemove = async () => {
     setShowRemoveModal(false);
@@ -285,6 +313,48 @@ export default function Profile() {
                   <p className="text-sm font-black text-zinc-900 truncate">{user.role || "Recrutador"}</p>
                   <p className="text-[9px] font-bold text-zinc-400 mt-0.5">Unidade: {user.unit_name || user.unit_id || "Geral"}</p>
                 </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Change Password */}
+          <div className="bg-white rounded-3xl border border-zinc-100 p-6">
+            <div className="mb-6">
+              <p className="text-xs font-black text-zinc-900 uppercase tracking-widest">Alterar Senha</p>
+              <p className="text-[10px] text-zinc-400 font-bold mt-0.5">Redefina sua senha de acesso à plataforma.</p>
+            </div>
+            <div className="space-y-3">
+              {([
+                { label: "Senha Atual", key: "current", show: showCurrent, toggle: () => setShowCurrent(v => !v) },
+                { label: "Nova Senha", key: "next", show: showNext, toggle: () => setShowNext(v => !v) },
+                { label: "Confirmar Nova Senha", key: "confirm", show: showConfirm, toggle: () => setShowConfirm(v => !v) },
+              ] as const).map(field => (
+                <div key={field.key} className="space-y-1.5">
+                  <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block">{field.label}</label>
+                  <div className="flex items-center gap-3 rounded-2xl border-2 border-zinc-100 bg-zinc-50 px-4 h-12 focus-within:border-develoi-navy focus-within:bg-white transition-all">
+                    <Lock size={14} className="text-zinc-300 shrink-0" />
+                    <input
+                      type={field.show ? "text" : "password"}
+                      value={passwordForm[field.key]}
+                      onChange={e => setPasswordForm(p => ({ ...p, [field.key]: e.target.value }))}
+                      placeholder="••••••••"
+                      className="flex-1 bg-transparent text-sm font-bold text-zinc-800 placeholder:text-zinc-300 outline-none"
+                    />
+                    <button type="button" onClick={field.toggle} className="text-zinc-300 hover:text-zinc-500 transition-colors shrink-0">
+                      {field.show ? <EyeOff size={14} /> : <Eye size={14} />}
+                    </button>
+                  </div>
+                </div>
+              ))}
+              <div className="pt-2">
+                <button
+                  onClick={handleChangePassword}
+                  disabled={passwordLoading || !passwordForm.current || !passwordForm.next || !passwordForm.confirm}
+                  className="h-11 px-6 rounded-2xl bg-develoi-navy text-white text-[10px] font-black uppercase tracking-widest hover:bg-develoi-gold transition-all flex items-center gap-2 shadow-xl shadow-develoi-navy/20 disabled:opacity-40"
+                >
+                  {passwordLoading ? <Loader2 size={14} className="animate-spin" /> : <KeyRound size={14} />}
+                  Alterar Senha
+                </button>
               </div>
             </div>
           </div>
