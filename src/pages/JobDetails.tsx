@@ -1,25 +1,20 @@
 import React, { useState, useEffect } from "react";
-import { 
-  X, 
-  Globe, 
-  Sparkles, 
-  Copy, 
-  Check, 
-  MessageCircle, 
-  Linkedin, 
-  Share2, 
-  Clock, 
-  Building2, 
-  MapPin, 
+import {
+  X,
+  Share2,
+  Clock,
+  Building2,
+  MapPin,
   Briefcase,
   Target,
   FileText,
   Users,
   Edit,
   User,
-  ChevronRight
+  ChevronRight,
+  Check
 } from "lucide-react";
-import { PanelCard, Badge, useToast } from "@/src/components/ui";
+import { Badge, useToast } from "@/src/components/ui";
 import { Job, CandidateJobMatch } from "@/src/types";
 import { motion, AnimatePresence } from "motion/react";
 import { cn } from "@/src/lib/utils";
@@ -32,10 +27,7 @@ interface JobDetailsProps {
 
 export default function JobDetails({ job, onClose, onEdit }: JobDetailsProps) {
   const toast = useToast();
-  const [activeTab, setActiveTab] = useState<'details' | 'ai' | 'candidates'>('details');
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiOutput, setAiOutput] = useState<{ title?: string; content?: string; text?: string }>({});
-  const [copied, setCopied] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'details' | 'candidates'>('details');
   const [appliedCandidates, setAppliedCandidates] = useState<any[]>([]);
   const [loadingCandidates, setLoadingCandidates] = useState(false);
 
@@ -56,33 +48,6 @@ export default function JobDetails({ job, onClose, onEdit }: JobDetailsProps) {
     } finally {
       setLoadingCandidates(false);
     }
-  };
-
-  const generateAIText = async (channel: string) => {
-    setAiLoading(true);
-    setAiOutput({});
-    try {
-      const res = await fetch(`/api/jobs/${job.id}/generate-publication-text`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ channel, tone: 'atrativo' })
-      });
-      const data = await res.json();
-      setAiOutput(data);
-      setActiveTab('ai');
-    } catch (err) {
-      toast.error("Erro ao gerar texto com IA.");
-    } finally {
-      setAiLoading(false);
-    }
-  };
-
-  const handleCopy = (text: string, id: string) => {
-    if (!text) return;
-    navigator.clipboard.writeText(text);
-    setCopied(id);
-    toast.success("Texto copiado para a área de transferência!");
-    setTimeout(() => setCopied(null), 2000);
   };
 
   return (
@@ -147,16 +112,6 @@ export default function JobDetails({ job, onClose, onEdit }: JobDetailsProps) {
           >
             <Users size={14} /> Candidatos
             {activeTab === 'candidates' && <motion.div layoutId="job-tab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-zinc-900" />}
-          </button>
-          <button 
-            onClick={() => setActiveTab('ai')}
-            className={cn(
-              "px-4 py-4 text-[10px] font-bold uppercase tracking-widest transition-all relative shrink-0 flex items-center gap-2",
-              activeTab === 'ai' ? "text-zinc-900" : "text-zinc-400 hover:text-zinc-600"
-            )}
-          >
-            <Sparkles size={14} /> Divulgação IA
-            {activeTab === 'ai' && <motion.div layoutId="job-tab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-zinc-900" />}
           </button>
         </div>
 
@@ -273,71 +228,6 @@ export default function JobDetails({ job, onClose, onEdit }: JobDetailsProps) {
             </div>
           )}
 
-          {activeTab === 'ai' && (
-            <div className="space-y-8">
-              <div className="p-6 bg-develoi-gold/5 border border-develoi-gold/20 rounded-3xl">
-                <div className="flex items-center gap-3 mb-4">
-                  <Sparkles size={20} className="text-develoi-gold" />
-                  <h4 className="text-xs font-bold text-develoi-navy uppercase tracking-widest">Divulgação com IA</h4>
-                </div>
-                <p className="text-[11px] font-bold text-zinc-500 mb-6 leading-relaxed">
-                  Gere textos atraentes para diferentes canais usando a Aurora AI com OpenAI.
-                </p>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  {[
-                    { id: 'LinkedIn', icon: Linkedin, color: 'bg-blue-600' },
-                    { id: 'WhatsApp', icon: MessageCircle, color: 'bg-emerald-500' },
-                    { id: 'Indeed/Infojobs', icon: Globe, color: 'bg-indigo-600' },
-                    { id: 'Instagram', icon: Share2, color: 'bg-pink-500' },
-                  ].map(c => (
-                    <button 
-                      key={c.id}
-                      onClick={() => generateAIText(c.id)}
-                      disabled={aiLoading}
-                      className="flex flex-col items-center gap-2 p-3 bg-white hover:bg-zinc-50 rounded-2xl border border-develoi-gold/10 transition-all active:scale-95 group shadow-sm"
-                    >
-                      <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-md group-hover:rotate-12 transition-all", c.color)}>
-                        <c.icon size={20} />
-                      </div>
-                      <span className="text-[9px] font-bold text-zinc-900 uppercase tracking-widest">{c.id.split('/')[0]}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {aiLoading && (
-                <div className="p-12 flex flex-col items-center justify-center gap-4 text-center">
-                   <div className="w-8 h-8 border-3 border-amber-400 border-t-transparent rounded-full animate-spin"></div>
-                   <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Aurora AI está trabalhando...</p>
-                </div>
-              )}
-
-              {aiOutput.text && (
-                 <motion.div 
-                   initial={{ opacity: 0, y: 20 }}
-                   animate={{ opacity: 1, y: 0 }}
-                   className="space-y-6"
-                 >
-                   <PanelCard 
-                    title="Anúncio Sugerido" 
-                    icon={Sparkles}
-                    action={
-                      <button 
-                        onClick={() => handleCopy(aiOutput.text!, 'full')}
-                        className="p-2 text-zinc-400 hover:text-develoi-gold transition-colors"
-                      >
-                        {copied === 'full' ? <Check size={16} /> : <Copy size={16} />}
-                      </button>
-                    }
-                   >
-                     <div className="whitespace-pre-wrap text-xs font-bold text-zinc-600 leading-relaxed bg-zinc-50 p-6 rounded-3xl border border-zinc-100 max-h-96 overflow-y-auto">
-                        {aiOutput.text}
-                     </div>
-                   </PanelCard>
-                 </motion.div>
-              )}
-            </div>
-          )}
         </div>
 
         {/* Footer Actions */}
