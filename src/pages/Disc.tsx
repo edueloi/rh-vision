@@ -309,33 +309,33 @@ function DiscDetailModal({
         </div>
 
         {/* Body */}
-        <div className="overflow-y-auto flex-1 p-5 space-y-5">
+        <div className="overflow-y-auto flex-1 p-5 sm:p-6 space-y-6">
           {loading ? (
             <div className="flex items-center justify-center py-16">
               <Loader2 size={28} className="animate-spin text-develoi-navy" />
             </div>
           ) : data ? (
             <>
-              {/* Scores */}
-              <div className="grid grid-cols-2 gap-4">
+              {/* Scores — gráficos */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 <div>
-                  <p className="text-[9px] font-black uppercase tracking-widest text-zinc-400 mb-3">Radar DISC</p>
+                  <p className="text-xs font-black uppercase tracking-wider text-zinc-500 mb-3">Radar DISC</p>
                   <DiscRadarChart d={data.disc_d || 0} i={data.disc_i || 0} s={data.disc_s || 0} c={data.disc_c || 0} />
                 </div>
                 <div>
-                  <p className="text-[9px] font-black uppercase tracking-widest text-zinc-400 mb-3">Pontuação por dimensão</p>
+                  <p className="text-xs font-black uppercase tracking-wider text-zinc-500 mb-3">Pontuação por dimensão</p>
                   <DiscBarChart d={data.disc_d || 0} i={data.disc_i || 0} s={data.disc_s || 0} c={data.disc_c || 0} />
-                  <div className="grid grid-cols-2 gap-1.5 mt-3">
+                  <div className="grid grid-cols-2 gap-2 mt-3">
                     {(["D", "I", "S", "C"] as const).map((l) => {
                       const val = { D: data.disc_d, I: data.disc_i, S: data.disc_s, C: data.disc_c }[l] || 0;
                       const c2 = DISC_COLORS[l];
                       return (
-                        <div key={l} className={cn("flex items-center gap-2 rounded-xl p-2 border", c2.bg, c2.border)}>
-                          <span className={cn("text-xs font-black w-4", c2.text)}>{l}</span>
-                          <div className="flex-1 h-1.5 bg-white/60 rounded-full overflow-hidden">
+                        <div key={l} className={cn("flex items-center gap-2.5 rounded-xl p-2.5 border", c2.bg, c2.border)}>
+                          <span className={cn("text-sm font-black w-4 shrink-0", c2.text)}>{l}</span>
+                          <div className="flex-1 h-2 bg-white/60 rounded-full overflow-hidden">
                             <div className={cn("h-full rounded-full", c2.bar)} style={{ width: `${val}%` }} />
                           </div>
-                          <span className={cn("text-[10px] font-black", c2.text)}>{val}%</span>
+                          <span className={cn("text-xs font-black shrink-0", c2.text)}>{val}%</span>
                         </div>
                       );
                     })}
@@ -346,24 +346,24 @@ function DiscDetailModal({
               {/* Resumo comportamental */}
               {data.behavioral_summary && (
                 <div className="bg-zinc-50 rounded-2xl border border-zinc-100 p-4">
-                  <p className="text-[9px] font-black uppercase tracking-widest text-zinc-400 mb-2 flex items-center gap-1.5">
-                    <Brain size={11} /> Análise Comportamental
+                  <p className="text-xs font-black text-zinc-500 mb-2 flex items-center gap-2">
+                    <Brain size={13} /> Análise Comportamental
                   </p>
-                  <p className="text-xs font-medium text-zinc-700 leading-relaxed">{data.behavioral_summary}</p>
+                  <p className="text-sm font-medium text-zinc-700 leading-relaxed">{data.behavioral_summary}</p>
                 </div>
               )}
 
-              {/* Grid: pontos fortes + atenção */}
+              {/* Pontos fortes + atenção */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {parseList(data.strengths).length > 0 && (
                   <div className="bg-emerald-50 rounded-2xl border border-emerald-100 p-4">
-                    <p className="text-[9px] font-black uppercase tracking-widest text-emerald-600 mb-2 flex items-center gap-1.5">
-                      <CheckCircle2 size={11} /> Pontos Fortes
+                    <p className="text-xs font-black text-emerald-700 mb-3 flex items-center gap-2">
+                      <CheckCircle2 size={13} /> Pontos Fortes
                     </p>
-                    <ul className="space-y-1">
+                    <ul className="space-y-2">
                       {parseList(data.strengths).map((s, i) => (
-                        <li key={i} className="text-[10px] font-medium text-emerald-800 flex items-start gap-1.5">
-                          <Star size={9} className="shrink-0 mt-0.5 text-emerald-500" />
+                        <li key={i} className="text-sm font-medium text-emerald-800 flex items-start gap-2">
+                          <Star size={11} className="shrink-0 mt-0.5 text-emerald-500" />
                           {s}
                         </li>
                       ))}
@@ -372,13 +372,13 @@ function DiscDetailModal({
                 )}
                 {parseList(data.attention_points).length > 0 && (
                   <div className="bg-amber-50 rounded-2xl border border-amber-100 p-4">
-                    <p className="text-[9px] font-black uppercase tracking-widest text-amber-600 mb-2 flex items-center gap-1.5">
-                      <AlertCircle size={11} /> Pontos de Atenção
+                    <p className="text-xs font-black text-amber-700 mb-3 flex items-center gap-2">
+                      <AlertCircle size={13} /> Pontos de Atenção
                     </p>
-                    <ul className="space-y-1">
+                    <ul className="space-y-2">
                       {parseList(data.attention_points).map((s, i) => (
-                        <li key={i} className="text-[10px] font-medium text-amber-800 flex items-start gap-1.5">
-                          <AlertCircle size={9} className="shrink-0 mt-0.5 text-amber-500" />
+                        <li key={i} className="text-sm font-medium text-amber-800 flex items-start gap-2">
+                          <AlertCircle size={11} className="shrink-0 mt-0.5 text-amber-500" />
                           {s}
                         </li>
                       ))}
@@ -387,31 +387,31 @@ function DiscDetailModal({
                 )}
               </div>
 
-              {/* Grid: comunicação + liderança + ambiente */}
+              {/* Comunicação + liderança + ambiente */}
               {(data.communication_style || data.leadership_style || data.ideal_environment) && (
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {data.communication_style && (
-                    <div className="bg-blue-50 rounded-2xl border border-blue-100 p-3">
-                      <p className="text-[8px] font-black uppercase tracking-widest text-blue-500 mb-1.5 flex items-center gap-1">
-                        <MessageSquare size={9} /> Comunicação
+                    <div className="bg-blue-50 rounded-2xl border border-blue-100 p-4">
+                      <p className="text-xs font-black text-blue-600 mb-2 flex items-center gap-1.5">
+                        <MessageSquare size={12} /> Comunicação
                       </p>
-                      <p className="text-[10px] font-medium text-blue-800 leading-relaxed">{data.communication_style}</p>
+                      <p className="text-sm font-medium text-blue-900 leading-relaxed">{data.communication_style}</p>
                     </div>
                   )}
                   {data.leadership_style && (
-                    <div className="bg-purple-50 rounded-2xl border border-purple-100 p-3">
-                      <p className="text-[8px] font-black uppercase tracking-widest text-purple-500 mb-1.5 flex items-center gap-1">
-                        <TrendingUp size={9} /> Liderança
+                    <div className="bg-purple-50 rounded-2xl border border-purple-100 p-4">
+                      <p className="text-xs font-black text-purple-600 mb-2 flex items-center gap-1.5">
+                        <TrendingUp size={12} /> Liderança
                       </p>
-                      <p className="text-[10px] font-medium text-purple-800 leading-relaxed">{data.leadership_style}</p>
+                      <p className="text-sm font-medium text-purple-900 leading-relaxed">{data.leadership_style}</p>
                     </div>
                   )}
                   {data.ideal_environment && (
-                    <div className="bg-emerald-50 rounded-2xl border border-emerald-100 p-3">
-                      <p className="text-[8px] font-black uppercase tracking-widest text-emerald-500 mb-1.5 flex items-center gap-1">
-                        <Shield size={9} /> Ambiente Ideal
+                    <div className="bg-emerald-50 rounded-2xl border border-emerald-100 p-4">
+                      <p className="text-xs font-black text-emerald-600 mb-2 flex items-center gap-1.5">
+                        <Shield size={12} /> Ambiente Ideal
                       </p>
-                      <p className="text-[10px] font-medium text-emerald-800 leading-relaxed">{data.ideal_environment}</p>
+                      <p className="text-sm font-medium text-emerald-900 leading-relaxed">{data.ideal_environment}</p>
                     </div>
                   )}
                 </div>
@@ -420,16 +420,17 @@ function DiscDetailModal({
               {/* Respostas do formulário */}
               {data.answers.length > 0 && (
                 <div>
-                  <p className="text-[9px] font-black uppercase tracking-widest text-zinc-400 mb-3 flex items-center gap-1.5">
-                    <Target size={11} /> Respostas do Formulário ({data.answers.length} questões)
+                  <p className="text-xs font-black text-zinc-500 mb-3 flex items-center gap-2">
+                    <Target size={13} /> Respostas do Formulário
+                    <span className="text-zinc-400 font-medium">({data.answers.length} questões)</span>
                   </p>
                   <div className="space-y-2">
                     {data.answers.map((ans, i) => (
-                      <div key={i} className="bg-zinc-50 rounded-2xl border border-zinc-100 p-3">
-                        <p className="text-[9px] font-black uppercase tracking-wide text-zinc-400 mb-1">
+                      <div key={i} className="bg-zinc-50 rounded-2xl border border-zinc-100 p-4">
+                        <p className="text-xs font-bold text-zinc-400 mb-1.5">
                           {i + 1}. {ans.question_text}
                         </p>
-                        <p className="text-xs font-medium text-zinc-700">
+                        <p className="text-sm font-semibold text-zinc-800">
                           {ans.answer_text || (ans.answer_json ? JSON.parse(ans.answer_json).join(", ") : "—")}
                         </p>
                       </div>
@@ -439,7 +440,7 @@ function DiscDetailModal({
               )}
 
               {/* Ver perfil completo */}
-              <div className="pt-2">
+              <div className="pt-1">
                 <Link to={`/candidatos/${data.candidate_id}`}>
                   <Button variant="outline" size="sm" iconRight={<ChevronRight size={13} />} className="w-full justify-center">
                     Ver perfil completo do candidato
