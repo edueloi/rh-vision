@@ -962,7 +962,7 @@ function AppContent() {
                     )}
                   >
                     {user?.photo_url ? (
-                      <img src={user.photo_url} alt="avatar" className="w-full h-full object-cover" />
+                      <img src={user.photo_url} alt="avatar" className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
                     ) : (
                       <span className={cn("text-[11px] font-black", theme === 'dark' ? "text-develoi-gold" : "text-develoi-navy")}>
                         {(user?.full_name || "U").split(" ").slice(0, 2).map((n: string) => n[0]).join("").toUpperCase()}

@@ -186,7 +186,12 @@ export default function Profile() {
               <div className="relative inline-block">
                 <div className="w-24 h-24 rounded-2xl border-4 border-white shadow-xl overflow-hidden bg-develoi-navy flex items-center justify-center">
                   {user.photo_url ? (
-                    <img src={user.photo_url} alt="Avatar" className="w-full h-full object-cover" />
+                    <img
+                      src={user.photo_url}
+                      alt="Avatar"
+                      className="w-full h-full object-cover"
+                      onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+                    />
                   ) : (
                     <span className="text-2xl font-black text-develoi-gold">{initials}</span>
                   )}

@@ -1263,6 +1263,23 @@ async function attachImportedResumeToCandidate(candidateId: number | string, fil
 }
 
 const upload = multer({ storage: multer.memoryStorage() });
+
+// Disk-based upload for user profile photos
+const uploadsDir = path.join(process.cwd(), 'uploads');
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+const photoUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, uploadsDir),
+    filename: (_req, file, cb) => {
+      const ext = path.extname(file.originalname) || '.jpg';
+      cb(null, `photo_${Date.now()}_${Math.random().toString(36).slice(2)}${ext}`);
+    },
+  }),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    cb(null, /^image\/(jpeg|jpg|png|webp|gif)$/.test(file.mimetype));
+  },
+});
 const candidateBatchUpload = multer({
   storage: multer.memoryStorage(),
   limits: {
@@ -5136,7 +5153,10 @@ Retorne EXATAMENTE este JSON:
     }
   });
 
-  app.post('/api/users/:id/photo', upload.single('file'), async (req, res) => {
+  // Serve uploaded files (profile photos, etc.)
+  app.use('/uploads', express.static(uploadsDir));
+
+  app.post('/api/users/:id/photo', photoUpload.single('file'), async (req, res) => {
     const { id } = req.params;
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
@@ -5144,17 +5164,15 @@ Retorne EXATAMENTE este JSON:
       const existing = await db.prepare('SELECT photo_url FROM users WHERE id = ?').get(id) as any;
       if (!existing) return res.status(404).json({ error: 'User not found' });
 
-      // Delete old photo if exists
-      if (existing.photo_url) {
+      // Delete old photo if it's a disk file (not base64)
+      if (existing.photo_url && existing.photo_url.startsWith('/uploads/')) {
         const oldPath = path.join(process.cwd(), existing.photo_url.replace(/^\//, ''));
-        if (fs.existsSync(oldPath)) {
-          fs.unlinkSync(oldPath);
-        }
+        if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
       }
 
       const photoUrl = `/uploads/${req.file.filename}`;
       await db.prepare('UPDATE users SET photo_url = ? WHERE id = ?').run(photoUrl, id);
-      
+
       res.json({ success: true, photo_url: photoUrl });
     } catch (error) {
       console.error(error);
@@ -5168,11 +5186,9 @@ Retorne EXATAMENTE este JSON:
       const existing = await db.prepare('SELECT photo_url FROM users WHERE id = ?').get(id) as any;
       if (!existing) return res.status(404).json({ error: 'User not found' });
 
-      if (existing.photo_url) {
+      if (existing.photo_url && existing.photo_url.startsWith('/uploads/')) {
         const oldPath = path.join(process.cwd(), existing.photo_url.replace(/^\//, ''));
-        if (fs.existsSync(oldPath)) {
-          fs.unlinkSync(oldPath);
-        }
+        if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
       }
 
       await db.prepare('UPDATE users SET photo_url = NULL WHERE id = ?').run(id);
