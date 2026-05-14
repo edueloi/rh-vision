@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Briefcase,
   ChevronLeft,
@@ -140,17 +141,32 @@ export default function Jobs() {
     localStorage.setItem("jobs_view_mode", mode);
   };
 
-  // row action menu
-  const [openMenuId, setOpenMenuId] = useState<number | null>(null);
+  // row action menu — rendered via portal with fixed positioning to escape overflow:hidden
+  const [menuState, setMenuState] = useState<{ id: number; x: number; top: number; bottom: number; openUp: boolean } | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
+
+  const openMenu = (e: React.MouseEvent, jobId: number) => {
+    e.stopPropagation();
+    if (menuState?.id === jobId) { setMenuState(null); return; }
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const estimatedMenuHeight = 220; // ~7 items × ~32px
+    const openUp = rect.bottom + estimatedMenuHeight > window.innerHeight - 16;
+    setMenuState({ id: jobId, x: rect.right, top: rect.top, bottom: rect.bottom, openUp });
+  };
+
   useEffect(() => {
-    if (openMenuId === null) return;
-    const handler = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setOpenMenuId(null);
+    if (!menuState) return;
+    const close = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuState(null);
     };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [openMenuId]);
+    const onScroll = () => setMenuState(null);
+    document.addEventListener("mousedown", close);
+    document.addEventListener("scroll", onScroll, true);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("scroll", onScroll, true);
+    };
+  }, [menuState]);
 
   // ── Data ─────────────────────────────────────────────────────────────────
   const fetchJobs = useCallback(async () => {
@@ -478,9 +494,8 @@ export default function Jobs() {
 
                     {/* Actions */}
                     <div
-                      className="flex items-center justify-end gap-0.5 px-2 py-3 border-l border-zinc-200 relative"
+                      className="flex items-center justify-end gap-0.5 px-2 py-3 border-l border-zinc-200"
                       onClick={(e) => e.stopPropagation()}
-                      ref={openMenuId === job.id ? menuRef : null}
                     >
                       <IconButton
                         onClick={() => navigate(`/vagas/${encodeId(job.id)}`)}
@@ -499,55 +514,13 @@ export default function Jobs() {
                         <Pencil size={13} />
                       </IconButton>
                       <IconButton
-                        onClick={() => setOpenMenuId(openMenuId === job.id ? null : job.id)}
+                        onClick={(e) => openMenu(e, job.id)}
                         variant="ghost"
                         className="h-7 w-7 text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100"
                         title="Mais ações"
                       >
                         <MoreHorizontal size={13} />
                       </IconButton>
-
-                      {openMenuId === job.id && (
-                        <div
-                          ref={menuRef}
-                          className="absolute right-0 top-full z-50 mt-1 w-52 rounded-xl border border-zinc-200 bg-white shadow-lg py-1"
-                        >
-                          <button
-                            onClick={() => { handleDuplicate(job); setOpenMenuId(null); }}
-                            className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-sm text-zinc-700 hover:bg-zinc-50 transition-colors"
-                          >
-                            <Copy size={13} className="text-zinc-400" /> Duplicar
-                          </button>
-                          <button
-                            onClick={() => { togglePublication(job); setOpenMenuId(null); }}
-                            className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-sm text-zinc-700 hover:bg-zinc-50 transition-colors"
-                          >
-                            {job.is_public
-                              ? <GlobeLock size={13} className="text-zinc-400" />
-                              : <Globe size={13} className="text-zinc-400" />}
-                            {job.is_public ? "Remover do portal" : "Publicar no portal"}
-                          </button>
-                          {["Aberta", "Pausada", "Encerrada", "Rascunho"]
-                            .filter((s) => s !== job.status)
-                            .map((s) => (
-                              <button
-                                key={s}
-                                onClick={() => { handleStatusChange(job, s); setOpenMenuId(null); }}
-                                className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-sm text-zinc-700 hover:bg-zinc-50 transition-colors"
-                              >
-                                <span className={cn("w-2 h-2 rounded-full shrink-0", statusDot(s))} />
-                                Marcar como {s}
-                              </button>
-                            ))}
-                          <div className="my-1 border-t border-zinc-100" />
-                          <button
-                            onClick={() => { setJobToDelete(job); setOpenMenuId(null); }}
-                            className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-sm text-rose-600 hover:bg-rose-50 transition-colors"
-                          >
-                            <Trash2 size={13} /> Excluir
-                          </button>
-                        </div>
-                      )}
                     </div>
                   </div>
                 );
@@ -627,6 +600,66 @@ export default function Jobs() {
         </div>
 
       </div>
+
+      {/* Row action dropdown — rendered via portal to escape overflow:hidden */}
+      {menuState && createPortal(
+        <div
+          ref={menuRef}
+          style={{
+            position: "fixed",
+            ...(menuState.openUp
+              ? { bottom: window.innerHeight - menuState.top + 4 }
+              : { top: menuState.bottom + 4 }),
+            left: menuState.x - 208,
+            zIndex: 9999,
+          }}
+          className="w-52 rounded-xl border border-zinc-200 bg-white shadow-xl py-1"
+        >
+          {(() => {
+            const job = pagedJobs.find((j) => j.id === menuState.id);
+            if (!job) return null;
+            return (
+              <>
+                <button
+                  onClick={() => { handleDuplicate(job); setMenuState(null); }}
+                  className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-sm text-zinc-700 hover:bg-zinc-50 transition-colors"
+                >
+                  <Copy size={13} className="text-zinc-400" /> Duplicar
+                </button>
+                <button
+                  onClick={() => { togglePublication(job); setMenuState(null); }}
+                  className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-sm text-zinc-700 hover:bg-zinc-50 transition-colors"
+                >
+                  {job.is_public
+                    ? <GlobeLock size={13} className="text-zinc-400" />
+                    : <Globe size={13} className="text-zinc-400" />}
+                  {job.is_public ? "Remover do portal" : "Publicar no portal"}
+                </button>
+                {["Aberta", "Pausada", "Encerrada", "Rascunho"]
+                  .filter((s) => s !== job.status)
+                  .map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => { handleStatusChange(job, s); setMenuState(null); }}
+                      className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-sm text-zinc-700 hover:bg-zinc-50 transition-colors"
+                    >
+                      <span className={cn("w-2 h-2 rounded-full shrink-0", statusDot(s))} />
+                      Marcar como {s}
+                    </button>
+                  ))}
+                <div className="my-1 border-t border-zinc-100" />
+                <button
+                  onClick={() => { setJobToDelete(job); setMenuState(null); }}
+                  className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-sm text-rose-600 hover:bg-rose-50 transition-colors"
+                >
+                  <Trash2 size={13} /> Excluir
+                </button>
+              </>
+            );
+          })()}
+        </div>,
+        document.body
+      )}
 
       {/* Details panel */}
       <AnimatePresence>

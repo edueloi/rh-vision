@@ -3076,45 +3076,45 @@ Retorne EXATAMENTE este JSON:
 
       // Process up to 50 candidates — gpt-4.1-mini supports 32k output tokens
       const candidatesToProcess = filteredCandidates.slice(0, 50);
+      const scoreThreshold = Math.max(0, numericMinScore);
 
       const prompt = `
-        Você é a Aurora AI, um sistema extremamente crítico e analítico de recrutamento corporativo.
-        Sua tarefa é comparar rigorosamente uma lista de candidatos com uma vaga específica.
+        Você é a Aurora AI, sistema analítico de recrutamento corporativo.
+        Leia TODOS os candidatos abaixo com atenção e retorne NO JSON apenas os que tiverem score >= ${scoreThreshold}.
+        Candidatos com score abaixo de ${scoreThreshold} devem ser OMITIDOS do results — não inclua-os.
 
         CRITÉRIOS DE AVALIAÇÃO:
-        1. Aderência de Experiência (CRÍTICO): Verifique se a experiência passada tem relação direta ou transferível com a vaga. Anos de experiência em área totalmente diferente NÃO qualificam. Penalize drasticamente se a área for incompatível.
-        2. Localização: Se presencial, deve estar na mesma cidade ou dentro do raio informado.
-        3. Formação e Habilidades: Verifique aderência real com os requisitos da vaga.
-        4. Superqualificação: Se o candidato estiver muito acima do nível, mencione risco de turnover nos pontos de atenção.
-        Precisão: ${precisionMode} (Se "Rigorosa": zere o score de candidatos sem experiência exata na área)
+        1. Experiência na área (CRÍTICO): área totalmente diferente = score baixo, exclua do resultado.
+        2. Localização: presencial exige cidade/região dentro do raio de ${radius} km.
+        3. Formação e habilidades: aderência real com os requisitos.
+        4. Superqualificação: mencione risco de turnover nos attention_points se aplicável.
+        Precisão: ${precisionMode}${precisionMode === 'Rigorosa' ? ' — score zero para quem não tem experiência exata na área.' : '.'}
 
         VAGA ALVO:
         Título: ${job.title}
         Local: ${job.city}/${job.state} | Modelo: ${job.work_model}
-        Requisitos obrigatórios: ${(job.mandatory_requirements || '').substring(0, 600)}
-        Descrição: ${(job.description || '').substring(0, 500)}
-        Requisitos técnicos: ${(job.technical_requirements || '').substring(0, 400)}
-        Exp. mínima: ${job.min_experience_years} anos | Raio máximo: ${radius} km
+        Requisitos obrigatórios: ${(job.mandatory_requirements || '').substring(0, 800)}
+        Descrição: ${(job.description || '').substring(0, 600)}
+        Requisitos técnicos: ${(job.technical_requirements || '').substring(0, 500)}
+        Exp. mínima: ${job.min_experience_years} anos
 
-        CANDIDATOS A AVALIAR:
+        CANDIDATOS (avalie todos, inclua no JSON só os com score >= ${scoreThreshold}):
         ${candidatesToProcess.map(c => `
---- ID:${c.id} | ${c.full_name} | ${c.city}/${c.state}
-Cargo desejado: ${c.desired_position || ''} | Área: ${c.desired_area || ''}
-Formação: ${c.education_level || ''} — ${(c.academic_education || '').substring(0, 200)}
-Resumo profissional: ${(c.professional_summary || '').substring(0, 400)}
-Experiências: ${(c.professional_experiences || '').substring(0, 1200)}
-Skills técnicas: ${(c.hard_skills || '').substring(0, 200)}
-Skills comportamentais: ${(c.soft_skills || '').substring(0, 150)}
+=== ID:${c.id} | ${c.full_name} | ${c.city}/${c.state}
+Cargo: ${c.desired_position || 'N/I'} | Área: ${c.desired_area || 'N/I'}
+Formação: ${c.education_level || 'N/I'} | ${(c.academic_education || '').substring(0, 250)}
+Resumo: ${(c.professional_summary || '').substring(0, 500)}
+Experiências: ${(c.professional_experiences || 'Não informado').substring(0, 1500)}
+Skills técnicas: ${(c.hard_skills || 'N/I').substring(0, 250)}
+Skills comportamentais: ${(c.soft_skills || 'N/I').substring(0, 200)}
 DISC: ${c.disc?.predominant_profile ? `${c.disc.predominant_profile} (D:${c.disc.disc_d||0} I:${c.disc.disc_i||0} S:${c.disc.disc_s||0} C:${c.disc.disc_c||0})` : 'Não avaliado'}`).join('\n')}
 
-        ESCALA DE SCORE (0-100):
-        0-40: Incompatível — área totalmente diferente ou sem qualificação mínima.
-        41-69: Fit Baixo/Moderado — alguma relação mas sem vivência ideal.
-        70-89: Alto Fit — experiência na área, competências compatíveis.
-        90-100: Altíssimo Fit — candidato ideal, área idêntica, localização perfeita.
+        ESCALA DE SCORE:
+        0-40: Incompatível. 41-69: Fit Baixo. 70-89: Alto Fit. 90-100: Altíssimo Fit.
 
-        Retorne SOMENTE JSON válido, sem markdown, sem texto extra:
-        {"results":[{"candidate_id":number,"compatibility_score":number,"classification":"string","distance_km":number,"strengths":["string","string"],"attention_points":["string"],"recommendation_reason":"string","risk_reason":"string"}],"summary":"string"}
+        REGRA FINAL: inclua no results SOMENTE candidatos com compatibility_score >= ${scoreThreshold}.
+        Retorne SOMENTE JSON válido sem markdown:
+        {"results":[{"candidate_id":number,"compatibility_score":number,"classification":"string","distance_km":number,"strengths":["string"],"attention_points":["string"],"recommendation_reason":"string","risk_reason":"string"}],"summary":"string"}
       `;
 
       const aiResult = await ai.models.generateContent({
