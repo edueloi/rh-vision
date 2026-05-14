@@ -17,6 +17,10 @@ import {
   LogOut,
   User,
   HelpCircle,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Sparkles,
+  ChevronsRight,
 } from "lucide-react";
 import { AnimatePresence } from "motion/react";
 import {
@@ -127,7 +131,7 @@ function AppContent() {
   const notifRef = useRef<HTMLDivElement>(null);
   const unitMenuRef = useRef<HTMLDivElement>(null);
   const { currentUnit, changeUnit, isMaster, units } = useUnit();
-  const { theme } = usePreferences();
+  const { theme, sidebarCollapsed, toggleSidebar } = usePreferences();
   const toast = useToast();
   const { notifications, unreadCount, markAllRead, clear } = useNotifications();
   const location = useLocation();
@@ -343,6 +347,22 @@ function AppContent() {
         @media (max-height: 720px) {
           .custom-scrollbar { padding-bottom: 0.5rem; }
         }
+
+        .sidebar-transition {
+          transition: width 280ms cubic-bezier(0.4,0,0.2,1), min-width 280ms cubic-bezier(0.4,0,0.2,1), max-width 280ms cubic-bezier(0.4,0,0.2,1);
+        }
+        .sidebar-content-fade {
+          transition: opacity 200ms ease, transform 200ms ease;
+        }
+        .sidebar-collapsed .sidebar-content-fade {
+          opacity: 0;
+          transform: translateX(-8px);
+          pointer-events: none;
+          position: absolute;
+          overflow: hidden;
+          width: 0;
+          height: 0;
+        }
       `}</style>
       {sidebarOpen && (
         <div
@@ -352,9 +372,14 @@ function AppContent() {
       )}
 
       <aside className={cn(
-        "fixed inset-y-0 left-0 z-[50] flex h-[100dvh] w-[84vw] max-w-[18rem] flex-col overflow-hidden border-r border-white/[0.06] shadow-[22px_0_60px_rgba(3,8,20,0.24)] transition-transform duration-300 sm:w-72 lg:sticky lg:translate-x-0",
+        "fixed inset-y-0 left-0 z-[50] flex h-[100dvh] flex-col overflow-hidden border-r border-white/[0.06] shadow-[22px_0_60px_rgba(3,8,20,0.24)] transition-transform duration-300 sidebar-transition",
+        "lg:sticky lg:translate-x-0",
+        sidebarCollapsed
+          ? "w-[84vw] max-w-[18rem] sm:w-72 lg:w-[4.75rem] lg:min-w-[4.75rem] lg:max-w-[4.75rem]"
+          : "w-[84vw] max-w-[18rem] sm:w-72 lg:w-72 lg:min-w-[18rem] lg:max-w-[18rem]",
         isRootShell ? "bg-[#040e1f]" : theme === 'dark' ? "bg-[#071325]" : "bg-develoi-navy",
-        sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        sidebarOpen ? "translate-x-0" : "-translate-x-full",
+        sidebarCollapsed && "sidebar-collapsed"
       )}>
         <div className="pointer-events-none absolute inset-0">
           <div className="absolute inset-x-0 top-0 h-52 bg-[radial-gradient(circle_at_top_left,rgba(197,160,77,0.22),transparent_58%)]" />
@@ -364,23 +389,32 @@ function AppContent() {
 
         <div className="relative z-10 flex h-full flex-col">
           {/* Logo */}
-          <div className="px-4 pb-3 pt-4 sm:px-5 sm:pb-5 sm:pt-6">
+          <div className={cn(
+            "px-4 pb-3 pt-4 sm:px-5 sm:pb-5 sm:pt-6 transition-all duration-200",
+            sidebarCollapsed && "lg:px-2 lg:pt-4 lg:pb-2"
+          )}>
             {isRootShell ? (
-              <div className="flex flex-1 items-center gap-3 rounded-[22px] border border-white/[0.07] bg-white/[0.04] px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] sm:rounded-[24px] sm:px-3.5 sm:py-3">
+              <div className={cn(
+                "flex flex-1 items-center gap-3 rounded-[22px] border border-white/[0.07] bg-white/[0.04] px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] sm:rounded-[24px] sm:px-3.5 sm:py-3 transition-all duration-200",
+                sidebarCollapsed && "lg:justify-center lg:px-0 lg:py-2.5 lg:rounded-2xl"
+              )}>
                 <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-develoi-gold/20 bg-develoi-gold/15 shrink-0">
                   <Brain size={20} className="text-develoi-gold" />
                 </div>
-                <div className="min-w-0">
+                <div className={cn("min-w-0 sidebar-content-fade")}>
                   <p className="text-[11px] font-black uppercase tracking-[0.24em] text-white leading-none">Aurora Root</p>
                   <p className="mt-1 text-[10px] font-bold tracking-[0.16em] text-develoi-gold/75">Control Grid</p>
                 </div>
               </div>
             ) : (
-              <div className="flex flex-1 items-center gap-3 rounded-[22px] border border-white/[0.07] bg-white/[0.04] px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] sm:rounded-[24px] sm:px-3.5 sm:py-3">
+              <div className={cn(
+                "flex flex-1 items-center gap-3 rounded-[22px] border border-white/[0.07] bg-white/[0.04] px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] sm:rounded-[24px] sm:px-3.5 sm:py-3 transition-all duration-200",
+                sidebarCollapsed && "lg:justify-center lg:px-0 lg:py-2.5 lg:rounded-2xl"
+              )}>
                 <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white shadow-[0_10px_30px_rgba(255,255,255,0.14)] shrink-0 overflow-hidden sm:h-11 sm:w-11">
                   <img src="/icon_logo_recruteia.png" alt="Recrute IA" className="h-7 w-7 object-contain" />
                 </div>
-                <div className="min-w-0">
+                <div className={cn("min-w-0 sidebar-content-fade")}>
                   <p className="text-[15px] font-black leading-none tracking-tight text-white">Recrute <span className="text-develoi-gold">IA</span></p>
                   <p className="mt-1 truncate text-[9px] font-bold uppercase tracking-[0.3em] text-white/45">{user?.tenant_name || "Develoi"}</p>
                 </div>
@@ -388,9 +422,17 @@ function AppContent() {
             )}
           </div>
 
+          {/* Divider: logo → nav */}
+          <div className="mx-4 border-t border-white/[0.07] sm:mx-5" />
+
           {/* Nav */}
-          <nav className="custom-scrollbar min-h-0 flex-1 overflow-y-auto px-3 pb-3 pt-1 sm:px-4 sm:pb-4">
-            <p className="px-3 pb-3 text-[9px] font-black uppercase tracking-[0.32em] text-white/24">Menu</p>
+          <nav className={cn(
+            "custom-scrollbar min-h-0 flex-1 overflow-y-auto px-3 pb-3 pt-1 sm:px-4 sm:pb-4 transition-all duration-200",
+            sidebarCollapsed && "lg:px-1.5"
+          )}>
+            <p className={cn(
+              "px-3 pb-3 text-[9px] font-black uppercase tracking-[0.32em] text-white/24 sidebar-content-fade"
+            )}>Menu</p>
             {isRootShell ? (
               <>
                 <button
@@ -453,7 +495,7 @@ function AppContent() {
                 </div>
               </>
             ) : (
-              <div className="space-y-1.5 sm:space-y-2">
+              <div className="space-y-1">
                 {menuItems.map(item => {
                   const Icon = item.icon;
                   const active = location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
@@ -461,64 +503,134 @@ function AppContent() {
                     <button
                       key={item.path}
                       onClick={() => { navigate(item.path); setSidebarOpen(false); }}
+                      title={sidebarCollapsed ? item.label : undefined}
                       className={cn(
-                        "group flex w-full items-center gap-3 rounded-[22px] border px-3 py-2.5 text-left transition-all duration-200 sm:rounded-[24px] sm:px-3.5 sm:py-3",
+                        "group flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition-all duration-200",
                         active
-                          ? "border-[#d7b25d]/55 bg-[linear-gradient(135deg,#d7b25d_0%,#c5963c_100%)] text-[#091829] shadow-[0_18px_38px_rgba(197,160,77,0.28)]"
-                          : "border-transparent text-white/60 hover:border-white/[0.08] hover:bg-white/[0.05] hover:text-white"
+                          ? "border border-[#d7b25d]/40 bg-[linear-gradient(135deg,rgba(215,178,93,0.18)_0%,rgba(197,150,60,0.12)_100%)] text-white shadow-[0_8px_24px_rgba(197,160,77,0.12)]"
+                          : "border border-transparent text-white/55 hover:bg-white/[0.04] hover:text-white",
+                        sidebarCollapsed && "lg:justify-center lg:px-0 lg:py-2.5"
                       )}
                     >
                       <div className={cn(
-                        "flex h-9 w-9 items-center justify-center rounded-2xl border shrink-0 transition-all sm:h-10 sm:w-10",
+                        "flex h-9 w-9 items-center justify-center rounded-xl shrink-0 transition-all",
                         active
-                          ? "border-white/35 bg-[#fff4d1]/80 text-[#091829]"
-                          : "border-white/[0.05] bg-white/[0.04] text-white/48 group-hover:border-white/[0.1] group-hover:bg-white/[0.07] group-hover:text-white"
+                          ? "bg-develoi-gold/20 text-develoi-gold"
+                          : "bg-white/[0.05] text-white/40 group-hover:bg-white/[0.08] group-hover:text-white/70"
                       )}>
-                        <Icon size={16} strokeWidth={active ? 2.4 : 2} />
+                        <Icon size={18} strokeWidth={active ? 2.2 : 1.8} />
                       </div>
-                      <div className="min-w-0 flex-1">
+                      <div className={cn("min-w-0 flex-1 sidebar-content-fade")}>
                         <p className={cn(
-                          "truncate text-[11px] font-black tracking-[0.06em]",
-                          active ? "text-[#091829]" : "text-current"
+                          "truncate text-[11px] font-bold tracking-[0.02em]",
+                          active ? "text-white font-black" : "text-current"
                         )}>
                           {item.label}
                         </p>
                         <p className={cn(
-                          "mt-1 hidden truncate text-[9px] sm:block",
-                          active ? "text-[#523c12]/80" : "text-white/34"
+                          "mt-0.5 hidden truncate text-[9px] sm:block",
+                          active ? "text-develoi-gold/60" : "text-white/28"
                         )}>
                           {item.helper}
                         </p>
                       </div>
-                      <div className={cn(
-                        "flex h-8 w-8 items-center justify-center rounded-full transition-all",
-                        active
-                          ? "bg-[#091829]/10 text-[#091829]"
-                          : "text-white/20 opacity-0 group-hover:opacity-100"
-                      )}>
-                        <ChevronRight size={15} />
-                      </div>
+                      {active && (
+                        <div className={cn(
+                          "flex h-7 w-7 items-center justify-center rounded-lg transition-all sidebar-content-fade",
+                          "text-develoi-gold/70"
+                        )}>
+                          <ChevronRight size={14} />
+                        </div>
+                      )}
                     </button>
                   );
                 })}
               </div>
             )}
+
+            {/* Divider: menu → atalhos */}
+            <div className={cn(
+              "mx-2 mt-4 border-t border-white/[0.07] sm:mx-3",
+              sidebarCollapsed && "lg:mx-1"
+            )} />
+
+            {/* Atalhos section with collapse toggle (desktop only) */}
+            <div className={cn(
+              "mt-5 hidden lg:block",
+              sidebarCollapsed && "lg:mt-3"
+            )}>
+              <p className={cn(
+                "px-3 pb-2 text-[9px] font-black uppercase tracking-[0.32em] text-white/24 sidebar-content-fade"
+              )}>Atalhos</p>
+              <button
+                onClick={toggleSidebar}
+                title={sidebarCollapsed ? "Expandir menu" : "Recolher menu"}
+                className={cn(
+                  "group flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition-all duration-200 border border-transparent text-white/55 hover:bg-white/[0.04] hover:text-white",
+                  sidebarCollapsed && "lg:justify-center lg:px-0 lg:py-2.5"
+                )}
+              >
+                <div className={cn(
+                  "flex h-9 w-9 items-center justify-center rounded-xl shrink-0 transition-all",
+                  "bg-develoi-gold/12 text-develoi-gold/70 group-hover:bg-develoi-gold/18 group-hover:text-develoi-gold"
+                )}>
+                  {sidebarCollapsed ? (
+                    <ChevronsRight size={18} strokeWidth={1.8} />
+                  ) : (
+                    <Sparkles size={18} strokeWidth={1.8} />
+                  )}
+                </div>
+                <div className={cn("min-w-0 flex-1 sidebar-content-fade")}>
+                  <p className="truncate text-[11px] font-bold tracking-[0.02em] text-current">
+                    Recolher menu
+                  </p>
+                  <p className="mt-0.5 hidden truncate text-[9px] text-white/28 sm:block">
+                    Mais espaço para você
+                  </p>
+                </div>
+                <div className={cn(
+                  "flex h-7 w-7 items-center justify-center rounded-lg text-white/25 transition-all group-hover:text-white/50 sidebar-content-fade"
+                )}>
+                  <PanelLeftClose size={14} />
+                </div>
+              </button>
+            </div>
           </nav>
 
+          {/* Divider: nav → user card */}
+          <div className={cn(
+            "mx-4 border-t border-white/[0.07] sm:mx-5",
+            sidebarCollapsed && "lg:mx-2"
+          )} />
+
           {/* User card footer */}
-          <div className="px-3 pb-3 pt-1 sm:px-4 sm:pb-4">
-            <div className="flex items-center gap-3 rounded-[24px] border border-white/[0.07] bg-white/[0.05] px-3 py-2.5 shadow-[0_14px_30px_rgba(0,0,0,0.18)] sm:rounded-[26px] sm:px-3.5 sm:py-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-2xl border border-develoi-gold/20 bg-develoi-gold/18 shrink-0 text-[11px] font-black text-develoi-gold sm:h-10 sm:w-10">
+          <div className={cn(
+            "px-3 pb-3 pt-1 sm:px-4 sm:pb-4 transition-all duration-200",
+            sidebarCollapsed && "lg:px-1.5 lg:pb-3"
+          )}>
+            <div className={cn(
+              "flex items-center gap-3 rounded-2xl border border-white/[0.06] bg-white/[0.04] px-3 py-2.5 transition-all duration-200",
+              sidebarCollapsed && "lg:justify-center lg:flex-col lg:gap-2 lg:px-1.5 lg:py-2.5"
+            )}>
+              <div className={cn(
+                "relative flex h-9 w-9 items-center justify-center rounded-xl bg-develoi-gold/18 shrink-0 text-[11px] font-black text-develoi-gold sm:h-10 sm:w-10",
+                sidebarCollapsed && "lg:hidden"
+              )}>
                 {(user?.full_name || "U").split(" ").slice(0, 2).map((n: string) => n[0]).join("").toUpperCase()}
+                {/* Green online indicator */}
+                <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-develoi-navy bg-emerald-400" />
               </div>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-[11px] font-black tracking-[0.03em] text-white">{user?.full_name || "Usuário"}</p>
-                <p className="mt-1 truncate text-[9px] font-bold uppercase tracking-[0.24em] text-white/36">{user?.access_profile || user?.role || "Membro"}</p>
+              <div className={cn("min-w-0 flex-1 sidebar-content-fade")}>
+                <p className="truncate text-[11px] font-bold tracking-[0.02em] text-white">{user?.full_name || "Usuário"}</p>
+                <p className="mt-0.5 truncate text-[9px] font-bold uppercase tracking-[0.2em] text-develoi-gold/50">{user?.access_profile || user?.role || "Membro"}</p>
               </div>
               <button
                 onClick={handleLogout}
                 title="Sair"
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-2xl border border-white/[0.07] bg-white/[0.04] text-white/30 transition-colors hover:border-rose-400/20 hover:bg-rose-500/10 hover:text-rose-300 sm:h-9 sm:w-9"
+                className={cn(
+                  "flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/[0.04] text-white/30 transition-colors hover:bg-rose-500/10 hover:text-rose-300 sm:h-9 sm:w-9",
+                  sidebarCollapsed && "lg:h-8 lg:w-8"
+                )}
               >
                 <LogOut size={15} />
               </button>
