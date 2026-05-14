@@ -107,19 +107,24 @@ export default function Settings() {
     setLoading(true);
     try {
       const res = await fetch(`/api/settings?tenantId=${tenantId}`);
-      if (!res.ok) throw new Error();
       const data = await res.json();
+      if (!res.ok) {
+        console.error('[settings] HTTP', res.status, data);
+        toastRef.current.error(data?.error ?? "Erro ao carregar configurações.");
+        return;
+      }
       setSettings({
         auto_delete_enabled: Boolean(data.auto_delete_enabled),
         auto_delete_interval: data.auto_delete_interval ?? DEFAULT.auto_delete_interval,
         auto_delete_target: data.auto_delete_target ?? DEFAULT.auto_delete_target,
       });
-    } catch {
+    } catch (err) {
+      console.error('[settings] fetch error', err);
       toastRef.current.error("Erro ao carregar configurações.");
     } finally {
       setLoading(false);
     }
-  }, [tenantId]); // toast removido — via ref para não recriar fetchSettings
+  }, [tenantId]);
 
   useEffect(() => { fetchSettings(); }, [fetchSettings]);
 

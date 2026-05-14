@@ -5004,8 +5004,13 @@ Retorne EXATAMENTE este JSON:
       const row = rows[0] ?? null;
       if (!row) return res.status(404).json({ error: 'Settings not found.' });
       res.json({
-        ...row,
-        auto_delete_enabled: Boolean(row.auto_delete_enabled),
+        id: Number(row.id),
+        tenant_id: row.tenant_id,
+        auto_delete_enabled: Boolean(Number(row.auto_delete_enabled)),
+        auto_delete_interval: row.auto_delete_interval ?? '6_months',
+        auto_delete_target: row.auto_delete_target ?? 'candidates',
+        created_at: row.created_at,
+        updated_at: row.updated_at,
       });
     } catch (err) {
       console.error('[settings GET]', err);
@@ -5036,8 +5041,13 @@ Retorne EXATAMENTE este JSON:
       );
       const updated = rows[0] ?? null;
       res.json({
-        ...updated,
-        auto_delete_enabled: Boolean(updated?.auto_delete_enabled),
+        id: Number(updated?.id),
+        tenant_id: updated?.tenant_id,
+        auto_delete_enabled: Boolean(Number(updated?.auto_delete_enabled)),
+        auto_delete_interval: updated?.auto_delete_interval ?? '6_months',
+        auto_delete_target: updated?.auto_delete_target ?? 'candidates',
+        created_at: updated?.created_at,
+        updated_at: updated?.updated_at,
       });
     } catch (err) {
       console.error('[settings PUT]', err);
