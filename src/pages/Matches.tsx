@@ -364,6 +364,8 @@ export default function Matches() {
   const [matches, setMatches] = useState<MatchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState<number | null>(null);
+  const [minScore, setMinScore] = useState<string>("70");
+  const [maxRadius, setMaxRadius] = useState<string>("");
 
   useEffect(() => { fetchJobs(); }, [queryUnitId]);
 
@@ -379,10 +381,15 @@ export default function Matches() {
     } catch (err) { console.error(err); }
   };
 
-  const fetchMatches = async () => {
+  const fetchMatches = async (scoreOverride?: string, radiusOverride?: string) => {
     setLoading(true);
+    const score = scoreOverride ?? minScore;
+    const radius = radiusOverride ?? maxRadius;
     try {
-      const res = await fetch(`/api/aurora-ai/matches/${selectedJobId}?minScore=70`);
+      const params = new URLSearchParams();
+      if (score) params.set("minScore", score);
+      if (radius) params.set("maxRadius", radius);
+      const res = await fetch(`/api/aurora-ai/matches/${selectedJobId}?${params.toString()}`);
       if (res.ok) setMatches((await res.json()) || []);
     } catch {
       toast.error("Erro ao carregar as aderências.");
@@ -427,25 +434,75 @@ export default function Matches() {
             icon={<Zap size={22} />}
             className=""
           />
-          <div className="w-full sm:w-80 shrink-0">
-            <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest px-1 flex items-center gap-1.5 mb-1.5">
-              <Briefcase size={11} />
-              Filtrar por Vaga Ativa
-            </label>
-            <div className="relative">
-              <select
-                value={selectedJobId}
-                onChange={e => setSelectedJobId(e.target.value)}
-                className="w-full h-11 pl-4 pr-10 bg-white border border-zinc-200 rounded-2xl text-xs font-bold text-zinc-900 outline-none focus:ring-2 focus:ring-develoi-gold/40 focus:border-develoi-gold transition-all shadow-sm appearance-none cursor-pointer"
-              >
-                <option value="">Selecione uma vaga...</option>
-                {jobs.map(job => (
-                  <option key={job.id} value={job.id}>
-                    {job.title} — {job.city}/{job.state}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
+          <div className="flex flex-col sm:flex-row items-end gap-3 w-full sm:w-auto">
+            {/* Vaga */}
+            <div className="w-full sm:w-72 shrink-0">
+              <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest px-1 flex items-center gap-1.5 mb-1.5">
+                <Briefcase size={11} />
+                Filtrar por Vaga Ativa
+              </label>
+              <div className="relative">
+                <select
+                  value={selectedJobId}
+                  onChange={e => setSelectedJobId(e.target.value)}
+                  className="w-full h-11 pl-4 pr-10 bg-white border border-zinc-200 rounded-2xl text-xs font-bold text-zinc-900 outline-none focus:ring-2 focus:ring-develoi-gold/40 focus:border-develoi-gold transition-all shadow-sm appearance-none cursor-pointer"
+                >
+                  <option value="">Selecione uma vaga...</option>
+                  {jobs.map(job => (
+                    <option key={job.id} value={job.id}>
+                      {job.title} — {job.city}/{job.state}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
+              </div>
+            </div>
+
+            {/* Score mínimo */}
+            <div className="w-32 shrink-0">
+              <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest px-1 flex items-center gap-1.5 mb-1.5">
+                <Star size={11} />
+                Score Mínimo
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={minScore ? `${minScore}%` : ""}
+                  placeholder="0%"
+                  onChange={e => {
+                    const raw = e.target.value.replace(/[^0-9]/g, "");
+                    const clamped = Math.min(100, Math.max(0, Number(raw)));
+                    setMinScore(raw === "" ? "" : String(clamped));
+                  }}
+                  onKeyDown={e => { if (e.key === "Enter" && selectedJobId) fetchMatches(); }}
+                  onBlur={() => { if (selectedJobId) fetchMatches(); }}
+                  className="w-full h-11 pl-4 pr-3 bg-white border border-zinc-200 rounded-2xl text-xs font-bold text-zinc-900 outline-none focus:ring-2 focus:ring-develoi-gold/40 focus:border-develoi-gold transition-all shadow-sm"
+                />
+              </div>
+            </div>
+
+            {/* Raio km */}
+            <div className="w-32 shrink-0">
+              <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest px-1 flex items-center gap-1.5 mb-1.5">
+                <MapPin size={11} />
+                Raio (km)
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={maxRadius ? `${maxRadius} km` : ""}
+                  placeholder="Qualquer"
+                  onChange={e => {
+                    const raw = e.target.value.replace(/[^0-9]/g, "");
+                    setMaxRadius(raw === "" ? "" : String(Math.max(0, Number(raw))));
+                  }}
+                  onKeyDown={e => { if (e.key === "Enter" && selectedJobId) fetchMatches(); }}
+                  onBlur={() => { if (selectedJobId) fetchMatches(); }}
+                  className="w-full h-11 pl-4 pr-3 bg-white border border-zinc-200 rounded-2xl text-xs font-bold text-zinc-900 outline-none focus:ring-2 focus:ring-develoi-gold/40 focus:border-develoi-gold transition-all shadow-sm"
+                />
+              </div>
             </div>
           </div>
         </div>

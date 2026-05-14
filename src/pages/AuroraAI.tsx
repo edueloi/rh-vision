@@ -353,14 +353,14 @@ interface MatchFiltersProps {
   jobs: any[];
   selectedJobId: string;
   precisionMode: string;
-  minScore: number;
-  radius: number;
+  minScore: string;
+  radius: string;
   onlyWithDisc: boolean;
   isMatching: boolean;
   onJobChange: (v: string) => void;
   onPrecisionChange: (v: string) => void;
-  onMinScoreChange: (v: number) => void;
-  onRadiusChange: (v: number) => void;
+  onMinScoreChange: (v: string) => void;
+  onRadiusChange: (v: string) => void;
   onDiscChange: (v: boolean) => void;
   onExecute: () => void;
 }
@@ -398,18 +398,43 @@ function MatchFilters(props: MatchFiltersProps) {
 
         {/* Numeric filters + toggles */}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-          <Input
-            label="Score Mínimo"
-            type="number"
-            value={props.minScore}
-            onChange={e => props.onMinScoreChange(Number(e.target.value))}
-          />
-          <Input
-            label="Raio (KM)"
-            type="number"
-            value={props.radius}
-            onChange={e => props.onRadiusChange(Number(e.target.value))}
-          />
+          {/* Score mínimo com máscara % */}
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Score Mínimo</span>
+            <div className="relative">
+              <input
+                type="text"
+                inputMode="numeric"
+                value={props.minScore !== "" ? `${props.minScore}%` : ""}
+                placeholder="0%"
+                onChange={e => {
+                  const raw = e.target.value.replace(/[^0-9]/g, "");
+                  if (raw === "") { props.onMinScoreChange(""); return; }
+                  const clamped = Math.min(100, Math.max(0, Number(raw)));
+                  props.onMinScoreChange(String(clamped));
+                }}
+                className="w-full h-10 pl-4 pr-4 bg-zinc-50 border border-zinc-200 rounded-full text-xs font-bold text-zinc-900 outline-none focus:ring-2 focus:ring-develoi-gold/40 focus:border-develoi-gold transition-all shadow-sm"
+              />
+            </div>
+          </div>
+          {/* Raio com máscara km */}
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Raio (KM)</span>
+            <div className="relative">
+              <input
+                type="text"
+                inputMode="numeric"
+                value={props.radius !== "" ? `${props.radius} km` : ""}
+                placeholder="Qualquer"
+                onChange={e => {
+                  const raw = e.target.value.replace(/[^0-9]/g, "");
+                  if (raw === "") { props.onRadiusChange(""); return; }
+                  props.onRadiusChange(String(Math.max(0, Number(raw))));
+                }}
+                className="w-full h-10 pl-4 pr-4 bg-zinc-50 border border-zinc-200 rounded-full text-xs font-bold text-zinc-900 outline-none focus:ring-2 focus:ring-develoi-gold/40 focus:border-develoi-gold transition-all shadow-sm"
+              />
+            </div>
+          </div>
           <label className="flex flex-col gap-1.5 cursor-pointer group" onClick={() => props.onDiscChange(!props.onlyWithDisc)}>
             <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 select-none">Filtrar por DISC</span>
             <div className="flex h-10 items-center justify-between px-4 bg-zinc-50 border border-zinc-200 rounded-full shadow-sm transition-all group-hover:border-zinc-300">
@@ -630,11 +655,11 @@ function AuroraSidebar({ stats, sessions, jobs, onSessionClick }: SidebarProps) 
 
 interface SettingsModalProps {
   open: boolean;
-  minScore: number;
-  radius: number;
+  minScore: string;
+  radius: string;
   precisionMode: string;
-  onMinScoreChange: (v: number) => void;
-  onRadiusChange: (v: number) => void;
+  onMinScoreChange: (v: string) => void;
+  onRadiusChange: (v: string) => void;
   onPrecisionChange: (v: string) => void;
   onClose: () => void;
   onSave: () => void;
@@ -647,8 +672,36 @@ function SettingsModal(props: SettingsModalProps) {
         <div className="space-y-4">
           <h4 className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Parâmetros de Aderência</h4>
           <div className="grid grid-cols-2 gap-4">
-            <Input label="Score Mínimo (%)" type="number" value={props.minScore} onChange={e => props.onMinScoreChange(Number(e.target.value))} />
-            <Input label="Raio Padrão (KM)" type="number" value={props.radius} onChange={e => props.onRadiusChange(Number(e.target.value))} />
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Score Mínimo (%)</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={props.minScore !== "" ? `${props.minScore}%` : ""}
+                placeholder="0%"
+                onChange={e => {
+                  const raw = e.target.value.replace(/[^0-9]/g, "");
+                  if (raw === "") { props.onMinScoreChange(""); return; }
+                  props.onMinScoreChange(String(Math.min(100, Math.max(0, Number(raw)))));
+                }}
+                className="h-11 w-full px-4 bg-zinc-50 border border-zinc-200 rounded-xl text-sm font-bold text-zinc-900 outline-none focus:border-develoi-gold focus:ring-2 focus:ring-develoi-gold/30 transition-all"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Raio Padrão (KM)</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={props.radius !== "" ? `${props.radius} km` : ""}
+                placeholder="Qualquer"
+                onChange={e => {
+                  const raw = e.target.value.replace(/[^0-9]/g, "");
+                  if (raw === "") { props.onRadiusChange(""); return; }
+                  props.onRadiusChange(String(Math.max(0, Number(raw))));
+                }}
+                className="h-11 w-full px-4 bg-zinc-50 border border-zinc-200 rounded-xl text-sm font-bold text-zinc-900 outline-none focus:border-develoi-gold focus:ring-2 focus:ring-develoi-gold/30 transition-all"
+              />
+            </div>
           </div>
         </div>
 
@@ -879,8 +932,8 @@ export default function AuroraAI() {
 
   // Filters
   const [precisionMode, setPrecisionMode] = useState('Equilibrada');
-  const [minScore, setMinScore] = useState(70);
-  const [radius, setRadius] = useState(50);
+  const [minScore, setMinScore] = useState("70");
+  const [radius, setRadius] = useState("50");
   const [onlyWithDisc, setOnlyWithDisc] = useState(false);
 
   // Settings modal
@@ -1059,7 +1112,7 @@ export default function AuroraAI() {
                     <MatchCard
                       key={`${rec.candidate_id}-${i}`}
                       rec={rec}
-                      radius={radius}
+                      radius={Number(radius) || 0}
                       onClick={() => setSelectedMatch(rec)}
                     />
                   ))}
@@ -1137,7 +1190,7 @@ export default function AuroraAI() {
       {selectedMatch && (
         <MatchDetailsModal
           rec={selectedMatch}
-          radius={radius}
+          radius={Number(radius) || 0}
           onClose={() => setSelectedMatch(null)}
         />
       )}
