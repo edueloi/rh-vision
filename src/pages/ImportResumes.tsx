@@ -2,10 +2,10 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import {
   Upload, FileText, CheckCircle2, AlertCircle, X, Loader2, Plus, Users,
-  Download, Search, ArrowLeft, Settings, Brain, Target, Shield, Wand2,
+  Download, Search, ArrowLeft, Settings, Brain, Target, Shield,
   Sparkles, Clock, Database, Copy, Eye, MoreVertical, Zap, Briefcase,
-  ChevronRight, RefreshCw, FileSpreadsheet, Layers, Trash2, Check,
-  Star, LayoutDashboard, FolderOpen, Cpu, TrendingUp, Filter,
+  ChevronRight, RefreshCw, Layers, Trash2, Check, Mail, User,
+  Star, Cpu, TrendingUp, Info, HelpCircle, PartyPopper,
 } from "lucide-react";
 import {
   PanelCard, Badge, useToast, StatCard, EmptyState, StatGrid,
@@ -222,7 +222,7 @@ export default function ImportResumes() {
       prevProcessedRef.current = selectedBatch.processed_files;
       // Fechar o toast de processamento em andamento
       if (processingToastRef.current !== null) {
-        toast.dismiss(processingToastRef.current);
+        toast.dismiss(String(processingToastRef.current));
         processingToastRef.current = null;
       }
       const errors = selectedBatch.error_files || 0;
@@ -245,7 +245,7 @@ export default function ImportResumes() {
   // Limpar toast de processamento ao sair da view de detalhes
   useEffect(() => {
     if (view !== "details" && processingToastRef.current !== null) {
-      toast.dismiss(processingToastRef.current);
+      toast.dismiss(String(processingToastRef.current));
       processingToastRef.current = null;
     }
   }, [view]);
@@ -583,6 +583,83 @@ export default function ImportResumes() {
     </div>
   );
 
+  // ─── Modal: Como funciona ─────────────────────────────────────────────────────
+
+  const [showHelp, setShowHelp] = useState(false);
+
+  const HowItWorksButton = () => (
+    <>
+      <Button
+        variant="outline"
+        size="sm"
+        iconLeft={<HelpCircle size={14} />}
+        onClick={() => setShowHelp(true)}
+        className="border-white/20 text-white hover:bg-white/10 hover:border-white/40 rounded-xl"
+      >
+        Como funciona?
+      </Button>
+      <Modal
+        open={showHelp}
+        onClose={() => setShowHelp(false)}
+        title="Como funciona a importação em lote"
+        description="Entenda cada etapa do processo Aurora IA"
+        icon={<HelpCircle size={20} />}
+        size="lg"
+        footer={
+          <Button variant="primary" fullWidth onClick={() => setShowHelp(false)}>
+            Entendido!
+          </Button>
+        }
+      >
+        <div className="space-y-4 pt-1">
+          {[
+            {
+              step: "1",
+              color: "bg-develoi-navy",
+              title: "Upload dos Currículos",
+              desc: "Você enviou os arquivos PDF, DOCX ou TXT. A Aurora IA recebeu todos e iniciou o processamento paralelo.",
+            },
+            {
+              step: "2",
+              color: "bg-blue-600",
+              title: "Extração e Estruturação pela IA",
+              desc: "Para cada currículo, a IA extrai nome, e-mail, telefone, cargo, experiências, formação, skills e outros dados. Tudo é salvo como um perfil estruturado.",
+            },
+            {
+              step: "3",
+              color: "bg-amber-500",
+              title: "Revisão dos Perfis",
+              desc: "Agora é a sua vez! Clique no ícone de olho em cada candidato para visualizar e verificar os dados extraídos. Você pode editar campos incorretos antes de efetivar.",
+            },
+            {
+              step: "4",
+              color: "bg-emerald-600",
+              title: "Efetivar o Lote",
+              desc: "Ao clicar em \"Efetivar Lote\", todos os candidatos revisados são criados oficialmente no banco de talentos da plataforma, prontos para aparecer nas Matches e candidaturas.",
+            },
+          ].map(s => (
+            <div key={s.step} className="flex gap-4">
+              <div className={cn("w-8 h-8 rounded-xl flex items-center justify-center shrink-0 text-white font-black text-sm", s.color)}>
+                {s.step}
+              </div>
+              <div className="flex-1 pt-0.5">
+                <p className="text-sm font-black text-zinc-900 mb-1">{s.title}</p>
+                <p className="text-xs font-medium text-zinc-500 leading-relaxed">{s.desc}</p>
+              </div>
+            </div>
+          ))}
+
+          <div className="mt-2 p-4 bg-amber-50 border border-amber-100 rounded-2xl flex items-start gap-3">
+            <Info size={16} className="text-amber-500 shrink-0 mt-0.5" />
+            <p className="text-xs font-medium text-amber-700 leading-relaxed">
+              <span className="font-black">Atenção:</span> candidatos <strong>duplicados</strong> são sinalizados automaticamente. Você pode revisá-los antes de efetivar para evitar dados duplicados no banco.
+            </p>
+          </div>
+        </div>
+      </Modal>
+    </>
+  );
+
   // ─── Render: Details ─────────────────────────────────────────────────────────
 
   const renderDetails = () => {
@@ -653,6 +730,39 @@ export default function ImportResumes() {
           <StatCard title="Duplicados" value={selectedBatch?.duplicate_files || 0} icon={Copy} color="warning" />
           <StatCard title="Falhas" value={selectedBatch?.error_files || 0} icon={AlertCircle} color="danger" />
         </StatGrid>
+
+        {/* Banner: próximo passo → efetivar lote */}
+        <AnimatePresence>
+          {canCommit && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              className="relative overflow-hidden rounded-3xl bg-develoi-navy p-6 shadow-2xl shadow-develoi-navy/20"
+            >
+              <div className="absolute inset-0 opacity-[0.06]" style={{ backgroundImage: "radial-gradient(circle, white 1px, transparent 1px)", backgroundSize: "18px 18px" }} />
+              <div className="absolute top-0 right-0 w-56 h-56 bg-develoi-gold/10 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none" />
+              <div className="relative z-10 flex flex-col sm:flex-row sm:items-center gap-5">
+                <div className="w-12 h-12 bg-develoi-gold rounded-2xl flex items-center justify-center shrink-0 shadow-lg shadow-develoi-gold/30">
+                  <PartyPopper size={22} className="text-white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-base font-black text-white tracking-tight">
+                    Lote processado! Revise os currículos e efetive o lote.
+                  </p>
+                  <p className="text-[11px] text-white/60 font-medium mt-1 leading-relaxed">
+                    {selectedBatch?.created_candidates} candidato{selectedBatch?.created_candidates !== 1 ? "s" : ""} aguardando confirmação.
+                    Clique em <span className="text-develoi-gold font-black">Efetivar Lote</span> para criar os perfis no banco de talentos.
+                    {selectedBatch?.error_files ? ` · ${selectedBatch.error_files} arquivo(s) com falha — reprocesse ou ignore.` : ""}
+                  </p>
+                </div>
+                <div className="shrink-0 flex items-center gap-2">
+                  <HowItWorksButton />
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Progress bar when processing */}
         {isProcessing && (
@@ -1211,41 +1321,138 @@ export default function ImportResumes() {
     };
 
     const FIELD_LABELS: Record<string, string> = {
+      // Identificação
       name: "Nome", email: "E-mail", phone: "Telefone", cpf: "CPF",
-      city: "Cidade", state: "Estado", role: "Cargo",
-      experience_years: "Experiência (anos)", education: "Escolaridade",
-      linkedin: "LinkedIn", desired_salary: "Pretensão Salarial",
-      desired_position: "Cargo Desejado", nationality: "Nacionalidade",
-      birth_date: "Data de Nascimento", gender: "Gênero",
-      cnh: "CNH", work_model: "Modelo de Trabalho",
-      contract_type: "Tipo de Contrato", availability: "Disponibilidade",
+      age: "Idade", gender: "Gênero", nationality: "Nacionalidade",
+      birth_date: "Data de Nascimento",
+      // Localização
+      city: "Cidade", state: "Estado", location: "Localização", address: "Endereço",
+      // Profissional
+      role: "Cargo Atual", current_title: "Título Atual", current_company: "Empresa Atual",
+      experience_years: "Experiência (anos)", seniority: "Senioridade",
+      desired_position: "Cargo Desejado", objective: "Objetivo Profissional",
+      // Contato/redes
+      linkedin: "LinkedIn", portfolio: "Portfólio",
+      // Remuneração
+      desired_salary: "Pretensão Salarial",
+      // Contratação
+      work_model: "Modelo de Trabalho", contract_type: "Tipo de Contrato",
+      availability: "Disponibilidade", cnh: "CNH",
+      // Formação
+      education: "Escolaridade", education_level: "Nível de Escolaridade",
+      academic_education: "Formação Acadêmica",
+      // Idiomas / certs
       languages: "Idiomas", certifications: "Certificações",
-      location: "Localização", address: "Endereço",
+      courses_certifications: "Cursos e Certificações",
+      // Outros
+      highlights: "Destaques", soft_skills: "Soft Skills",
+      professional_experiences: "Experiências Profissionais",
+      objectives_list: "Objetivos",
     };
+
+    // Campos que devem ser ocultados da grade (exibidos em seções próprias ou redundantes)
+    const HIDDEN_FIELDS = new Set([
+      "skills", "summary", "strengths", "attention_points", "compatibility_score",
+      "recommendation", "experiences_list", "education_list", "projects_list",
+      "languages_list", "certifications_list", "certifications",
+      "soft_skills_list", "objectives_list", "soft_skills",
+    ]);
+
+    // Converte qualquer valor de campo para string legível
+    function fieldToString(v: any): string | null {
+      if (v === null || v === undefined || v === "") return null;
+      if (typeof v === "number") return v === 0 ? null : String(v);
+      if (typeof v === "string") return v || null;
+      if (Array.isArray(v)) {
+        if (v.length === 0) return null;
+        // Array de objetos: tenta extrair campo textual comum
+        if (typeof v[0] === "object" && v[0] !== null) {
+          return v.map((item: any) =>
+            item.name || item.title || item.course || item.institution ||
+            item.description || item.value || Object.values(item).filter(x => typeof x === "string")[0] || ""
+          ).filter(Boolean).join(" · ") || null;
+        }
+        return v.join(", ") || null;
+      }
+      if (typeof v === "object") {
+        const vals = Object.values(v).filter(x => typeof x === "string" || typeof x === "number");
+        return vals.join(" · ") || null;
+      }
+      return String(v) || null;
+    }
+
+    // Helper: seção de currículo com título e grid de campos
+    const CvSection = ({ title, icon: Icon, color = "bg-develoi-navy", fields }: {
+      title: string; icon: React.ElementType; color?: string;
+      fields: { label: string; value: string | null; wide?: boolean }[];
+    }) => {
+      const visible = fields.filter(f => f.value);
+      if (!visible.length) return null;
+      return (
+        <div>
+          <div className="flex items-center gap-2.5 mb-3">
+            <div className={cn("w-6 h-6 rounded-lg flex items-center justify-center shrink-0", color)}>
+              <Icon size={12} className="text-white" />
+            </div>
+            <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">{title}</p>
+            <div className="flex-1 h-px bg-zinc-100" />
+          </div>
+          <div className="grid grid-cols-2 gap-x-8 gap-y-3">
+            {visible.map(f => (
+              <div key={f.label} className={cn(f.wide ? "col-span-2" : "col-span-1")}>
+                <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-0.5">{f.label}</p>
+                <p className="text-sm font-semibold text-zinc-900 leading-snug">{f.value}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    };
+
+    const initials = parsed?.name
+      ? parsed.name.split(" ").slice(0, 2).map((n: string) => n[0]).join("").toUpperCase()
+      : "?";
 
     return (
       <Modal
         open={!!selectedFile}
         onClose={() => setSelectedFile(null)}
-        title={selectedFile.file_name}
-        description={`${fmtBytes(selectedFile.file_size)} · Currículo importado`}
-        icon={<FileText size={20} />}
+        title={parsed?.name || selectedFile.file_name}
+        description={[parsed?.role || parsed?.current_title, parsed?.current_company].filter(Boolean).join(" · ") || `${fmtBytes(selectedFile.file_size)} · Currículo importado`}
+        icon={
+          <div className="w-9 h-9 rounded-xl bg-develoi-navy flex items-center justify-center shrink-0">
+            <span className="text-xs font-black text-develoi-gold">{initials}</span>
+          </div>
+        }
         size="lg"
         footer={
           <div className="flex gap-3 w-full">
-            <Button variant="outline" fullWidth iconLeft={<RefreshCw size={14} />}
-              onClick={() => { reprocessFile(selectedFile.id); setSelectedFile(null); }}>
-              Reprocessar
-            </Button>
-            <Button variant="ghost" fullWidth onClick={() => setSelectedFile(null)}>
-              Fechar
-            </Button>
+            {isEditingFile ? (
+              <>
+                <Button variant="outline" fullWidth onClick={() => { setIsEditingFile(false); setEditedFileData(null); }}>Cancelar</Button>
+                <Button variant="primary" fullWidth iconLeft={<Check size={14} />} onClick={handleSaveFileData}>Salvar Alterações</Button>
+              </>
+            ) : (
+              <>
+                <Button variant="outline" fullWidth iconLeft={<Settings size={14} />}
+                  onClick={() => { setIsEditingFile(true); setEditedFileData(parsed); }}>
+                  Editar Dados
+                </Button>
+                <Button variant="outline" fullWidth iconLeft={<RefreshCw size={14} />}
+                  onClick={() => { reprocessFile(selectedFile.id); setSelectedFile(null); }}>
+                  Reprocessar
+                </Button>
+                <Button variant="ghost" fullWidth onClick={() => setSelectedFile(null)}>
+                  Fechar
+                </Button>
+              </>
+            )}
           </div>
         }
       >
         <div className="space-y-5">
-          {/* Status badge */}
-          <div className="flex items-center gap-2">
+          {/* Status + score */}
+          <div className="flex items-center gap-2 flex-wrap">
             <Badge color={statusColor[selectedFile.status] ?? "warning"} size="sm">
               {statusLabel[selectedFile.status] ?? selectedFile.status}
             </Badge>
@@ -1254,9 +1461,10 @@ export default function ImportResumes() {
                 {selectedFile.compatibility_score}% compatibilidade
               </Badge>
             )}
+            <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest ml-auto">{fmtBytes(selectedFile.file_size)}</span>
           </div>
 
-          {/* Error alert */}
+          {/* Alertas */}
           {selectedFile.status === "error" && (
             <div className="flex items-start gap-3 p-4 bg-rose-50 border border-rose-100 rounded-2xl">
               <AlertCircle size={16} className="text-rose-500 shrink-0 mt-0.5" />
@@ -1266,8 +1474,6 @@ export default function ImportResumes() {
               </div>
             </div>
           )}
-
-          {/* Duplicate alert */}
           {selectedFile.duplicate_status && selectedFile.duplicate_status !== "none" && (
             <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-100 rounded-2xl">
               <Copy size={16} className="text-amber-500 shrink-0 mt-0.5" />
@@ -1278,7 +1484,7 @@ export default function ImportResumes() {
             </div>
           )}
 
-          {/* AI Summary */}
+          {/* Aurora IA summary */}
           {parsed?.summary && (
             <div className="p-4 bg-develoi-navy rounded-2xl relative overflow-hidden">
               <div className="absolute top-0 right-0 opacity-10 pointer-events-none"><Brain size={72} className="text-develoi-gold" /></div>
@@ -1294,106 +1500,156 @@ export default function ImportResumes() {
             </div>
           )}
 
-          {/* Structured data */}
           {parsed ? (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Dados Estruturados</p>
-                {isEditingFile ? (
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={() => { setIsEditingFile(false); setEditedFileData(null); }}>Cancelar</Button>
-                    <Button variant="primary" size="sm" iconLeft={<Check size={12} />} onClick={handleSaveFileData}>Salvar</Button>
+            isEditingFile && editedFileData ? (
+              /* ── MODO EDIÇÃO ── */
+              <div className="space-y-2.5">
+                {[
+                  { label: "Nome", key: "name" }, { label: "E-mail", key: "email" },
+                  { label: "Telefone", key: "phone" }, { label: "Cidade", key: "city" },
+                  { label: "Estado", key: "state" }, { label: "Cargo", key: "role" },
+                  { label: "Experiência (anos)", key: "experience_years", type: "number" },
+                  { label: "Pretensão Salarial", key: "desired_salary" },
+                ].map(f => (
+                  <div key={f.key} className="p-3.5 bg-zinc-50 rounded-xl border border-zinc-200 focus-within:border-develoi-gold focus-within:bg-white transition-colors">
+                    <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1.5 block">{f.label}</label>
+                    <input
+                      type={f.type || "text"}
+                      value={editedFileData[f.key] || ""}
+                      onChange={e => setEditedFileData({ ...editedFileData, [f.key]: f.type === "number" ? Number(e.target.value) : e.target.value })}
+                      className="w-full bg-transparent text-sm font-bold text-zinc-900 outline-none placeholder:text-zinc-300"
+                      placeholder="—"
+                    />
                   </div>
-                ) : (
-                  <Button variant="outline" size="sm" iconLeft={<Settings size={12} />}
-                    onClick={() => { setIsEditingFile(true); setEditedFileData(parsed); }}>
-                    Editar
-                  </Button>
+                ))}
+              </div>
+            ) : (
+              /* ── MODO LEITURA: LAYOUT CURRÍCULO ── */
+              <div className="space-y-6">
+                <CvSection title="Identificação" icon={User}
+                  fields={[
+                    { label: "Nome Completo", value: parsed.name, wide: true },
+                    { label: "Data de Nascimento", value: parsed.birth_date },
+                    { label: "Idade", value: parsed.age ? `${parsed.age} anos` : null },
+                    { label: "Gênero", value: parsed.gender },
+                    { label: "Nacionalidade", value: parsed.nationality },
+                    { label: "CPF", value: parsed.cpf },
+                  ]}
+                />
+                <CvSection title="Contato & Localização" icon={Mail} color="bg-develoi-gold"
+                  fields={[
+                    { label: "E-mail", value: parsed.email },
+                    { label: "Telefone", value: parsed.phone },
+                    { label: "Cidade", value: parsed.city },
+                    { label: "Estado", value: parsed.state },
+                    { label: "Endereço", value: parsed.address, wide: true },
+                    { label: "LinkedIn", value: parsed.linkedin, wide: true },
+                  ]}
+                />
+                <CvSection title="Perfil Profissional" icon={Briefcase} color="bg-blue-600"
+                  fields={[
+                    { label: "Cargo Atual", value: parsed.role || parsed.current_title },
+                    { label: "Empresa Atual", value: parsed.current_company },
+                    { label: "Cargo Desejado", value: parsed.desired_position },
+                    { label: "Senioridade", value: parsed.seniority },
+                    { label: "Experiência", value: parsed.experience_years ? `${parsed.experience_years} anos` : null },
+                    { label: "Pretensão Salarial", value: parsed.desired_salary ? `R$ ${parsed.desired_salary}` : null },
+                    { label: "Modelo de Trabalho", value: parsed.work_model },
+                    { label: "Tipo de Contrato", value: parsed.contract_type },
+                    { label: "Disponibilidade", value: parsed.availability },
+                    { label: "CNH", value: parsed.cnh },
+                    { label: "Objetivo", value: parsed.objective, wide: true },
+                    { label: "Destaques", value: parsed.highlights, wide: true },
+                  ]}
+                />
+                <CvSection title="Formação & Certificações" icon={Star} color="bg-violet-600"
+                  fields={[
+                    { label: "Escolaridade", value: parsed.education_level || parsed.education },
+                    { label: "Idiomas", value: parsed.languages },
+                    { label: "Formação Acadêmica", value: fieldToString(parsed.academic_education), wide: true },
+                    { label: "Cursos e Certificações", value: fieldToString(parsed.courses_certifications || parsed.certifications_list), wide: true },
+                    { label: "Experiências Profissionais", value: fieldToString(parsed.professional_experiences), wide: true },
+                  ]}
+                />
+
+                {/* Skills */}
+                {parsed.skills && Array.isArray(parsed.skills) && parsed.skills.length > 0 && (
+                  <div>
+                    <div className="flex items-center gap-2.5 mb-3">
+                      <div className="w-6 h-6 rounded-lg bg-develoi-gold flex items-center justify-center shrink-0">
+                        <Sparkles size={12} className="text-white" />
+                      </div>
+                      <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Skills Técnicas</p>
+                      <div className="flex-1 h-px bg-zinc-100" />
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {(parsed.skills as string[]).map((sk, i) => (
+                        <Badge key={i} color="primary" size="sm">{sk}</Badge>
+                      ))}
+                    </div>
+                  </div>
                 )}
-              </div>
 
-              <div className="grid sm:grid-cols-2 gap-2.5">
-                {isEditingFile && editedFileData ? (
-                  [
-                    { label: "Nome", key: "name" }, { label: "E-mail", key: "email" },
-                    { label: "Telefone", key: "phone" }, { label: "Cidade", key: "city" },
-                    { label: "Estado", key: "state" }, { label: "Cargo", key: "role" },
-                    { label: "Exp. (anos)", key: "experience_years", type: "number" },
-                  ].map(f => (
-                    <div key={f.key} className="p-3 bg-zinc-50 rounded-xl border border-zinc-100 focus-within:border-develoi-gold transition-colors">
-                      <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1 block">{f.label}</label>
-                      <input
-                        type={f.type || "text"}
-                        value={editedFileData[f.key] || ""}
-                        onChange={e => setEditedFileData({ ...editedFileData, [f.key]: f.type === "number" ? Number(e.target.value) : e.target.value })}
-                        className="w-full bg-transparent text-sm font-bold text-zinc-900 outline-none"
-                      />
+                {/* Soft Skills */}
+                {parsed.soft_skills && Array.isArray(parsed.soft_skills) && parsed.soft_skills.length > 0 && (
+                  <div>
+                    <div className="flex items-center gap-2.5 mb-3">
+                      <div className="w-6 h-6 rounded-lg bg-emerald-500 flex items-center justify-center shrink-0">
+                        <Star size={12} className="text-white" />
+                      </div>
+                      <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Soft Skills</p>
+                      <div className="flex-1 h-px bg-zinc-100" />
                     </div>
-                  ))
-                ) : Object.entries(parsed).map(([k, v]: [string, any]) => {
-                  if (typeof v === "object" && v !== null && !Array.isArray(v)) return null;
-                  if (["skills", "summary", "strengths", "attention_points", "compatibility_score", "recommendation", "experiences_list", "education_list", "projects_list", "languages_list"].includes(k)) return null;
-                  const dv = Array.isArray(v) ? v.join(", ") : v;
-                  if (!dv && dv !== 0) return null;
-                  const label = FIELD_LABELS[k] ?? k.replace(/_/g, " ");
-                  return (
-                    <div key={k} className="p-3 bg-zinc-50 rounded-xl border border-zinc-100 hover:border-develoi-gold/40 transition-colors group">
-                      <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-0.5 group-hover:text-develoi-gold">{label}</p>
-                      <p className="text-sm font-bold text-zinc-900 leading-snug truncate">{dv?.toString() || "—"}</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {(parsed.soft_skills as string[]).map((sk, i) => (
+                        <Badge key={i} color="success" size="sm">{sk}</Badge>
+                      ))}
                     </div>
-                  );
-                })}
-              </div>
-
-              {/* Skills */}
-              {parsed.skills && Array.isArray(parsed.skills) && parsed.skills.length > 0 && (
-                <div>
-                  <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-2.5">Skills Identificadas</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {parsed.skills.map((sk: string, i: number) => (
-                      <Badge key={i} color="primary" size="sm" icon={<Sparkles size={9} />}>{sk}</Badge>
-                    ))}
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* Job suggestions */}
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Vagas Sugeridas</p>
-                  {isMatching && (
-                    <span className="flex items-center gap-1.5 text-[9px] font-black text-develoi-gold uppercase tracking-widest animate-pulse">
-                      <Loader2 size={10} className="animate-spin" /> Calculando...
-                    </span>
+                {/* Vagas sugeridas */}
+                <div>
+                  <div className="flex items-center gap-2.5 mb-3">
+                    <div className="w-6 h-6 rounded-lg bg-zinc-800 flex items-center justify-center shrink-0">
+                      <Target size={12} className="text-white" />
+                    </div>
+                    <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Vagas Sugeridas</p>
+                    <div className="flex-1 h-px bg-zinc-100" />
+                    {isMatching && (
+                      <span className="flex items-center gap-1.5 text-[9px] font-black text-develoi-gold uppercase tracking-widest animate-pulse">
+                        <Loader2 size={10} className="animate-spin" /> Calculando...
+                      </span>
+                    )}
+                  </div>
+                  {aiSuggestions.length > 0 ? (
+                    <div className="space-y-2">
+                      {aiSuggestions.map((s, i) => {
+                        const job = availableJobs.find(j => j.id === s.job_id);
+                        return (
+                          <div key={i} className="flex items-center justify-between p-3 border border-zinc-100 rounded-xl hover:border-develoi-gold/40 transition-all group">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 bg-zinc-50 rounded-xl flex items-center justify-center text-zinc-400 group-hover:bg-develoi-gold group-hover:text-white transition-all shrink-0">
+                                <Briefcase size={14} />
+                              </div>
+                              <div>
+                                <p className="text-xs font-black text-zinc-900">{job?.title || "Vaga"}</p>
+                                <p className="text-[10px] text-zinc-400 font-medium">{job?.city || ""}{job?.state ? `/${job.state}` : ""}</p>
+                              </div>
+                            </div>
+                            <Badge color={s.score >= 80 ? "success" : s.score >= 60 ? "warning" : "default"} size="sm">{s.score}% match</Badge>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : !isMatching && (
+                    <div className="py-6 text-center bg-zinc-50/50 rounded-xl border border-dashed border-zinc-200">
+                      <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Nenhuma vaga compatível.</p>
+                    </div>
                   )}
                 </div>
-                {aiSuggestions.length > 0 ? (
-                  <div className="space-y-2">
-                    {aiSuggestions.map((s, i) => {
-                      const job = availableJobs.find(j => j.id === s.job_id);
-                      return (
-                        <div key={i} className="flex items-center justify-between p-3 border border-zinc-100 rounded-xl hover:border-develoi-gold/40 transition-all group">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 bg-zinc-50 rounded-xl flex items-center justify-center text-zinc-400 group-hover:bg-develoi-gold group-hover:text-white transition-all shrink-0">
-                              <Briefcase size={14} />
-                            </div>
-                            <div>
-                              <p className="text-xs font-black text-zinc-900">{job?.title || "Vaga"}</p>
-                              <p className="text-[10px] text-zinc-400 font-medium">{job?.city}/{job?.state}</p>
-                            </div>
-                          </div>
-                          <Badge color={s.score >= 80 ? "success" : s.score >= 60 ? "warning" : "default"} size="sm">{s.score}% match</Badge>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : !isMatching && (
-                  <div className="py-6 text-center bg-zinc-50/50 rounded-xl border border-dashed border-zinc-200">
-                    <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Nenhuma vaga compatível.</p>
-                  </div>
-                )}
               </div>
-            </div>
+            )
           ) : !selectedFile.error_message && (
             <div className="flex flex-col items-center justify-center py-16 gap-3 opacity-40">
               <Loader2 className="w-10 h-10 text-develoi-navy animate-spin" />
@@ -1429,7 +1685,7 @@ export default function ImportResumes() {
   // ─── Root ─────────────────────────────────────────────────────────────────────
 
   return (
-    <PageWrapper title="Importar CVs" subtitle="Processamento em massa via Aurora IA">
+    <PageWrapper>
       <div className="space-y-8 px-3 py-5 sm:px-5 sm:py-7 lg:px-8 lg:py-10">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           {view === "dashboard" ? (
@@ -1437,7 +1693,7 @@ export default function ImportResumes() {
               title="Importar CVs"
               subtitle="Processamento em massa via Aurora IA — extração e estruturação automática"
               icon={<Layers size={22} />}
-              action={
+              actions={
                 <Button onClick={() => setShowNewBatch(true)} iconLeft={<Plus size={16} />}>
                   Novo Lote
                 </Button>
