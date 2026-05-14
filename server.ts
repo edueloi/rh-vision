@@ -1379,6 +1379,16 @@ async function ensureContactStatusTable() {
   }
 }
 
+async function ensureAiSearchSessionsFiltersColumn() {
+  try {
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE ai_search_sessions ADD COLUMN IF NOT EXISTS filters_json LONGTEXT NULL
+    `);
+  } catch (err: any) {
+    // Column already exists or table doesn't exist yet — both are safe to ignore
+  }
+}
+
 async function ensureUserPreferencesTable() {
   try {
     await prisma.$executeRawUnsafe(`
@@ -1409,6 +1419,7 @@ async function startServer() {
   await initDb();
   await ensureUnitCountryColumn();
   await ensureContactStatusTable();
+  await ensureAiSearchSessionsFiltersColumn();
   await ensureUserPreferencesTable();
 
   app.use(cors());
@@ -3004,16 +3015,17 @@ Retorne EXATAMENTE este JSON:
     const {
       jobId,
       tenantId,
-      unitId, 
-      precisionMode, 
-      minScore, 
-      maxResults, 
-      radius, 
+      unitId,
+      precisionMode,
+      minScore,
+      maxResults,
+      radius,
       locationRule,
       onlyWithResume,
       onlyWithDisc,
       statusFilter,
-      sourceFilter
+      sourceFilter,
+      filters,
     } = req.body;
 
     const numericMinScore = Number(minScore) || 0;
@@ -3022,12 +3034,15 @@ Retorne EXATAMENTE este JSON:
       const job = await db.prepare('SELECT * FROM jobs WHERE id = ?').get(jobId) as any;
       if (!job) return res.status(404).json({ error: 'Job not found' });
 
+      // Build filters snapshot (prefer explicit `filters` field, fall back to top-level params)
+      const filtersSnapshot = filters ?? { precisionMode, minScore, radius, onlyWithDisc };
+
       // Create session
       const sessionResult = await db.prepare(`
         INSERT INTO ai_search_sessions
-        (tenant_id, unit_id, job_id, search_type, precision_mode, compatibility_threshold, max_results, distance_radius_km, location_rule, only_with_resume, only_with_disc, created_at)
-        VALUES (?, ?, ?, 'match-job', ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-      `).run(tenantId, unitId, jobId, precisionMode || 'Equilibrada', minScore || 70, maxResults || 50, radius, locationRule, onlyWithResume ? 1 : 0, onlyWithDisc ? 1 : 0);
+        (tenant_id, unit_id, job_id, search_type, precision_mode, compatibility_threshold, max_results, distance_radius_km, location_rule, only_with_resume, only_with_disc, filters_json, created_at)
+        VALUES (?, ?, ?, 'match-job', ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+      `).run(tenantId, unitId, jobId, precisionMode || 'Equilibrada', minScore || 70, maxResults || 50, radius, locationRule, onlyWithResume ? 1 : 0, onlyWithDisc ? 1 : 0, JSON.stringify(filtersSnapshot));
       
       const sessionId = sessionResult.lastInsertRowid;
 
@@ -3208,9 +3223,9 @@ Retorne EXATAMENTE este JSON:
       });
 
       res.json({ sessionId, summary: analysis.summary, results: enhancedResults });
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ error: 'Match job failed' });
+    } catch (error: any) {
+      console.error('[match-job]', error?.message || error);
+      res.status(500).json({ error: 'Match job failed', detail: error?.message });
     }
   });
 
@@ -3388,7 +3403,14 @@ Retorne EXATAMENTE este JSON:
     const { tenantId, unitId } = req.query;
     try {
       const sessions = await db.prepare('SELECT * FROM ai_search_sessions WHERE tenant_id = ? ORDER BY created_at DESC').all(tenantId);
-      res.json(sessions);
+      const parsed = sessions.map((s: any) => {
+        let filters: any = null;
+        if (s.filters_json) {
+          try { filters = JSON.parse(s.filters_json); } catch { /* ignore */ }
+        }
+        return { ...s, filters };
+      });
+      res.json(parsed);
     } catch (error) {
       res.status(500).json({ error: 'Failed to fetch sessions' });
     }
