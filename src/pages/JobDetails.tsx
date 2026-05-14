@@ -6,6 +6,7 @@ import {
   Building2,
   MapPin,
   Briefcase,
+  Globe,
   Target,
   FileText,
   Users,

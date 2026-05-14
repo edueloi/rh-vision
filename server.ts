@@ -3779,45 +3779,51 @@ Retorne EXATAMENTE este JSON:
 
   app.post('/api/public/jobs/:jobId/apply', upload.single('resume'), async (req, res) => {
     const { jobId } = req.params;
-    const { full_name, email } = req.body;
-    
+    const { full_name, email, phone, linkedin } = req.body;
+
     if (!req.file) return res.status(400).json({ error: 'Currículo é obrigatório' });
     if (!full_name || !email) return res.status(400).json({ error: 'Nome e email são obrigatórios' });
-    
+
     try {
       const job = await db.prepare('SELECT tenant_id, unit_id FROM jobs WHERE id = ?').get(jobId) as any;
       if (!job) return res.status(404).json({ error: 'Vaga não encontrada' });
-      
+
       const tenantId = job.tenant_id;
-      
+
       let candidateId;
       const existingCandidate = await db.prepare('SELECT id FROM candidates WHERE email = ? AND tenant_id = ?').get(email, tenantId) as any;
-      
+
       if (existingCandidate) {
         candidateId = existingCandidate.id;
-        
+        // Update phone/linkedin if provided and not already set
+        if (phone || linkedin) {
+          await db.prepare(`
+            UPDATE candidates SET
+              phone = COALESCE(NULLIF(phone,''), ?),
+              linkedin = COALESCE(NULLIF(linkedin,''), ?),
+              updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+          `).run(phone || null, linkedin || null, candidateId);
+        }
         // Check if already applied to this job
         const existingHistory = await db.prepare('SELECT id FROM candidate_history WHERE candidate_id = ? AND job_id = ? AND event_type = ?').get(candidateId, jobId, 'APLICACAO') as any;
         if (existingHistory) {
-          return res.status(400).json({ error: 'sua inscrição ja foi realizada para essa vaga' });
+          return res.status(400).json({ error: 'Sua inscrição já foi realizada para essa vaga.' });
         }
       } else {
         const newCandRes = await db.prepare(`
-          INSERT INTO candidates (tenant_id, unit_id, full_name, email, source, status)
-          VALUES (?, ?, ?, ?, 'Portal', 'Novo')
-        `).run(tenantId, job.unit_id, full_name, email);
+          INSERT INTO candidates (tenant_id, unit_id, full_name, email, phone, linkedin, source, status)
+          VALUES (?, ?, ?, ?, ?, ?, 'Portal', 'Novo')
+        `).run(tenantId, job.unit_id, full_name, email, phone || null, linkedin || null);
         candidateId = newCandRes.lastInsertRowid;
       }
-      
+
       // Add to history
       await db.prepare('INSERT INTO candidate_history (candidate_id, job_id, event_type, title, description) VALUES (?, ?, ?, ?, ?)').run(
-        candidateId, 
-        jobId, 
-        'APLICACAO', 
-        'Candidatura via Portal', 
-        `O candidato enviou seu currículo para a vaga através do portal público.`
+        candidateId, jobId, 'APLICACAO', 'Candidatura via Portal',
+        `Candidatura enviada pelo portal público. ${phone ? `Tel: ${phone}.` : ''} ${linkedin ? `LinkedIn: ${linkedin}.` : ''}`
       );
-      
+
       res.json({ success: true, message: 'Candidatura enviada com sucesso!' });
     } catch (error) {
       console.error(error);
