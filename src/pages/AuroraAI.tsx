@@ -1,39 +1,54 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Brain, 
-  Sparkles, 
-  Bot, 
-  Send, 
-  Target, 
-  BarChart3, 
-  CheckCircle2, 
-  AlertCircle, 
-  MessageSquare,
-  History,
-  Settings as SettingsIcon,
-  X,
-  ChevronRight,
-  Zap,
-  MoreVertical,
-  User,
-  MapPin,
-  RefreshCw,
-  Cpu
+import {
+  Brain, Sparkles, Bot, Send, Target, CheckCircle2, AlertCircle,
+  MessageSquare, History, Settings as SettingsIcon, ChevronRight,
+  Zap, User, MapPin, Cpu
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import { cn } from '@/src/lib/utils';
 import { getAuthHeaders, getTenantId } from '@/src/lib/auth';
 import { useUnit } from '@/src/lib/useUnit';
-import { 
-  useToast, 
-  PanelCard, 
-  Button, 
-  IconButton, 
-  Badge, 
-  Input, 
-  Switch, 
-  Modal
+import {
+  useToast, PanelCard, Button, IconButton, Badge, Input, Select, Switch, Modal
 } from '@/src/components/ui';
+
+// ─── SegmentedControl ────────────────────────────────────────────────────────
+
+interface SegmentedControlProps {
+  label?: string;
+  options: readonly string[];
+  value: string;
+  onChange: (v: string) => void;
+}
+
+function SegmentedControl({ label, options, value, onChange }: SegmentedControlProps) {
+  return (
+    <div className="flex flex-col gap-1.5 w-full">
+      {label && (
+        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 select-none">{label}</span>
+      )}
+      <div className="flex h-10 p-1 bg-zinc-100 dark:bg-white/5 border border-zinc-200 dark:border-white/10 rounded-full shadow-sm">
+        {options.map(opt => (
+          <button
+            key={opt}
+            type="button"
+            onClick={() => onChange(opt)}
+            className={cn(
+              'flex-1 rounded-full text-[10px] font-black uppercase tracking-widest transition-all px-2',
+              value === opt
+                ? 'bg-[#2a74ac] text-white shadow-md'
+                : 'text-zinc-400 hover:text-zinc-700 dark:hover:text-white hover:bg-white/60 dark:hover:bg-white/10'
+            )}
+          >
+            {opt}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Types ───────────────────────────────────────────────────────────────────
 
 interface Message {
   id: string;
@@ -59,43 +74,591 @@ interface MatchResult {
   risk_reason: string;
 }
 
+// ─── Small reusable pieces ────────────────────────────────────────────────────
+
+function TypingIndicator() {
+  return (
+    <div className="flex items-start gap-3">
+      <div className="w-9 h-9 bg-zinc-900 dark:bg-white/10 text-white rounded-2xl flex items-center justify-center shrink-0">
+        <Bot size={16} className="animate-pulse" />
+      </div>
+      <div className="bg-zinc-100 dark:bg-white/5 p-4 rounded-3xl rounded-tl-none flex gap-1.5 items-center">
+        <span className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce" />
+        <span className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce [animation-delay:0.2s]" />
+        <span className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce [animation-delay:0.4s]" />
+      </div>
+    </div>
+  );
+}
+
+function ChatBubble({ msg }: { msg: Message }) {
+  const isAssistant = msg.role === 'assistant';
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={cn('flex items-end gap-3', isAssistant ? 'flex-row' : 'flex-row-reverse')}
+    >
+      <div className={cn(
+        'w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 shadow-md',
+        isAssistant
+          ? 'bg-develoi-navy dark:bg-white/10 text-develoi-gold'
+          : 'bg-develoi-gold dark:bg-develoi-navy text-white'
+      )}>
+        {isAssistant ? <Sparkles size={16} /> : <User size={16} />}
+      </div>
+
+      <div className={cn(
+        'max-w-[80%] rounded-3xl px-5 py-3.5 text-[13px] leading-relaxed',
+        isAssistant
+          ? 'bg-white dark:bg-white/5 text-zinc-700 dark:text-zinc-200 rounded-bl-none border border-zinc-100 dark:border-white/5 shadow-sm'
+          : 'bg-develoi-navy dark:bg-develoi-gold text-white dark:text-develoi-navy rounded-br-none font-medium shadow-lg'
+      )}>
+        <p className="whitespace-pre-wrap">{msg.content}</p>
+        <p className={cn(
+          'mt-1.5 text-[10px] font-bold uppercase tracking-widest opacity-40',
+          isAssistant ? 'text-left' : 'text-right'
+        )}>
+          {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        </p>
+      </div>
+    </motion.div>
+  );
+}
+
+// ─── Chat view ────────────────────────────────────────────────────────────────
+
+interface ChatViewProps {
+  messages: Message[];
+  input: string;
+  isTyping: boolean;
+  scrollRef: React.RefObject<HTMLDivElement>;
+  onInputChange: (v: string) => void;
+  onSend: () => void;
+  onOpenSettings: () => void;
+}
+
+function ChatView({ messages, input, isTyping, scrollRef, onInputChange, onSend, onOpenSettings }: ChatViewProps) {
+  return (
+    <div className="bg-white dark:bg-[#0d1b3e]/40 dark:backdrop-blur-xl rounded-3xl border border-zinc-200 dark:border-white/10 shadow-xl flex flex-col h-[600px] md:h-[650px] overflow-hidden">
+      {/* Header */}
+      <div className="px-5 py-4 border-b border-zinc-100 dark:border-white/5 flex items-center justify-between bg-zinc-50/50 dark:bg-transparent shrink-0">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 bg-develoi-navy dark:bg-white/10 text-develoi-gold rounded-xl flex items-center justify-center">
+            <Sparkles size={16} />
+          </div>
+          <div>
+            <h3 className="text-xs font-black text-develoi-navy dark:text-white uppercase tracking-widest">Aurora Core</h3>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+              <span className="text-[9px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">Online</span>
+            </div>
+          </div>
+        </div>
+        <IconButton variant="ghost" size="md" onClick={onOpenSettings}>
+          <SettingsIcon size={16} className="text-zinc-400" />
+        </IconButton>
+      </div>
+
+      {/* Messages */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-5 space-y-5 scroll-smooth">
+        {messages.map(msg => <ChatBubble key={msg.id} msg={msg} />)}
+        {isTyping && <TypingIndicator />}
+      </div>
+
+      {/* Input */}
+      <div className="px-4 py-4 border-t border-zinc-100 dark:border-white/5 bg-zinc-50/30 dark:bg-transparent shrink-0">
+        <div className="flex items-center gap-2">
+          <Input
+            placeholder="Pergunte algo para a Aurora..."
+            value={input}
+            onChange={e => onInputChange(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && onSend()}
+            className="flex-1 bg-white dark:bg-white/5 border-zinc-200 dark:border-white/10 text-xs font-bold"
+          />
+          <button
+            onClick={onSend}
+            disabled={!input.trim() || isTyping}
+            className="w-11 h-11 rounded-2xl bg-develoi-navy dark:bg-develoi-gold text-white dark:text-develoi-navy flex items-center justify-center shrink-0 disabled:opacity-40 transition-opacity shadow-lg"
+          >
+            <Send size={17} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Match filters ────────────────────────────────────────────────────────────
+
+interface MatchFiltersProps {
+  jobs: any[];
+  selectedJobId: string;
+  precisionMode: string;
+  minScore: number;
+  radius: number;
+  onlyWithDisc: boolean;
+  isMatching: boolean;
+  onJobChange: (v: string) => void;
+  onPrecisionChange: (v: string) => void;
+  onMinScoreChange: (v: number) => void;
+  onRadiusChange: (v: number) => void;
+  onDiscChange: (v: boolean) => void;
+  onExecute: () => void;
+}
+
+function MatchFilters(props: MatchFiltersProps) {
+  return (
+    <PanelCard
+      title="Aderência de Candidatos"
+      icon={Target}
+      description="IA neural para encontrar candidatos ideais por competências, comportamento e localização."
+    >
+      <div className="space-y-6 py-2">
+        {/* Job + Mode */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Select
+              label="Vaga Alvo"
+              value={props.selectedJobId}
+              onChange={e => props.onJobChange(e.target.value)}
+            >
+              <option value="">Selecione uma vaga...</option>
+              {props.jobs.map(job => (
+                <option key={job.id} value={job.id}>{job.title} – {job.city}/{job.state}</option>
+              ))}
+            </Select>
+          </div>
+
+          <SegmentedControl
+            label="Rigor da IA"
+            options={['Flexível', 'Equilibrada', 'Rigorosa']}
+            value={props.precisionMode}
+            onChange={props.onPrecisionChange}
+          />
+        </div>
+
+        {/* Numeric filters + toggles */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+          <Input
+            label="Score Mínimo"
+            type="number"
+            value={props.minScore}
+            onChange={e => props.onMinScoreChange(Number(e.target.value))}
+          />
+          <Input
+            label="Raio (KM)"
+            type="number"
+            value={props.radius}
+            onChange={e => props.onRadiusChange(Number(e.target.value))}
+          />
+          <label className="flex flex-col gap-1.5 cursor-pointer group" onClick={() => props.onDiscChange(!props.onlyWithDisc)}>
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 select-none">Filtrar por DISC</span>
+            <div className="flex h-10 items-center justify-between px-4 bg-zinc-50 border border-zinc-200 rounded-full shadow-sm transition-all group-hover:border-zinc-300">
+              <span className={cn(
+                'text-xs font-black uppercase tracking-widest transition-colors',
+                props.onlyWithDisc ? 'text-[#2a74ac]' : 'text-zinc-400'
+              )}>
+                {props.onlyWithDisc ? 'Sim' : 'Não'}
+              </span>
+              <Switch checked={props.onlyWithDisc} onCheckedChange={props.onDiscChange} />
+            </div>
+          </label>
+        </div>
+
+        <Button
+          onClick={props.onExecute}
+          loading={props.isMatching}
+          variant="primary"
+          className="w-full py-6 rounded-2xl bg-develoi-navy dark:bg-develoi-gold text-white dark:text-develoi-navy text-xs font-black uppercase tracking-[0.2em] shadow-xl"
+          iconLeft={!props.isMatching && <Zap size={16} className="text-develoi-gold dark:text-develoi-navy" />}
+        >
+          {props.isMatching ? 'Processando...' : 'Rodar Análise Aurora AI'}
+        </Button>
+      </div>
+    </PanelCard>
+  );
+}
+
+// ─── Match card ───────────────────────────────────────────────────────────────
+
+function MatchCard({ rec, radius, onClick }: { rec: MatchResult; radius: number; onClick: () => void }) {
+  const initials = (rec.full_name || 'C').split(' ').map(n => n[0]).join('').substring(0, 2);
+  const isHighFit = rec.classification === 'Alto Fit' || rec.classification === 'Altíssimo Fit';
+
+  return (
+    <div
+      onClick={onClick}
+      className="bg-white dark:bg-white/5 border border-zinc-100 dark:border-white/5 p-5 rounded-3xl hover:border-develoi-gold transition-all group shadow-sm cursor-pointer flex flex-col"
+    >
+      {/* Top row */}
+      <div className="flex justify-between items-start mb-4 gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-white/10 flex items-center justify-center font-black text-zinc-400 dark:text-white/40 group-hover:bg-develoi-navy group-hover:text-develoi-gold transition-all shrink-0 text-sm">
+            {initials}
+          </div>
+          <div className="min-w-0">
+            <h5 className="text-sm font-black text-zinc-900 dark:text-white truncate">{rec.full_name}</h5>
+            <p className="text-[9px] font-bold text-zinc-400 dark:text-white/40 uppercase tracking-widest mt-0.5 flex items-center gap-1">
+              <MapPin size={9} /> {rec.city}, {rec.state}
+            </p>
+          </div>
+        </div>
+        <div className="text-right shrink-0">
+          <div className="text-xl font-black text-develoi-navy dark:text-develoi-gold">{rec.compatibility_score}%</div>
+          <p className="text-[8px] font-bold text-zinc-400 uppercase tracking-tighter">Aderência</p>
+        </div>
+      </div>
+
+      {/* Badges */}
+      <div className="flex flex-wrap gap-1.5 mb-4">
+        <Badge color={isHighFit ? 'success' : 'gold'}>{rec.classification}</Badge>
+        {rec.has_disc && <Badge color="primary">{rec.disc_profile}</Badge>}
+        {rec.distance_km != null && (
+          <Badge color="default" className="flex items-center gap-1">
+            <MapPin size={9} />
+            {rec.distance_km <= radius ? `${rec.distance_km}km ✓` : `${rec.distance_km}km (fora)`}
+          </Badge>
+        )}
+      </div>
+
+      {/* Strengths */}
+      {rec.strengths?.length > 0 && (
+        <div className="mb-4">
+          <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-1.5">Pontos Fortes</p>
+          <div className="flex flex-wrap gap-1">
+            {rec.strengths.slice(0, 3).map((s, i) => (
+              <span key={i} className="text-[10px] bg-zinc-50 dark:bg-white/5 border border-zinc-100 dark:border-white/10 px-2 py-0.5 rounded-lg text-zinc-600 dark:text-zinc-300">
+                {s}
+              </span>
+            ))}
+            {rec.strengths.length > 3 && (
+              <span className="text-[10px] text-zinc-400 italic px-1">+{rec.strengths.length - 3}</span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Reason */}
+      <p className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 line-clamp-2 italic border-l-2 border-develoi-gold pl-3 mb-4 flex-1">
+        "{rec.recommendation_reason}"
+      </p>
+
+      <div className="pt-3 border-t border-zinc-50 dark:border-white/5 flex justify-end">
+        <span className="text-[10px] font-bold text-develoi-gold uppercase tracking-widest flex items-center gap-1 group-hover:underline">
+          Ver Análise <ChevronRight size={11} />
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ─── Right sidebar ────────────────────────────────────────────────────────────
+
+interface SidebarProps {
+  stats: any;
+  sessions: any[];
+  jobs: any[];
+  onSessionClick: (session: any) => void;
+}
+
+function formatRelativeDate(dateStr: string) {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const minutes = Math.floor(diff / 60000);
+  if (minutes < 60) return `Há ${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `Há ${hours}h`;
+  return new Date(dateStr).toLocaleDateString();
+}
+
+function AuroraSidebar({ stats, sessions, jobs, onSessionClick }: SidebarProps) {
+  const insights = [
+    { title: 'Vagas Ativas', value: stats?.active_jobs ?? '0', desc: 'Em recrutamento' },
+    { title: 'Novos Candidatos', value: `+${stats?.new_candidates ?? '0'}`, desc: 'Processados hoje' },
+    { title: 'Compatíveis', value: stats?.compatible_candidates ?? '0', desc: 'Acima de 80%' },
+  ];
+
+  return (
+    <div className="space-y-5">
+      {/* Insights card */}
+      <div className="bg-develoi-gold dark:bg-[#1a1408] rounded-3xl p-6 text-develoi-navy dark:text-develoi-gold shadow-xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-28 h-28 bg-white/10 rounded-full blur-3xl -mr-14 -mt-14 pointer-events-none" />
+        <h4 className="text-[10px] font-black uppercase tracking-[0.2em] mb-5 flex items-center gap-2">
+          <Zap size={14} /> Insights de Hoje
+        </h4>
+        <div className="space-y-4">
+          {insights.map((item, i) => (
+            <div key={i} className="flex justify-between items-end border-b border-develoi-navy/10 dark:border-develoi-gold/10 pb-3 last:border-0 last:pb-0">
+              <div>
+                <p className="text-[9px] font-black uppercase tracking-widest opacity-60">{item.title}</p>
+                <p className="text-[10px] font-bold mt-0.5">{item.desc}</p>
+              </div>
+              <span className="text-2xl font-black">{item.value}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Recent sessions */}
+      <PanelCard title="Histórico Recente" icon={History}>
+        <div className="space-y-1 max-h-64 overflow-y-auto pr-1">
+          {sessions.length > 0 ? sessions.slice(0, 8).map((session, i) => (
+            <button
+              key={i}
+              onClick={() => onSessionClick(session)}
+              className="w-full flex items-center justify-between gap-3 group hover:bg-zinc-50 dark:hover:bg-white/5 p-2.5 rounded-xl transition-all text-left"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="p-2 bg-zinc-50 dark:bg-white/5 rounded-xl text-zinc-400 group-hover:bg-develoi-navy group-hover:text-white transition-all shrink-0">
+                  {session.search_type === 'match-job' ? <Target size={13} /> : <MessageSquare size={13} />}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[11px] font-black text-zinc-800 dark:text-white/90 truncate">
+                    {session.search_type === 'match-job'
+                      ? `Aderência: ${jobs.find(j => j.id === session.job_id)?.title ?? `Vaga #${session.job_id}`}`
+                      : (session.summary ?? 'Conversa Aurora')}
+                  </p>
+                  <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">{formatRelativeDate(session.created_at)}</p>
+                </div>
+              </div>
+              <ChevronRight size={13} className="text-zinc-200 group-hover:text-develoi-navy dark:group-hover:text-white transition-colors shrink-0" />
+            </button>
+          )) : (
+            <p className="text-[9px] font-bold text-zinc-400 uppercase text-center py-6">Sem histórico recente</p>
+          )}
+        </div>
+      </PanelCard>
+
+      {/* Engine status */}
+      <div className="p-6 bg-develoi-navy rounded-3xl text-white relative overflow-hidden shadow-xl">
+        <div className="absolute bottom-0 left-0 w-28 h-28 bg-develoi-blue/10 rounded-full blur-3xl -ml-14 -mb-14 pointer-events-none" />
+        <div className="relative z-10 text-center">
+          <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center mx-auto mb-4 text-develoi-gold">
+            <Cpu size={28} />
+          </div>
+          <h4 className="text-xs font-black uppercase tracking-[0.25em] mb-1">Neural Engine</h4>
+          <p className="text-[9px] font-medium text-white/40 mb-4 uppercase tracking-widest">v4.2.0 · Stable</p>
+          <Button variant="ghost" className="w-full border-white/20 text-white hover:bg-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest border">
+            Ver Logs
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Settings modal ───────────────────────────────────────────────────────────
+
+interface SettingsModalProps {
+  open: boolean;
+  minScore: number;
+  radius: number;
+  precisionMode: string;
+  onMinScoreChange: (v: number) => void;
+  onRadiusChange: (v: number) => void;
+  onPrecisionChange: (v: string) => void;
+  onClose: () => void;
+  onSave: () => void;
+}
+
+function SettingsModal(props: SettingsModalProps) {
+  return (
+    <Modal open={props.open} onClose={props.onClose} title="Configurações da Aurora AI">
+      <div className="space-y-6">
+        <div className="space-y-4">
+          <h4 className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Parâmetros de Aderência</h4>
+          <div className="grid grid-cols-2 gap-4">
+            <Input label="Score Mínimo (%)" type="number" value={props.minScore} onChange={e => props.onMinScoreChange(Number(e.target.value))} />
+            <Input label="Raio Padrão (KM)" type="number" value={props.radius} onChange={e => props.onRadiusChange(Number(e.target.value))} />
+          </div>
+        </div>
+
+        <SegmentedControl
+          label="Personalidade do Core"
+          options={['Analítica', 'Criativa', 'Equilibrada']}
+          value={props.precisionMode}
+          onChange={props.onPrecisionChange}
+        />
+
+        <div className="flex gap-3 pt-2">
+          <Button variant="ghost" fullWidth onClick={props.onClose}>Cancelar</Button>
+          <Button variant="primary" fullWidth onClick={props.onSave}>Salvar</Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+// ─── Match details modal ──────────────────────────────────────────────────────
+
+function MatchDetailsModal({ rec, radius, onClose }: { rec: MatchResult; radius: number; onClose: () => void }) {
+  const initials = (rec.full_name || 'C').split(' ').map(n => n[0]).join('').substring(0, 2);
+  const isHighFit = rec.classification === 'Alto Fit' || rec.classification === 'Altíssimo Fit';
+
+  return (
+    <Modal open onClose={onClose} title={`Análise IA: ${rec.full_name}`} size="lg">
+      <div className="space-y-6 pb-2">
+        {/* Candidate header */}
+        <div className="flex items-center gap-4 p-5 bg-zinc-50 dark:bg-white/5 rounded-2xl border border-zinc-100 dark:border-white/10">
+          <div className="w-16 h-16 rounded-2xl bg-develoi-navy text-develoi-gold flex items-center justify-center font-black text-xl shadow-lg shrink-0">
+            {initials}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex justify-between items-start gap-2">
+              <div className="min-w-0">
+                <h3 className="text-lg font-black text-zinc-900 dark:text-white truncate">{rec.full_name}</h3>
+                <p className="text-[10px] font-bold text-zinc-500 flex items-center gap-1.5 uppercase tracking-widest mt-0.5">
+                  <MapPin size={11} /> {rec.city}, {rec.state}
+                  {rec.distance_km != null && (
+                    <span className={rec.distance_km <= radius ? 'text-emerald-500' : 'text-amber-500'}>
+                      ({rec.distance_km}km)
+                    </span>
+                  )}
+                </p>
+              </div>
+              <div className="text-right shrink-0">
+                <div className="text-3xl font-black text-develoi-navy dark:text-develoi-gold">{rec.compatibility_score}%</div>
+                <Badge color={isHighFit ? 'success' : 'gold'}>{rec.classification}</Badge>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Aurora verdict */}
+        <div className="space-y-3">
+          <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 flex items-center gap-2">
+            <Sparkles size={13} className="text-develoi-gold" /> Veredito Aurora
+          </h4>
+          <p className="p-5 bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-2xl text-sm font-medium text-blue-900 dark:text-blue-100 leading-relaxed italic">
+            "{rec.recommendation_reason}"
+          </p>
+        </div>
+
+        {/* Strengths & attention */}
+        <div className="grid sm:grid-cols-2 gap-5">
+          {rec.strengths?.length > 0 && (
+            <div className="space-y-3">
+              <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600 flex items-center gap-2">
+                <CheckCircle2 size={13} /> Pontos Fortes
+              </h4>
+              <ul className="space-y-2">
+                {rec.strengths.map((s, i) => (
+                  <li key={i} className="flex items-start gap-2 text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                    {s}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {rec.attention_points?.length > 0 && (
+            <div className="space-y-3">
+              <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-600 flex items-center gap-2">
+                <AlertCircle size={13} /> Pontos de Atenção
+              </h4>
+              <ul className="space-y-2">
+                {rec.attention_points.map((pt, i) => (
+                  <li key={i} className="flex items-start gap-2 text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1.5 shrink-0" />
+                    {pt}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+
+        {/* Risk */}
+        {rec.risk_reason && (
+          <div className="space-y-3 pt-4 border-t border-zinc-100 dark:border-white/5">
+            <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-red-500 flex items-center gap-2">
+              <AlertCircle size={13} /> Análise de Risco
+            </h4>
+            <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400">{rec.risk_reason}</p>
+          </div>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
+// ─── Tab bar ──────────────────────────────────────────────────────────────────
+
+type ViewId = 'chat' | 'match' | 'history';
+
+const VIEWS: { id: ViewId; label: string; icon: React.ElementType }[] = [
+  { id: 'chat', label: 'Conversa', icon: MessageSquare },
+  { id: 'match', label: 'Aderência', icon: Target },
+  { id: 'history', label: 'Histórico', icon: History },
+];
+
+function TabBar({ active, onChange }: { active: ViewId; onChange: (v: ViewId) => void }) {
+  return (
+    <div className="flex items-center gap-1 bg-zinc-100 dark:bg-white/5 p-1 rounded-2xl border border-zinc-200 dark:border-white/10 shadow-sm w-full sm:w-auto">
+      {VIEWS.map(view => (
+        <button
+          key={view.id}
+          onClick={() => onChange(view.id)}
+          className={cn(
+            'flex-1 sm:flex-none px-4 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5',
+            active === view.id
+              ? 'bg-develoi-navy dark:bg-develoi-gold text-white dark:text-develoi-navy shadow-md'
+              : 'text-zinc-500 hover:text-develoi-navy dark:hover:text-white'
+          )}
+        >
+          <view.icon size={13} />
+          <span className="hidden sm:inline">{view.label}</span>
+          <span className="sm:hidden">{view.label}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
 export default function AuroraAI() {
   const { currentUnit } = useUnit();
   const tenantId = getTenantId();
   const queryUnitId = currentUnit.is_master ? 'master' : currentUnit.id;
   const activeUnitId = currentUnit.id;
   const toast = useToast();
-  
-  const [activeView, setActiveView] = useState<'chat' | 'match' | 'history'>('chat');
-  const [chatMessages, setChatMessages] = useState<Message[]>([
-    { 
-      id: '1', 
-      role: 'assistant', 
-      content: 'Olá! Sou a Aurora, sua inteligência artificial. Posso ajudar com triagem de candidatos, análise de vagas e consultoria estratégica. Como posso ser útil hoje?',
-      timestamp: new Date().toISOString()
-    }
-  ]);
+
+  const [activeView, setActiveView] = useState<ViewId>('chat');
+
+  // Chat state
+  const [chatMessages, setChatMessages] = useState<Message[]>([{
+    id: '1',
+    role: 'assistant',
+    content: 'Olá! Sou a Aurora, sua inteligência artificial. Posso ajudar com triagem de candidatos, análise de vagas e consultoria estratégica. Como posso ser útil hoje?',
+    timestamp: new Date().toISOString(),
+  }]);
   const [inputMessage, setInputMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [chatSessionId, setChatSessionId] = useState<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Real Data States
-  const [selectedJobId, setSelectedJobId] = useState<string>('');
+  // Data state
   const [jobs, setJobs] = useState<any[]>([]);
   const [sessions, setSessions] = useState<any[]>([]);
   const [stats, setStats] = useState<any>(null);
+
+  // Match state
+  const [selectedJobId, setSelectedJobId] = useState('');
   const [matchResults, setMatchResults] = useState<MatchResult[]>([]);
   const [isMatching, setIsMatching] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
-  const [selectedMatchForDetails, setSelectedMatchForDetails] = useState<MatchResult | null>(null);
-  
+  const [selectedMatch, setSelectedMatch] = useState<MatchResult | null>(null);
+
   // Filters
   const [precisionMode, setPrecisionMode] = useState('Equilibrada');
   const [minScore, setMinScore] = useState(70);
   const [radius, setRadius] = useState(50);
-  const [onlyWithResume, setOnlyWithResume] = useState(false);
   const [onlyWithDisc, setOnlyWithDisc] = useState(false);
+
+  // Settings modal
+  const [showSettings, setShowSettings] = useState(false);
+
+  // ─── Data fetching ──────────────────────────────────────────────────────────
 
   useEffect(() => {
     fetchJobs();
@@ -104,70 +667,49 @@ export default function AuroraAI() {
   }, [queryUnitId]);
 
   useEffect(() => {
-    if (selectedJobId && activeView === 'match') {
-      fetchExistingMatches();
-    }
+    if (selectedJobId && activeView === 'match') fetchExistingMatches();
   }, [selectedJobId, activeView, minScore]);
 
-  const fetchExistingMatches = async () => {
-    try {
-      const res = await fetch(`/api/aurora-ai/matches/${selectedJobId}?minScore=${minScore}`);
-      if (res.ok) {
-        const data = await res.json();
-        setMatchResults(data || []);
-      }
-    } catch (error) {
-      console.error('Erro ao buscar matches existentes:', error);
-    }
-  };
-
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [chatMessages, isTyping]);
 
-  const fetchJobs = async () => {
+  async function fetchJobs() {
     try {
       const res = await fetch(`/api/jobs?tenantId=${tenantId}&unitId=${queryUnitId}`);
-      const data = await res.json();
-      setJobs(data);
-    } catch (error) {
-      console.error(error);
-    }
-  };
+      setJobs(await res.json());
+    } catch { /* silent */ }
+  }
 
-  const fetchSessions = async () => {
+  async function fetchSessions() {
     try {
       const res = await fetch(`/api/aurora-ai/sessions?tenantId=${tenantId}&unitId=${queryUnitId}`);
-      const data = await res.json();
-      setSessions(data);
-    } catch (error) {
-      console.error(error);
-    }
-  };
+      setSessions(await res.json());
+    } catch { /* silent */ }
+  }
 
-  const fetchStats = async () => {
+  async function fetchStats() {
     try {
       const res = await fetch(`/api/dashboard/overview?tenantId=${tenantId}&unitId=${queryUnitId}`);
       const data = await res.json();
       setStats(data.stats);
-    } catch (error) {
-      console.error(error);
-    }
-  };
+    } catch { /* silent */ }
+  }
 
-  const handleSendMessage = async () => {
-    const trimmedMessage = inputMessage.trim();
-    if (!trimmedMessage) return;
+  async function fetchExistingMatches() {
+    try {
+      const res = await fetch(`/api/aurora-ai/matches/${selectedJobId}?minScore=${minScore}`);
+      if (res.ok) setMatchResults((await res.json()) || []);
+    } catch { /* silent */ }
+  }
 
-    const userMsg: Message = {
-      id: Date.now().toString(),
-      role: 'user',
-      content: trimmedMessage,
-      timestamp: new Date().toISOString()
-    };
+  // ─── Handlers ──────────────────────────────────────────────────────────────
 
+  async function handleSendMessage() {
+    const text = inputMessage.trim();
+    if (!text) return;
+
+    const userMsg: Message = { id: Date.now().toString(), role: 'user', content: text, timestamp: new Date().toISOString() };
     setChatMessages(prev => [...prev, userMsg]);
     setInputMessage('');
     setIsTyping(true);
@@ -175,612 +717,196 @@ export default function AuroraAI() {
     try {
       const res = await fetch('/api/aurora-ai/chat', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...getAuthHeaders()
-        },
-        body: JSON.stringify({
-          message: trimmedMessage,
-          tenantId,
-          unitId: activeUnitId,
-          sessionId: chatSessionId
-        })
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify({ message: text, tenantId, unitId: activeUnitId, sessionId: chatSessionId }),
       });
       const data = await res.json();
-
       if (!res.ok) throw new Error(data.error || 'Falha na conexão com Aurora.');
-      
-      const assistantMsg: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: data.message,
-        timestamp: new Date().toISOString()
-      };
 
       setChatSessionId(data.sessionId ?? null);
-      setChatMessages(prev => [...prev, assistantMsg]);
-      fetchSessions(); // Atualiza histórico
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Erro ao processar mensagem');
+      setChatMessages(prev => [...prev, { id: (Date.now() + 1).toString(), role: 'assistant', content: data.message, timestamp: new Date().toISOString() }]);
+      fetchSessions();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao processar mensagem');
     } finally {
       setIsTyping(false);
     }
-  };
+  }
 
-  const executeMatch = async () => {
-    if (!selectedJobId) {
-      toast.error('Selecione uma vaga primeiro');
-      return;
-    }
-
+  async function executeMatch() {
+    if (!selectedJobId) { toast.error('Selecione uma vaga primeiro'); return; }
     setIsMatching(true);
     try {
       const res = await fetch('/api/aurora-ai/match-job', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          jobId: selectedJobId,
-          tenantId,
-          unitId: queryUnitId,
-          precisionMode,
-          minScore,
-          radius,
-          onlyWithResume,
-          onlyWithDisc
-        })
+        body: JSON.stringify({ jobId: selectedJobId, tenantId, unitId: queryUnitId, precisionMode, minScore, radius, onlyWithDisc }),
       });
       const data = await res.json();
       setMatchResults(data.results || []);
       toast.success('Análise de aderência concluída!');
-      fetchSessions(); // O match também gera sessão
-    } catch (error) {
+      fetchSessions();
+    } catch {
       toast.error('Erro ao calcular aderência.');
     } finally {
       setIsMatching(false);
     }
-  };
+  }
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
-    const minutes = Math.floor(diff / 60000);
-    if (minutes < 60) return `Há ${minutes} min`;
-    const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `Há ${hours} horas`;
-    return date.toLocaleDateString();
-  };
+  function handleSessionClick(session: any) {
+    if (session.search_type === 'match-job' && session.job_id) {
+      setSelectedJobId(String(session.job_id));
+      setActiveView('match');
+    } else {
+      setActiveView('chat');
+    }
+  }
+
+  // ─── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div className="space-y-8 pb-20 px-4 md:px-8 py-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div className="flex items-center gap-4">
-          <div className="p-3 bg-develoi-navy dark:bg-develoi-gold text-white dark:text-develoi-navy rounded-2xl shadow-xl shadow-develoi-navy/20">
-            <Brain size={24} />
+    <div className="pb-24 px-4 sm:px-6 py-5 space-y-6">
+      {/* Page header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 bg-develoi-navy dark:bg-develoi-gold text-white dark:text-develoi-navy rounded-2xl shadow-lg">
+            <Brain size={22} />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-black text-develoi-navy dark:text-white tracking-tight">Aurora AI</h1>
+              <h1 className="text-xl font-black text-develoi-navy dark:text-white tracking-tight">Aurora AI</h1>
               <Badge color="gold" className="animate-pulse">Active</Badge>
             </div>
-            <p className="text-[10px] font-bold text-zinc-400 dark:text-white/40 uppercase tracking-widest mt-1">
+            <p className="text-[9px] font-bold text-zinc-400 dark:text-white/40 uppercase tracking-widest mt-0.5">
               Intelligent Human Capital Advisor
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-1 bg-zinc-100 dark:bg-white/5 p-1 rounded-2xl border border-zinc-200 dark:border-white/10 shadow-sm transition-colors">
-          {[
-            { id: 'chat', label: 'Conversa', icon: MessageSquare },
-            { id: 'match', label: 'Aderência', icon: Target },
-            { id: 'history', label: 'Histórico', icon: History }
-          ].map(view => (
-            <button 
-              key={view.id}
-              onClick={() => setActiveView(view.id as any)}
-              className={cn(
-                "px-5 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all flex items-center gap-2",
-                activeView === view.id 
-                  ? "bg-develoi-navy dark:bg-develoi-gold text-white dark:text-develoi-navy shadow-lg" 
-                  : "text-zinc-500 hover:text-develoi-navy dark:hover:text-white"
-              )}
-            >
-              <view.icon size={14} />
-              {view.label}
-            </button>
-          ))}
-        </div>
+        <TabBar active={activeView} onChange={setActiveView} />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* Main Content Area */}
-        <div className="lg:col-span-8 space-y-8">
+      {/* Body — main + sidebar */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+        {/* Main area */}
+        <div className="lg:col-span-8 space-y-5">
           {activeView === 'chat' && (
-            <div className="bg-white dark:bg-[#0d1b3e]/40 dark:backdrop-blur-xl rounded-[40px] border border-zinc-200 dark:border-white/10 shadow-2xl flex flex-col h-[650px] overflow-hidden transition-all">
-              {/* Chat Header */}
-              <div className="p-6 border-b border-zinc-100 dark:border-white/5 flex items-center justify-between bg-zinc-50/50 dark:bg-transparent">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-develoi-navy dark:bg-white/10 text-develoi-gold rounded-2xl flex items-center justify-center shadow-inner">
-                    <Sparkles size={18} />
-                  </div>
-                  <div>
-                    <h3 className="text-xs font-black text-develoi-navy dark:text-white uppercase tracking-widest">Aurora Core</h3>
-                    <div className="flex items-center gap-1.5 mt-1">
-                      <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-                      <span className="text-[8px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">Neural Link Active</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <IconButton variant="ghost" size="md" onClick={() => setShowSettings(true)}>
-                    <SettingsIcon size={18} className="text-zinc-400" />
-                  </IconButton>
-                </div>
-              </div>
-
-              {/* Chat Messages */}
-              <div ref={scrollRef} className="flex-1 overflow-y-auto p-8 space-y-6 scroll-smooth custom-scrollbar">
-                {chatMessages.map((msg) => (
-                  <motion.div 
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    key={msg.id}
-                    className={cn(
-                      "flex items-start gap-4",
-                      msg.role === 'user' ? "flex-row-reverse" : "flex-row"
-                    )}
-                  >
-                    <div className={cn(
-                      "w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 shadow-lg",
-                      msg.role === 'assistant' 
-                        ? "bg-develoi-navy dark:bg-white/10 text-develoi-gold" 
-                        : "bg-develoi-gold dark:bg-develoi-navy text-white"
-                    )}>
-                      {msg.role === 'assistant' ? <Sparkles size={18} /> : <User size={18} />}
-                    </div>
-                    <div className={cn(
-                      "max-w-[80%] rounded-[2.5rem] px-6 py-4.5 text-[12px] leading-relaxed",
-                      msg.role === 'assistant' 
-                        ? "bg-white dark:bg-white/5 text-zinc-700 dark:text-zinc-200 rounded-tl-none border border-zinc-100 dark:border-white/5 shadow-sm" 
-                        : "bg-develoi-navy dark:bg-develoi-gold text-white dark:text-develoi-navy rounded-tr-none font-medium shadow-xl shadow-develoi-navy/10"
-                    )}>
-                      <p className="whitespace-pre-wrap">{msg.content}</p>
-                      <p className={cn(
-                        "mt-2 text-[8px] font-black uppercase tracking-widest opacity-40",
-                        msg.role === 'user' ? "text-right" : "text-left"
-                      )}>
-                        {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </p>
-                    </div>
-                  </motion.div>
-                ))}
-                {isTyping && (
-                  <div className="flex items-start gap-4">
-                    <div className="w-10 h-10 bg-zinc-900 dark:bg-white/10 text-white rounded-2xl flex items-center justify-center shrink-0">
-                      <Bot size={18} className="animate-pulse" />
-                    </div>
-                    <div className="bg-zinc-100 dark:bg-white/5 p-5 rounded-3xl rounded-tl-none flex gap-1.5">
-                      <span className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce" />
-                      <span className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce [animation-delay:0.2s]" />
-                      <span className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce [animation-delay:0.4s]" />
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Chat Input */}
-              <div className="p-8 border-t border-zinc-100 dark:border-white/5 bg-zinc-50/30 dark:bg-transparent">
-                <div className="relative flex items-center gap-3">
-                  <Input 
-                    placeholder="Como Aurora pode ajudar você hoje?..."
-                    value={inputMessage}
-                    onChange={(e) => setInputMessage(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-                    className="flex-1 rounded-[2rem] bg-white dark:bg-white/5 px-6 py-6 border-zinc-200 dark:border-white/10 text-xs font-bold focus:ring-develoi-navy dark:focus:ring-develoi-gold transition-all"
-                  />
-                  <Button 
-                    variant="secondary"
-                    size="lg"
-                    onClick={handleSendMessage}
-                    disabled={!inputMessage.trim() || isTyping}
-                    className="rounded-full w-14 h-14 p-0 shrink-0 bg-develoi-navy dark:bg-develoi-gold text-white dark:text-develoi-navy shadow-xl"
-                  >
-                    <Send size={20} />
-                  </Button>
-                </div>
-              </div>
-            </div>
+            <ChatView
+              messages={chatMessages}
+              input={inputMessage}
+              isTyping={isTyping}
+              scrollRef={scrollRef}
+              onInputChange={setInputMessage}
+              onSend={handleSendMessage}
+              onOpenSettings={() => setShowSettings(true)}
+            />
           )}
 
           {activeView === 'match' && (
-            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <PanelCard 
-                title="Aderência de Candidatos por Vaga"
-                icon={Target}
-                description="Use nossa IA neural para encontrar os candidatos ideais baseado em competências, comportamento e localização."
-              >
-                <div className="space-y-8 py-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div className="space-y-3">
-                      <label className="text-[10px] font-black text-zinc-400 dark:text-white/30 uppercase tracking-widest px-1">Vaga Alvo</label>
-                      <select 
-                        value={selectedJobId}
-                        onChange={(e) => setSelectedJobId(e.target.value)}
-                        className="w-full h-14 px-5 bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/10 rounded-2xl text-xs font-bold text-zinc-900 dark:text-white outline-none focus:ring-2 focus:ring-develoi-navy dark:focus:ring-develoi-gold transition-all"
-                      >
-                        <option value="">Selecione uma vaga ativa...</option>
-                        {jobs.map(job => (
-                          <option key={job.id} value={job.id}>{job.title} - {job.city}/{job.state}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="space-y-3">
-                      <label className="text-[10px] font-black text-zinc-400 dark:text-white/30 uppercase tracking-widest px-1">Rigor da IA</label>
-                      <div className="flex p-1 bg-zinc-100 dark:bg-white/5 rounded-2xl">
-                        {['Flexível', 'Equilibrada', 'Rigorosa'].map(mode => (
-                          <button
-                            key={mode}
-                            onClick={() => setPrecisionMode(mode)}
-                            className={cn(
-                              "flex-1 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all",
-                              precisionMode === mode 
-                                ? "bg-white dark:bg-develoi-gold text-develoi-navy shadow-sm" 
-                                : "text-zinc-500 hover:text-zinc-700 dark:hover:text-white"
-                            )}
-                          >
-                            {mode}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-zinc-400 dark:text-white/30 uppercase tracking-widest px-1">Score Mínimo</label>
-                      <Input 
-                        type="number"
-                        value={minScore}
-                        onChange={(e) => setMinScore(Number(e.target.value))}
-                        className="bg-zinc-50 dark:bg-white/5 border-zinc-200 dark:border-white/10 rounded-2xl h-12 font-bold"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-zinc-400 dark:text-white/30 uppercase tracking-widest px-1">Raio KM</label>
-                      <Input 
-                        type="number"
-                        value={radius}
-                        onChange={(e) => setRadius(Number(e.target.value))}
-                        className="bg-zinc-50 dark:bg-white/5 border-zinc-200 dark:border-white/10 rounded-2xl h-12 font-bold"
-                      />
-                    </div>
-                    <div className="flex flex-col gap-4 pt-6">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Apenas DISC</span>
-                        <Switch checked={onlyWithDisc} onCheckedChange={setOnlyWithDisc} />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Apenas Currículo</span>
-                        <Switch checked={onlyWithResume} onCheckedChange={setOnlyWithResume} />
-                      </div>
-                    </div>
-                  </div>
-
-                  <Button 
-                    onClick={executeMatch}
-                    loading={isMatching}
-                    variant="primary"
-                    className="w-full py-8 rounded-[2rem] bg-develoi-navy dark:bg-develoi-gold text-white dark:text-develoi-navy text-xs font-black uppercase tracking-[0.2em] shadow-2xl shadow-develoi-navy/20"
-                    iconLeft={!isMatching && <Zap size={18} className="text-develoi-gold dark:text-develoi-navy" />}
-                  >
-                    {isMatching ? 'Processando Redes Neurais...' : 'Rodar Análise Aurora AI'}
-                  </Button>
-                </div>
-              </PanelCard>
+            <div className="space-y-5 animate-in fade-in slide-in-from-bottom-3 duration-300">
+              <MatchFilters
+                jobs={jobs}
+                selectedJobId={selectedJobId}
+                precisionMode={precisionMode}
+                minScore={minScore}
+                radius={radius}
+                onlyWithDisc={onlyWithDisc}
+                isMatching={isMatching}
+                onJobChange={setSelectedJobId}
+                onPrecisionChange={setPrecisionMode}
+                onMinScoreChange={setMinScore}
+                onRadiusChange={setRadius}
+                onDiscChange={setOnlyWithDisc}
+                onExecute={executeMatch}
+              />
 
               {matchResults.length > 0 && (
-                <div className="grid md:grid-cols-2 gap-6 animate-in fade-in zoom-in duration-500">
+                <div className="grid sm:grid-cols-2 gap-4 animate-in fade-in duration-300">
                   {matchResults.map((rec, i) => (
-                    <div 
-                      key={`${rec.candidate_id}-${i}`} 
-                      onClick={() => setSelectedMatchForDetails(rec)}
-                      className="bg-white dark:bg-white/5 border border-zinc-100 dark:border-white/5 p-6 rounded-[2.5rem] hover:border-develoi-gold transition-all group shadow-sm cursor-pointer flex flex-col h-full relative"
-                    >
-                      <div className="flex justify-between items-start mb-4">
-                        <div className="flex items-center gap-4">
-                          <div className="w-14 h-14 rounded-2xl bg-zinc-50 dark:bg-white/10 flex items-center justify-center font-black text-zinc-400 dark:text-white/40 group-hover:bg-develoi-navy group-hover:text-develoi-gold transition-all shrink-0">
-                             {(rec.full_name || 'C').split(' ').map(n => n[0]).join('').substring(0, 2)}
-                          </div>
-                          <div>
-                             <h5 className="text-sm font-black text-zinc-900 dark:text-white line-clamp-1">{rec.full_name}</h5>
-                             <p className="text-[9px] font-bold text-zinc-400 dark:text-white/40 uppercase tracking-widest mt-1 flex items-center gap-1">
-                               <MapPin size={10} /> {rec.city}, {rec.state}
-                             </p>
-                          </div>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <div className="text-xl font-black text-blue-600 dark:text-develoi-gold">{rec.compatibility_score}%</div>
-                          <p className="text-[8px] font-bold text-zinc-400 uppercase tracking-tighter">Aderência AI</p>
-                        </div>
-                      </div>
-                      
-                      <div className="space-y-4 mb-6 flex-1">
-                        <div className="flex flex-wrap gap-2">
-                           <Badge color={rec.classification === 'Alto Fit' || rec.classification === 'Altíssimo Fit' ? 'success' : 'gold'}>{rec.classification}</Badge>
-                           {rec.has_disc && <Badge color="primary">{rec.disc_profile}</Badge>}
-                           {rec.distance_km !== undefined && rec.distance_km !== null && (
-                             <Badge color="default" className="flex items-center gap-1">
-                               <MapPin size={10} /> {rec.distance_km <= radius ? `${rec.distance_km}km (No Raio)` : `${rec.distance_km}km (Fora do Raio)`}
-                             </Badge>
-                           )}
-                        </div>
-                        
-                        {rec.strengths && rec.strengths.length > 0 && (
-                          <div className="space-y-2">
-                            <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">Pontos Fortes Principais</p>
-                            <div className="flex flex-wrap gap-1">
-                              {rec.strengths.slice(0, 3).map((strength, idx) => (
-                                <span key={idx} className="text-[10px] bg-zinc-50 dark:bg-white/5 border border-zinc-100 dark:border-white/10 px-2 py-1 rounded-md text-zinc-600 dark:text-zinc-300">
-                                  {strength}
-                                </span>
-                              ))}
-                              {rec.strengths.length > 3 && (
-                                <span className="text-[10px] bg-zinc-50 dark:bg-white/5 border border-zinc-100 dark:border-white/10 px-2 py-1 rounded-md text-zinc-400 italic">
-                                  +{rec.strengths.length - 3} mais
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        )}
-
-                        <p className="text-[11px] font-medium text-zinc-600 dark:text-zinc-400 line-clamp-2 italic border-l-2 border-develoi-gold pl-3">
-                          "{rec.recommendation_reason}"
-                        </p>
-                      </div>
-
-                      <div className="mt-auto pt-4 border-t border-zinc-50 dark:border-white/5 flex justify-end">
-                        <span className="text-[10px] font-bold text-develoi-gold uppercase tracking-widest flex items-center gap-1 group-hover:underline">
-                          Ver Análise Completa <ChevronRight size={12} />
-                        </span>
-                      </div>
-                    </div>
+                    <MatchCard
+                      key={`${rec.candidate_id}-${i}`}
+                      rec={rec}
+                      radius={radius}
+                      onClick={() => setSelectedMatch(rec)}
+                    />
                   ))}
                 </div>
               )}
             </div>
           )}
+
+          {activeView === 'history' && (
+            <PanelCard title="Histórico de Sessões" icon={History} description="Clique em uma sessão para continuar de onde parou.">
+              <div className="space-y-1">
+                {sessions.length === 0 && (
+                  <p className="text-xs text-zinc-400 text-center py-10">Nenhuma sessão encontrada ainda.</p>
+                )}
+                {sessions.map((session, i) => {
+                  const isMatch = session.search_type === 'match-job';
+                  const title = isMatch
+                    ? `Aderência: ${jobs.find(j => j.id === session.job_id)?.title ?? `Vaga #${session.job_id}`}`
+                    : (session.summary ?? 'Conversa Aurora');
+                  return (
+                    <button
+                      key={i}
+                      onClick={() => handleSessionClick(session)}
+                      className="w-full flex items-center justify-between gap-4 group hover:bg-zinc-50 dark:hover:bg-white/5 p-3 rounded-2xl transition-all text-left"
+                    >
+                      <div className="flex items-center gap-4 min-w-0">
+                        <div className={cn(
+                          'p-2.5 rounded-xl shrink-0 transition-all',
+                          isMatch
+                            ? 'bg-develoi-navy/10 dark:bg-develoi-gold/10 text-develoi-navy dark:text-develoi-gold group-hover:bg-develoi-navy group-hover:text-white'
+                            : 'bg-zinc-100 dark:bg-white/5 text-zinc-400 group-hover:bg-develoi-navy group-hover:text-white'
+                        )}>
+                          {isMatch ? <Target size={15} /> : <MessageSquare size={15} />}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-zinc-800 dark:text-white/90 truncate">{title}</p>
+                          <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mt-0.5">
+                            {formatRelativeDate(session.created_at)}
+                          </p>
+                        </div>
+                      </div>
+                      <ChevronRight size={15} className="text-zinc-300 group-hover:text-develoi-navy dark:group-hover:text-white transition-colors shrink-0" />
+                    </button>
+                  );
+                })}
+              </div>
+            </PanelCard>
+          )}
         </div>
 
-        {/* Right Column: AI Insights & Status */}
-        <div className="lg:col-span-4 space-y-8">
-           <div className="bg-develoi-gold dark:bg-[#1a1408] rounded-[2.5rem] p-8 text-develoi-navy dark:text-develoi-gold shadow-2xl relative overflow-hidden group">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700" />
-              <h4 className="text-xs font-black uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
-                <Zap size={16} /> Insights de Hoje
-              </h4>
-              <div className="space-y-6">
-                 {[
-                   { title: 'Vagas Ativas', value: stats?.active_jobs || '0', desc: 'Em recrutamento' },
-                   { title: 'Processados', value: `+${stats?.new_candidates || '0'}`, desc: 'Candidatos novos' },
-                   { title: 'Compatíveis', value: stats?.compatible_candidates || '0', desc: 'Acima de 80% de aderência' }
-                 ].map((insight, i) => (
-                   <div key={i} className="flex justify-between items-end border-b border-develoi-navy/10 dark:border-develoi-gold/10 pb-4">
-                      <div>
-                         <p className="text-[9px] font-black uppercase tracking-widest opacity-60">{insight.title}</p>
-                         <p className="text-[10px] font-bold mt-1">{insight.desc}</p>
-                      </div>
-                      <span className="text-2xl font-black">{insight.value}</span>
-                   </div>
-                 ))}
-              </div>
-           </div>
-
-           <PanelCard title="Histórico Recente" icon={History}>
-              <div className="space-y-4 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
-                 {sessions.length > 0 ? sessions.slice(0, 8).map((session, i) => (
-                   <div 
-                     key={i} 
-                     onClick={() => {
-                       if (session.search_type === 'match-job' && session.job_id) {
-                         setSelectedJobId(String(session.job_id));
-                         setActiveView('match');
-                       } else {
-                         setActiveView('chat');
-                       }
-                     }}
-                     className="flex items-center justify-between group cursor-pointer hover:bg-zinc-50 dark:hover:bg-white/5 p-2 rounded-xl transition-all"
-                   >
-                      <div className="flex items-center gap-3">
-                         <div className="p-2 bg-zinc-50 dark:bg-white/5 rounded-xl text-zinc-400 group-hover:bg-develoi-navy group-hover:text-white transition-all">
-                            {session.search_type === 'match-job' ? <Target size={14} /> : <MessageSquare size={14} />}
-                         </div>
-                         <div>
-                            <h5 className="text-[11px] font-black text-zinc-800 dark:text-white/90 line-clamp-1" title={session.summary || ''}>
-                               {session.search_type === 'match-job' 
-                                 ? `Aderência: ${jobs.find(j => j.id === session.job_id)?.title || `Vaga #${session.job_id}`}`
-                                 : (session.summary || "Conversa Aurora")
-                               }
-                            </h5>
-                            <p className="text-[8px] font-bold text-zinc-400 uppercase tracking-widest">{formatDate(session.created_at)}</p>
-                         </div>
-                      </div>
-                      <ChevronRight size={14} className="text-zinc-200 group-hover:text-develoi-navy transition-colors shrink-0" />
-                   </div>
-                 )) : (
-                   <p className="text-[9px] font-bold text-zinc-400 uppercase text-center py-4">Sem histórico recente</p>
-                 )}
-              </div>
-           </PanelCard>
-
-           <div className="p-8 bg-develoi-navy rounded-[2.5rem] text-white relative overflow-hidden shadow-2xl">
-              <div className="absolute bottom-0 left-0 w-32 h-32 bg-develoi-blue/10 rounded-full blur-3xl -ml-16 -mb-16" />
-              <div className="relative z-10 text-center">
-                 <div className="w-16 h-16 bg-white/10 rounded-3xl flex items-center justify-center mx-auto mb-6 text-develoi-gold shadow-inner">
-                    <Cpu size={32} />
-                 </div>
-                 <h4 className="text-sm font-black uppercase tracking-[0.25em] mb-2">Neural Engine</h4>
-                 <p className="text-[10px] font-medium text-white/40 mb-6 uppercase tracking-widest">v4.2.0 - Stabilized</p>
-                 <Button variant="ghost" className="w-full border-white/20 text-white hover:bg-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest border">
-                    Ver Logs de Rede
-                 </Button>
-              </div>
-           </div>
+        {/* Sidebar */}
+        <div className="lg:col-span-4">
+          <AuroraSidebar
+            stats={stats}
+            sessions={sessions}
+            jobs={jobs}
+            onSessionClick={handleSessionClick}
+          />
         </div>
       </div>
 
-      {/* Settings Modal */}
-      <Modal 
-        open={showSettings} 
+      {/* Modals */}
+      <SettingsModal
+        open={showSettings}
+        minScore={minScore}
+        radius={radius}
+        precisionMode={precisionMode}
+        onMinScoreChange={setMinScore}
+        onRadiusChange={setRadius}
+        onPrecisionChange={setPrecisionMode}
         onClose={() => setShowSettings(false)}
-        title="Configurações da Aurora AI"
-      >
-        <div className="space-y-6">
-           <div className="space-y-4">
-              <h4 className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Parâmetros de Aderência</h4>
-              <div className="grid grid-cols-2 gap-4">
-                 <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-zinc-500 uppercase">Limite Global (%)</label>
-                    <Input 
-                      type="number" 
-                      value={minScore} 
-                      onChange={(e) => setMinScore(Number(e.target.value))}
-                    />
-                 </div>
-                 <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-zinc-500 uppercase">Raio Padrão (KM)</label>
-                    <Input 
-                      type="number" 
-                      value={radius} 
-                      onChange={(e) => setRadius(Number(e.target.value))}
-                    />
-                 </div>
-              </div>
-           </div>
+        onSave={() => { toast.success('Configurações aplicadas!'); setShowSettings(false); }}
+      />
 
-           <div className="space-y-4">
-              <h4 className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Personalidade do Core</h4>
-              <div className="flex p-1 bg-zinc-100 rounded-2xl">
-                 {['Analítica', 'Criativa', 'Equilibrada'].map(mode => (
-                   <button
-                     key={mode}
-                     onClick={() => setPrecisionMode(mode)}
-                     className={cn(
-                       "flex-1 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all",
-                       precisionMode === mode 
-                         ? "bg-white text-develoi-navy shadow-sm" 
-                         : "text-zinc-500 hover:text-zinc-700"
-                     )}
-                   >
-                     {mode}
-                   </button>
-                 ))}
-              </div>
-           </div>
-
-           <div className="pt-4 flex gap-3">
-              <Button variant="ghost" fullWidth onClick={() => setShowSettings(false)}>Cancelar</Button>
-              <Button variant="primary" fullWidth onClick={() => {
-                toast.success("Configurações aplicadas com sucesso!");
-                setShowSettings(false);
-              }}>Salvar Mudanças</Button>
-           </div>
-        </div>
-      </Modal>
-
-      {/* Match Details Modal */}
-      {selectedMatchForDetails && (
-        <Modal 
-          open={!!selectedMatchForDetails} 
-          onClose={() => setSelectedMatchForDetails(null)}
-          title={`Análise IA: ${selectedMatchForDetails.full_name}`}
-          size="lg"
-        >
-          <div className="space-y-8 pb-4">
-            <div className="flex items-center gap-6 p-6 bg-zinc-50 dark:bg-white/5 rounded-3xl border border-zinc-100 dark:border-white/10">
-              <div className="w-20 h-20 rounded-[2rem] bg-develoi-navy text-develoi-gold flex items-center justify-center font-black text-2xl shadow-xl">
-                {(selectedMatchForDetails.full_name || 'C').split(' ').map((n: string) => n[0]).join('').substring(0, 2)}
-              </div>
-              <div className="flex-1">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="text-xl font-black text-zinc-900 dark:text-white mb-1">{selectedMatchForDetails.full_name}</h3>
-                    <p className="text-[11px] font-bold text-zinc-500 flex items-center gap-2 uppercase tracking-widest">
-                      <MapPin size={12} /> {selectedMatchForDetails.city}, {selectedMatchForDetails.state}
-                      {selectedMatchForDetails.distance_km !== undefined && selectedMatchForDetails.distance_km !== null && (
-                        <span className={selectedMatchForDetails.distance_km <= radius ? "text-emerald-500" : "text-amber-500"}>
-                          ({selectedMatchForDetails.distance_km}km)
-                        </span>
-                      )}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-3xl font-black text-develoi-navy dark:text-develoi-gold">{selectedMatchForDetails.compatibility_score}%</div>
-                    <Badge color={selectedMatchForDetails.classification === 'Alto Fit' || selectedMatchForDetails.classification === 'Altíssimo Fit' ? 'success' : 'gold'}>
-                      {selectedMatchForDetails.classification === 'Altíssimo Fit' ? 'Alta Aderência'
-                        : selectedMatchForDetails.classification === 'Alto Fit' ? 'Boa Aderência'
-                        : selectedMatchForDetails.classification}
-                    </Badge>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 flex items-center gap-2">
-                <Sparkles size={14} className="text-develoi-gold" /> Veredito Aurora
-              </h4>
-              <div className="p-6 bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-3xl text-sm font-medium text-blue-900 dark:text-blue-100 leading-relaxed italic">
-                "{selectedMatchForDetails.recommendation_reason}"
-              </div>
-            </div>
-
-            <div className="grid md:grid-cols-2 gap-6">
-              {selectedMatchForDetails.strengths && selectedMatchForDetails.strengths.length > 0 && (
-                <div className="space-y-4">
-                  <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600 flex items-center gap-2">
-                    <CheckCircle2 size={14} /> Pontos Fortes
-                  </h4>
-                  <ul className="space-y-2">
-                    {selectedMatchForDetails.strengths.map((str: string, i: number) => (
-                      <li key={i} className="flex items-start gap-2 text-xs font-medium text-zinc-700 dark:text-zinc-300">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
-                        {str}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              
-              {selectedMatchForDetails.attention_points && selectedMatchForDetails.attention_points.length > 0 && (
-                <div className="space-y-4">
-                  <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-600 flex items-center gap-2">
-                    <AlertCircle size={14} /> Pontos de Atenção
-                  </h4>
-                  <ul className="space-y-2">
-                    {selectedMatchForDetails.attention_points.map((pt: string, i: number) => (
-                      <li key={i} className="flex items-start gap-2 text-xs font-medium text-zinc-700 dark:text-zinc-300">
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1.5 shrink-0" />
-                        {pt}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-
-            {selectedMatchForDetails.risk_reason && (
-              <div className="space-y-4 pt-4 border-t border-zinc-100 dark:border-white/5">
-                <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-red-500 flex items-center gap-2">
-                  <AlertCircle size={14} /> Análise de Risco
-                </h4>
-                <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
-                  {selectedMatchForDetails.risk_reason}
-                </p>
-              </div>
-            )}
-          </div>
-        </Modal>
+      {selectedMatch && (
+        <MatchDetailsModal
+          rec={selectedMatch}
+          radius={radius}
+          onClose={() => setSelectedMatch(null)}
+        />
       )}
     </div>
   );
