@@ -1,31 +1,24 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 
 export const PAGE_SIZE_OPTIONS = [10, 15, 20, 50, 100];
 
-export function usePreferences() {
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    const saved = localStorage.getItem("theme");
-    return (saved as 'light' | 'dark') || 'light';
-  });
+interface PreferencesState {
+  pageSize: number;
+  theme: "light" | "dark";
+}
 
-  const toggleTheme = () => {
-    const newTheme = theme === 'light' ? 'dark' : 'light';
-    setTheme(newTheme);
-    localStorage.setItem("theme", newTheme);
-  };
+export function usePreferences(): PreferencesState {
+  const theme = "light";
 
   useEffect(() => {
-    // Aplica a classe 'dark' no html para o tailwind dark mode funcionar
-    if (theme === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, [theme]);
+    document.documentElement.classList.remove("dark");
+    document.documentElement.style.colorScheme = "light";
+    document.documentElement.setAttribute("data-theme", "light");
+    localStorage.setItem("theme", "light");
+  }, []);
 
   return {
     pageSize: 15,
-    theme,
-    toggleTheme,
+    theme: theme as "light" | "dark",
   };
 }

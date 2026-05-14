@@ -6,6 +6,7 @@
 }
 
 :root {
+  color-scheme: only light;
   --bg: #F8FAFC;
   --surface: #FFFFFF;
   --text: #0F172A;
@@ -29,6 +30,11 @@
 }
 
 @layer base {
+  html {
+    color-scheme: only light;
+    background-color: #F8FAFC;
+  }
+
   body {
     @apply text-zinc-900 antialiased bg-[#F8FAFC];
     font-size: 14px;

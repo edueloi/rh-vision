@@ -17,8 +17,6 @@ import {
   LogOut,
   User,
   HelpCircle,
-  Moon,
-  Sun,
 } from "lucide-react";
 import { AnimatePresence } from "motion/react";
 import {
@@ -129,7 +127,7 @@ function AppContent() {
   const notifRef = useRef<HTMLDivElement>(null);
   const unitMenuRef = useRef<HTMLDivElement>(null);
   const { currentUnit, changeUnit, isMaster, units } = useUnit();
-  const { theme, toggleTheme } = usePreferences();
+  const { theme } = usePreferences();
   const toast = useToast();
   const { notifications, unreadCount, markAllRead, clear } = useNotifications();
   const location = useLocation();
@@ -799,24 +797,6 @@ function AppContent() {
                           </button>
                           <button onClick={() => { setUserMenuOpen(false); navigate('/guia-de-acesso'); }} className="w-full rounded-xl px-3 py-2 text-left text-[11px] font-bold text-zinc-600 transition-colors hover:bg-zinc-50 hover:text-develoi-navy flex items-center gap-2.5">
                             <HelpCircle size={14} className="text-zinc-400" /> Guia de Acesso
-                          </button>
-                          <button 
-                            onClick={toggleTheme}
-                            className="w-full rounded-xl px-3 py-2 text-left text-[11px] font-bold text-zinc-600 transition-colors hover:bg-zinc-50 hover:text-develoi-navy flex items-center justify-between"
-                          >
-                            <div className="flex items-center gap-2.5">
-                              {theme === 'light' ? <Moon size={14} className="text-zinc-400" /> : <Sun size={14} className="text-zinc-400" />}
-                              Modo {theme === 'light' ? 'Escuro' : 'Claro'}
-                            </div>
-                            <div className={cn(
-                              "w-8 h-4 rounded-full relative transition-colors",
-                              theme === 'dark' ? "bg-develoi-gold" : "bg-zinc-200"
-                            )}>
-                              <div className={cn(
-                                "absolute top-1 w-2 h-2 rounded-full bg-white transition-all",
-                                theme === 'dark' ? "right-1" : "left-1"
-                              )} />
-                            </div>
                           </button>
                           <div className="my-1 border-t border-zinc-100" />
                           <button onClick={handleLogout} className="w-full rounded-xl px-3 py-2.5 text-left text-[11px] font-bold text-red-600 transition-colors hover:bg-red-50 flex items-center gap-2.5">
