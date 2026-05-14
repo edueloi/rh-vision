@@ -8,7 +8,7 @@ import {
   Music, Camera, Image, Mic, Headphones, Film, ShoppingCart, CreditCard, Gift,
   User, Zap,
 } from "lucide-react";
-import { StatCard, PanelCard, Badge, Button } from "@/src/components/ui";
+import { StatCard, PanelCard, Badge, Button, Modal, Input } from "@/src/components/ui";
 import { getTenantId } from "@/src/lib/auth";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -531,90 +531,90 @@ export default function Dashboard() {
       </div>
 
       {/* ── Modal Acesso Rápido ── */}
-      {quickModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setQuickModal(false)} />
-          <div className="relative w-full max-w-md bg-white dark:bg-[#0d1b3e] rounded-3xl shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-zinc-100 dark:border-white/10">
-              <h3 className="text-sm font-black text-zinc-900 dark:text-white uppercase tracking-widest">Novo Acesso Rápido</h3>
-              <button onClick={() => setQuickModal(false)} className="w-8 h-8 rounded-xl flex items-center justify-center text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/10 transition-all">
-                <X size={16} />
-              </button>
-            </div>
+      <Modal
+        open={quickModal}
+        onClose={() => setQuickModal(false)}
+        title="Novo Acesso Rápido"
+        description="Adicione um atalho para acessar rapidamente sites e ferramentas."
+        icon={<Zap size={20} />}
+        size="sm"
+        footer={
+          <div className="flex items-center justify-end gap-3">
+            <Button variant="outline" onClick={() => setQuickModal(false)}>Cancelar</Button>
+            <Button
+              variant="primary"
+              disabled={!quickForm.name.trim() || !quickForm.url.trim()}
+              onClick={addQuickLink}
+            >
+              Salvar
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-5">
+          <Input
+            label="Nome do acesso"
+            placeholder="Ex: Meu Site, Portal RH..."
+            value={quickForm.name}
+            onChange={e => setQuickForm(p => ({ ...p, name: e.target.value }))}
+            required
+            autoFocus
+          />
 
-            <div className="p-6 space-y-5 max-h-[70vh] overflow-y-auto">
-              {/* Nome */}
-              <div>
-                <label className="text-[9px] font-black text-zinc-400 dark:text-white/40 uppercase tracking-widest block mb-1.5">Nome do acesso</label>
-                <input autoFocus value={quickForm.name} onChange={e => setQuickForm(p => ({ ...p, name: e.target.value }))}
-                  placeholder="Ex: Meu Site, Portal RH..."
-                  className="w-full px-4 py-3 rounded-2xl border-2 border-zinc-100 dark:border-white/10 bg-zinc-50 dark:bg-white/5 text-sm font-semibold text-zinc-800 dark:text-white placeholder:text-zinc-300 dark:placeholder:text-white/20 outline-none focus:border-develoi-navy dark:focus:border-develoi-gold transition-colors" />
-              </div>
+          <Input
+            label="Link (URL)"
+            placeholder="exemplo.com.br"
+            value={quickForm.url}
+            onChange={e => setQuickForm(p => ({ ...p, url: e.target.value }))}
+            onKeyDown={(e: React.KeyboardEvent) => e.key === "Enter" && addQuickLink()}
+            required
+          />
 
-              {/* URL */}
-              <div>
-                <label className="text-[9px] font-black text-zinc-400 dark:text-white/40 uppercase tracking-widest block mb-1.5">Link (URL)</label>
-                <input value={quickForm.url} onChange={e => setQuickForm(p => ({ ...p, url: e.target.value }))}
-                  onKeyDown={e => e.key === "Enter" && addQuickLink()} placeholder="exemplo.com.br"
-                  className="w-full px-4 py-3 rounded-2xl border-2 border-zinc-100 dark:border-white/10 bg-zinc-50 dark:bg-white/5 text-sm font-semibold text-zinc-800 dark:text-white placeholder:text-zinc-300 dark:placeholder:text-white/20 outline-none focus:border-develoi-navy dark:focus:border-develoi-gold transition-colors" />
-              </div>
-
-              {/* Ícone */}
-              <div>
-                <label className="text-[9px] font-black text-zinc-400 dark:text-white/40 uppercase tracking-widest block mb-2">Selecione o Ícone</label>
-                <div className="grid grid-cols-10 gap-1.5 max-h-32 overflow-y-auto pr-1">
-                  {Object.entries(QUICK_ICONS).map(([key, Icon]) => (
-                    <button key={key} onClick={() => setQuickForm(p => ({ ...p, icon: key }))}
-                      className={cn("w-9 h-9 rounded-xl flex items-center justify-center transition-all border-2",
-                        quickForm.icon === key
-                          ? "border-develoi-navy dark:border-develoi-gold bg-develoi-navy/5 dark:bg-develoi-gold/10 text-develoi-navy dark:text-develoi-gold"
-                          : "border-zinc-100 dark:border-white/10 text-zinc-400 dark:text-white/40 hover:border-zinc-300 dark:hover:border-white/30")}>
-                      <Icon size={15} />
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Cor */}
-              <div>
-                <label className="text-[9px] font-black text-zinc-400 dark:text-white/40 uppercase tracking-widest block mb-2">Cor do círculo</label>
-                <div className="flex flex-wrap gap-2">
-                  {QUICK_COLORS.map(c => (
-                    <button key={c} onClick={() => setQuickForm(p => ({ ...p, color: c }))}
-                      className={cn("w-7 h-7 rounded-full transition-all", quickForm.color === c ? "ring-2 ring-offset-2 ring-zinc-400 scale-110" : "hover:scale-105")}
-                      style={{ backgroundColor: c }} />
-                  ))}
-                </div>
-              </div>
-
-              {/* Preview */}
-              {quickForm.name && (
-                <div className="flex items-center gap-4 p-3 bg-zinc-50 dark:bg-white/5 rounded-2xl">
-                  <div className="w-12 h-12 rounded-full flex items-center justify-center shadow-md shrink-0" style={{ backgroundColor: quickForm.color }}>
-                    {(() => { const Icon = QUICK_ICONS[quickForm.icon] || Globe; return <Icon size={22} className="text-white" />; })()}
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-black text-zinc-400 dark:text-white/30 uppercase tracking-widest">Preview</p>
-                    <p className="text-sm font-black text-zinc-900 dark:text-white">{quickForm.name}</p>
-                    {quickForm.url && <p className="text-[10px] text-zinc-400 dark:text-white/30 truncate">{quickForm.url}</p>}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-center justify-end gap-3 px-6 pb-6 border-t border-zinc-100 dark:border-white/10 pt-4">
-              <button onClick={() => setQuickModal(false)}
-                className="h-11 px-5 rounded-2xl border-2 border-zinc-200 dark:border-white/10 text-zinc-500 dark:text-white/50 text-xs font-black uppercase tracking-widest hover:border-zinc-400 transition-all">
-                Cancelar
-              </button>
-              <button onClick={addQuickLink} disabled={!quickForm.name.trim() || !quickForm.url.trim()}
-                className="h-11 px-6 rounded-2xl bg-develoi-navy dark:bg-develoi-gold text-white dark:text-develoi-navy text-xs font-black uppercase tracking-widest hover:opacity-90 transition-all disabled:opacity-40 shadow-lg">
-                Salvar
-              </button>
+          {/* Ícone */}
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 mb-2">Selecione o Ícone</p>
+            <div className="grid grid-cols-10 gap-1.5 max-h-32 overflow-y-auto pr-1">
+              {Object.entries(QUICK_ICONS).map(([key, Icon]) => (
+                <button key={key} onClick={() => setQuickForm(p => ({ ...p, icon: key }))}
+                  className={cn(
+                    "w-9 h-9 rounded-xl flex items-center justify-center transition-all border-2",
+                    quickForm.icon === key
+                      ? "border-develoi-navy bg-develoi-navy/5 text-develoi-navy"
+                      : "border-zinc-100 text-zinc-400 hover:border-zinc-300"
+                  )}>
+                  <Icon size={15} />
+                </button>
+              ))}
             </div>
           </div>
+
+          {/* Cor */}
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 mb-2">Cor do círculo</p>
+            <div className="flex flex-wrap gap-2">
+              {QUICK_COLORS.map(c => (
+                <button key={c} onClick={() => setQuickForm(p => ({ ...p, color: c }))}
+                  className={cn("w-7 h-7 rounded-full transition-all", quickForm.color === c ? "ring-2 ring-offset-2 ring-zinc-400 scale-110" : "hover:scale-105")}
+                  style={{ backgroundColor: c }} />
+              ))}
+            </div>
+          </div>
+
+          {/* Preview */}
+          {quickForm.name && (
+            <div className="flex items-center gap-4 p-4 bg-zinc-50 rounded-2xl border border-zinc-100">
+              <div className="w-12 h-12 rounded-full flex items-center justify-center shadow-md shrink-0" style={{ backgroundColor: quickForm.color }}>
+                {(() => { const Icon = QUICK_ICONS[quickForm.icon] || Globe; return <Icon size={22} className="text-white" />; })()}
+              </div>
+              <div className="min-w-0">
+                <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Preview</p>
+                <p className="text-sm font-black text-zinc-900 truncate">{quickForm.name}</p>
+                {quickForm.url && <p className="text-[10px] text-zinc-400 truncate">{quickForm.url}</p>}
+              </div>
+            </div>
+          )}
         </div>
-      )}
+      </Modal>
     </>
   );
 }
