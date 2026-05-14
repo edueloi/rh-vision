@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import {
   Briefcase, Users, UserCheck, Target, Brain, TrendingUp, Plus, RefreshCw,
-  Sparkles, MessageSquare, Layers, FileText, ChevronRight, MapPin, BarChart3,
+  Sparkles, MessageSquare, Layers, FileText, ChevronRight, ChevronDown, MapPin, BarChart3,
   Building2, CheckCircle2, Circle, Trash2, X, ClipboardList,
   Globe, Facebook, Instagram, Linkedin, Twitter, Youtube, Github, Mail, Phone,
   MessageCircle, Calendar, Monitor, BookOpen, Coffee, Heart, Star, Shield,
@@ -134,36 +134,68 @@ export default function Dashboard() {
       <div className="w-full space-y-6 px-4 sm:px-6 py-6 pb-20">
 
         {/* ── HEADER ── */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-black text-zinc-900 dark:text-white tracking-tighter uppercase leading-none">Dashboard</h1>
-            <p className="text-[10px] font-black text-zinc-400 dark:text-white/30 uppercase tracking-widest mt-1">
-              {currentUnit.name} · Visão geral do recrutamento
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-0 bg-white dark:bg-white/5 border border-zinc-200 dark:border-white/10 rounded-2xl overflow-hidden shadow-sm">
-              {[{ v: "7d", label: "7d" }, { v: "30d", label: "30d" }, { v: "90d", label: "90d" }, { v: "all", label: "Hist." }].map(opt => (
-                <button key={opt.v} onClick={() => setPeriod(opt.v)} className={cn(
-                  "px-3 py-2 text-[10px] font-black uppercase tracking-widest transition-all",
-                  period === opt.v ? "bg-develoi-navy text-white dark:bg-develoi-gold dark:text-develoi-navy" : "text-zinc-400 dark:text-white/40 hover:text-zinc-900 dark:hover:text-white"
-                )}>{opt.label}</button>
-              ))}
+        <div className="relative overflow-hidden rounded-3xl border border-zinc-100 bg-white p-5 sm:p-6 shadow-sm">
+          {/* Subtle decorative elements */}
+          <div className="pointer-events-none absolute -top-16 -right-16 h-40 w-40 rounded-full bg-develoi-gold/5 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-12 -left-12 h-32 w-32 rounded-full bg-blue-400/5 blur-3xl" />
+
+          <div className="relative flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+            {/* Left: Title area */}
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <div className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-400">
+                  <Building2 size={10} className="text-develoi-gold" />
+                  <span>{currentUnit.name}</span>
+                  <ChevronRight size={8} className="text-zinc-300" />
+                  <span className="text-zinc-500">Dashboard</span>
+                </div>
+              </div>
+              <h1 className="text-xl sm:text-2xl font-black text-zinc-900 tracking-tight leading-none">
+                Dashboard
+              </h1>
+              <p className="text-[10px] font-medium text-zinc-400 mt-1.5 tracking-wide">
+                Visão geral do recrutamento
+              </p>
             </div>
-            {units.length > 1 && (
-              <select value={selectedUnit} onChange={e => setSelectedUnit(e.target.value)}
-                className="h-9 rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 text-[10px] font-black text-zinc-700 dark:text-white px-3 outline-none cursor-pointer">
-                <option value="master">Todas</option>
-                {units.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-              </select>
-            )}
-            <button onClick={() => fetchData(true)} disabled={refreshing}
-              className="h-9 w-9 flex items-center justify-center rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 text-zinc-400 hover:text-develoi-navy dark:hover:text-develoi-gold transition-all">
-              <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
-            </button>
-            <Link to="/vagas/nova" className="h-9 px-4 flex items-center gap-2 rounded-2xl bg-develoi-navy dark:bg-develoi-gold text-white dark:text-develoi-navy text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-all shadow-lg">
-              <Plus size={14} /> Nova Vaga
-            </Link>
+
+            {/* Right: Actions */}
+            <div className="flex flex-wrap items-center gap-2.5">
+              {/* Period selector */}
+              <div className="flex items-center gap-0.5 rounded-2xl bg-zinc-50 border border-zinc-100 p-1">
+                {[{ v: "7d", label: "7D" }, { v: "30d", label: "30D" }, { v: "90d", label: "90D" }, { v: "all", label: "Hist." }].map(opt => (
+                  <button key={opt.v} onClick={() => setPeriod(opt.v)} className={cn(
+                    "relative px-3.5 py-1.5 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all duration-200",
+                    period === opt.v
+                      ? "bg-develoi-navy text-white shadow-md shadow-develoi-navy/20"
+                      : "text-zinc-400 hover:text-zinc-700 hover:bg-white"
+                  )}>{opt.label}</button>
+                ))}
+              </div>
+
+              {/* Unit filter */}
+              {units.length > 1 && (
+                <div className="relative">
+                  <select value={selectedUnit} onChange={e => setSelectedUnit(e.target.value)}
+                    className="h-9 appearance-none rounded-2xl border border-zinc-200 bg-white text-[10px] font-black text-zinc-700 pl-3 pr-8 outline-none cursor-pointer hover:border-zinc-300 transition-colors shadow-sm">
+                    <option value="master">Todas</option>
+                    {units.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                  </select>
+                  <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
+                </div>
+              )}
+
+              {/* Refresh */}
+              <button onClick={() => fetchData(true)} disabled={refreshing}
+                className="h-9 w-9 flex items-center justify-center rounded-2xl border border-zinc-200 bg-white text-zinc-400 hover:text-develoi-navy hover:border-zinc-300 transition-all shadow-sm disabled:opacity-40">
+                <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
+              </button>
+
+              {/* CTA */}
+              <Link to="/vagas/nova"
+                className="h-9 px-4 flex items-center gap-2 rounded-2xl bg-develoi-navy text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#0a1e3a] transition-all shadow-lg shadow-develoi-navy/15">
+                <Plus size={14} /> Nova Vaga
+              </Link>
+            </div>
           </div>
         </div>
 
