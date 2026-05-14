@@ -323,6 +323,28 @@ function DiscDetailModal({
           </div>
         </div>
 
+        {/* Banner de análise em andamento */}
+        <AnimatePresence>
+          {analyzing && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              className="mx-5 mt-4 flex items-center gap-3 bg-develoi-navy text-white rounded-2xl px-4 py-3"
+            >
+              <div className="relative shrink-0">
+                <Sparkles size={16} className="text-develoi-gold" />
+                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-emerald-400 rounded-full animate-ping" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-black">Aurora IA está gerando análise detalhada</p>
+                <p className="text-[10px] text-white/60 font-medium">Calculando pontuações DISC e perfil comportamental…</p>
+              </div>
+              <Loader2 size={14} className="animate-spin text-white/50 shrink-0" />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Body */}
         <div className="overflow-y-auto flex-1 p-5 sm:p-6 space-y-6">
           {loading ? (
