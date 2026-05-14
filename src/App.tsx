@@ -55,22 +55,23 @@ import { AccessPermissionKey, getPermissionsForUser } from "./lib/access";
 type MenuItem = {
   path: string;
   label: string;
+  helper?: string;
   icon: React.ComponentType<{ size?: number; strokeWidth?: number; className?: string }>;
   permissionKey: AccessPermissionKey;
 };
 
 const ROOT_MENU_ITEMS: MenuItem[] = [
-  { path: "/super-admin", label: "Master Control", icon: ShieldCheck, permissionKey: "super_admin" },
+  { path: "/super-admin", label: "Master Control", helper: "Orquestração global", icon: ShieldCheck, permissionKey: "super_admin" },
 ];
 
 const APP_MENU_ITEMS: MenuItem[] = [
-  { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard, permissionKey: "dashboard" },
-  { path: "/aurora-ai", label: "Aurora AI", icon: Brain, permissionKey: "aurora_ai" },
-  { path: "/vagas", label: "Vagas", icon: Briefcase, permissionKey: "jobs" },
-  { path: "/candidatos", label: "Candidatos", icon: Users, permissionKey: "candidates" },
-  { path: "/importar-cvs", label: "Importar CVs", icon: FileUp, permissionKey: "imports" },
-  { path: "/ferramentas", label: "Ferramentas", icon: Settings, permissionKey: "tools" },
-  { path: "/administracao", label: "Administração", icon: ShieldCheck, permissionKey: "administration" },
+  { path: "/dashboard", label: "Dashboard", helper: "Resumo, metas e indicadores", icon: LayoutDashboard, permissionKey: "dashboard" },
+  { path: "/aurora-ai", label: "Aurora AI", helper: "Triagem, match e inteligência", icon: Brain, permissionKey: "aurora_ai" },
+  { path: "/vagas", label: "Vagas", helper: "Requisições e pipeline", icon: Briefcase, permissionKey: "jobs" },
+  { path: "/candidatos", label: "Candidatos", helper: "Banco de talentos", icon: Users, permissionKey: "candidates" },
+  { path: "/importar-cvs", label: "Importar CVs", helper: "Upload e processamento", icon: FileUp, permissionKey: "imports" },
+  { path: "/ferramentas", label: "Ferramentas", helper: "Avaliações e recursos", icon: Settings, permissionKey: "tools" },
+  { path: "/administracao", label: "Administração", helper: "Usuários, unidades e acesso", icon: ShieldCheck, permissionKey: "administration" },
 ];
 
 const ROOT_SECTION_ITEMS = [
@@ -126,6 +127,7 @@ function AppContent() {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
+  const unitMenuRef = useRef<HTMLDivElement>(null);
   const { currentUnit, changeUnit, isMaster, units } = useUnit();
   const { theme, toggleTheme } = usePreferences();
   const toast = useToast();
@@ -141,6 +143,17 @@ function AppContent() {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [notifOpen]);
+
+  useEffect(() => {
+    if (!unitMenuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (unitMenuRef.current && !unitMenuRef.current.contains(e.target as Node)) {
+        setUnitMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [unitMenuOpen]);
 
   const isSuperAdmin = isRootAdmin(user);
   const isAdminMestre = user?.access_profile === "admin-mestre" || user?.role === "admin";
@@ -326,194 +339,271 @@ function AppContent() {
       )}
 
       <aside className={cn(
-        "fixed inset-y-0 left-0 z-[50] flex h-screen w-64 flex-col transition-transform duration-300 lg:sticky lg:translate-x-0",
+        "fixed inset-y-0 left-0 z-[50] flex h-screen w-72 flex-col overflow-hidden border-r border-white/[0.06] shadow-[22px_0_60px_rgba(3,8,20,0.24)] transition-transform duration-300 lg:sticky lg:translate-x-0",
         isRootShell ? "bg-[#040e1f]" : theme === 'dark' ? "bg-[#071325]" : "bg-develoi-navy",
         sidebarOpen ? "translate-x-0" : "-translate-x-full"
       )}>
-        {/* Logo */}
-        <div className="flex items-center justify-between px-5 py-5">
-          {isRootShell ? (
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-develoi-gold/15 border border-develoi-gold/20">
-                <Brain size={18} className="text-develoi-gold" />
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute inset-x-0 top-0 h-52 bg-[radial-gradient(circle_at_top_left,rgba(197,160,77,0.22),transparent_58%)]" />
+          <div className="absolute -left-10 top-28 h-44 w-44 rounded-full bg-develoi-gold/10 blur-3xl" />
+          <div className="absolute -right-14 top-72 h-56 w-56 rounded-full bg-sky-400/5 blur-3xl" />
+        </div>
+
+        <div className="relative z-10 flex h-full flex-col">
+          {/* Logo */}
+          <div className="flex items-start justify-between px-5 pb-5 pt-6">
+            {isRootShell ? (
+              <div className="flex flex-1 items-center gap-3 rounded-[24px] border border-white/[0.07] bg-white/[0.04] px-3.5 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-develoi-gold/20 bg-develoi-gold/15 shrink-0">
+                  <Brain size={20} className="text-develoi-gold" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[11px] font-black uppercase tracking-[0.24em] text-white leading-none">Aurora Root</p>
+                  <p className="mt-1 text-[10px] font-bold tracking-[0.16em] text-develoi-gold/75">Control Grid</p>
+                </div>
               </div>
-              <div>
-                <p className="text-[11px] font-black text-white uppercase tracking-widest leading-none">Aurora Root</p>
-                <p className="text-[9px] text-develoi-gold/70 font-bold uppercase tracking-widest mt-0.5">Control Grid</p>
+            ) : (
+              <div className="flex flex-1 items-center gap-3 rounded-[24px] border border-white/[0.07] bg-white/[0.04] px-3.5 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white shadow-[0_10px_30px_rgba(255,255,255,0.14)] shrink-0 overflow-hidden">
+                  <img src="/icon_logo_recruteia.png" alt="Recrute IA" className="h-7 w-7 object-contain" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[15px] font-black leading-none tracking-tight text-white">Recrute <span className="text-develoi-gold">IA</span></p>
+                  <p className="mt-1 truncate text-[9px] font-bold uppercase tracking-[0.3em] text-white/45">{user?.tenant_name || "Develoi"}</p>
+                </div>
               </div>
-            </div>
-          ) : (
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white shadow-md shrink-0 overflow-hidden">
-                <img src="/icon_logo_recruteia.png" alt="Recrute IA" className="h-7 w-7 object-contain" />
-              </div>
-              <div>
-                <p className="text-[13px] font-black text-white leading-none tracking-tight">Recrute <span className="text-develoi-gold">IA</span></p>
-                <p className="text-[9px] text-white/40 font-bold uppercase tracking-widest mt-0.5 truncate max-w-[110px]">{user?.tenant_name || "Develoi"}</p>
+            )}
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="ml-3 rounded-2xl border border-white/[0.08] bg-white/[0.04] p-2 text-white/45 transition-colors hover:text-white lg:hidden"
+            >
+              <X size={18} />
+            </button>
+          </div>
+
+          {/* Unit selector — visível apenas para Admin Mestre */}
+          {!isRootShell && isAdminMestre && (
+            <div className="px-4 pb-3">
+              <p className="px-1 text-[9px] font-black uppercase tracking-[0.28em] text-white/28">Visualizando</p>
+              <div ref={unitMenuRef} className="relative mt-2">
+                <button
+                  onClick={() => setUnitMenuOpen(v => !v)}
+                  className={cn(
+                    "flex w-full items-center gap-3 rounded-[24px] border px-3.5 py-3 text-left transition-all shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]",
+                    unitMenuOpen
+                      ? "border-white/20 bg-white/[0.12] shadow-[0_18px_34px_rgba(0,0,0,0.24)]"
+                      : "border-white/[0.08] bg-white/[0.04] hover:border-white/[0.14] hover:bg-white/[0.06]"
+                  )}
+                >
+                  <div className={cn(
+                    "flex h-10 w-10 items-center justify-center rounded-2xl border shrink-0 transition-colors",
+                    unitMenuOpen
+                      ? "border-white/15 bg-white/[0.14]"
+                      : "border-white/[0.06] bg-develoi-gold/14"
+                  )}>
+                    <Building2 size={14} className="text-develoi-gold" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[11px] font-black tracking-[0.04em] text-white">{currentUnit.name}</p>
+                    {(currentUnit.is_master === 1 || currentUnit.id === "master") ? (
+                      <p className="mt-1 truncate text-[9px] font-medium text-develoi-gold/75">Todas as unidades conectadas</p>
+                    ) : (
+                      <p className="mt-1 truncate text-[9px] font-medium text-white/38">{currentUnit.location || "Unidade ativa"}</p>
+                    )}
+                  </div>
+                  <ChevronDown size={14} className={cn("shrink-0 text-white/30 transition-transform duration-200", unitMenuOpen && "rotate-180 text-develoi-gold")} />
+                </button>
+                <AnimatePresence>
+                  {unitMenuOpen && (
+                    <div className="absolute left-0 right-0 top-full z-20 mt-2 overflow-hidden rounded-[24px] border border-white/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(246,241,230,0.96))] shadow-[0_24px_48px_rgba(0,0,0,0.35)]">
+                      <div className="p-2">
+                        <p className="px-3 py-2 text-[8px] font-black uppercase tracking-[0.28em] text-zinc-500">Selecionar unidade</p>
+                        {units.map(unit => {
+                          const isActive = currentUnit.id === unit.id;
+                          const isMasterUnit = unit.is_master === 1;
+                          return (
+                            <button
+                              key={unit.id}
+                              onClick={() => handleUnitChange(unit)}
+                              className={cn(
+                                "flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition-all",
+                                isActive
+                                  ? "bg-[#f0e1b0] text-zinc-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.5)]"
+                                  : "text-zinc-600 hover:bg-white/80 hover:text-zinc-900"
+                              )}
+                            >
+                              <div className={cn(
+                                "flex h-8 w-8 items-center justify-center rounded-xl border shrink-0",
+                                isActive
+                                  ? "border-[#d4ba72]/45 bg-white/70 text-[#8f6d21]"
+                                  : "border-black/5 bg-black/[0.03] text-zinc-500"
+                              )}>
+                                <Building2 size={12} />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate text-[10px] font-black tracking-[0.06em]">{unit.name}</p>
+                                {isMasterUnit ? (
+                                  <p className={cn("mt-1 truncate text-[8px]", isActive ? "text-[#8f6d21]/85" : "text-zinc-500")}>Todas as unidades</p>
+                                ) : unit.location && unit.location !== "Todas" ? (
+                                  <p className={cn("mt-1 truncate text-[8px]", isActive ? "text-zinc-700/80" : "text-zinc-500")}>{unit.location}</p>
+                                ) : null}
+                              </div>
+                              <div className={cn(
+                                "h-5 w-5 shrink-0 rounded-full border transition-all",
+                                isActive
+                                  ? "border-[#d4ba72]/60 bg-white/75"
+                                  : "border-zinc-300 bg-transparent"
+                              )}>
+                                {isActive && <div className="mx-auto mt-[5px] h-2 w-2 rounded-full bg-[#b3872b]" />}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </AnimatePresence>
               </div>
             </div>
           )}
-          <button onClick={() => setSidebarOpen(false)} className="lg:hidden p-1.5 text-white/40 hover:text-white rounded-lg">
-            <X size={18} />
-          </button>
-        </div>
 
-        {/* Unit selector — visível apenas para Admin Mestre */}
-        {!isRootShell && isAdminMestre && (
-          <div className="px-4 mb-2">
-            <p className="text-[8px] font-black text-white/20 uppercase tracking-[0.2em] mb-1.5 px-1">Visualizando</p>
-            <div className="relative">
-              <button
-                onClick={() => setUnitMenuOpen(v => !v)}
-                className={cn(
-                  "flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left transition-all border",
-                  unitMenuOpen
-                    ? "bg-develoi-gold/10 border-develoi-gold/30"
-                    : "bg-white/5 border-white/8 hover:bg-white/10 hover:border-white/15"
-                )}
-              >
-                <div className={cn(
-                  "w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-colors",
-                  unitMenuOpen ? "bg-develoi-gold/25" : "bg-develoi-gold/15"
-                )}>
-                  <Building2 size={12} className="text-develoi-gold" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[10px] font-black text-white truncate leading-none">{currentUnit.name}</p>
-                  {currentUnit.location && currentUnit.location !== "Todas" && (
-                    <p className="text-[9px] text-white/30 mt-0.5 truncate">{currentUnit.location}</p>
-                  )}
-                  {(currentUnit.is_master === 1 || currentUnit.id === "master") && (
-                    <p className="text-[9px] text-develoi-gold/60 mt-0.5">Todas as unidades</p>
-                  )}
-                </div>
-                <ChevronDown size={12} className={cn("text-white/30 transition-transform duration-200 shrink-0", unitMenuOpen && "rotate-180 text-develoi-gold/60")} />
-              </button>
-              <AnimatePresence>
-                {unitMenuOpen && (
-                  <div className="absolute left-0 right-0 top-full z-20 mt-1.5 rounded-xl border border-white/10 bg-[#091829] shadow-2xl shadow-black/40 overflow-hidden">
-                    <div className="p-1.5">
-                      <p className="px-3 py-1.5 text-[8px] font-black text-white/20 uppercase tracking-widest">Selecionar Unidade</p>
-                      {units.map(unit => {
-                        const isActive = currentUnit.id === unit.id;
-                        const isMasterUnit = unit.is_master === 1;
+          {/* Nav */}
+          <nav className="custom-scrollbar flex-1 overflow-y-auto px-4 pb-4 pt-1">
+            <div className="rounded-[30px] border border-white/[0.05] bg-black/10 px-2.5 py-3 backdrop-blur-sm">
+              <p className="px-3 pb-3 text-[9px] font-black uppercase tracking-[0.32em] text-white/24">Menu</p>
+              {isRootShell ? (
+                <>
+                  <button
+                    onClick={() => { navigate("/super-admin"); setSidebarOpen(false); }}
+                    className="group flex w-full items-center gap-3 rounded-[24px] border border-white/[0.08] bg-white/[0.04] px-3.5 py-3 text-left text-white transition-all hover:bg-white/[0.06]"
+                  >
+                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-develoi-gold/20 bg-develoi-gold/16 text-develoi-gold shrink-0">
+                      <ShieldCheck size={16} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[11px] font-black tracking-[0.06em] text-white">Central Root</p>
+                      <p className="mt-1 text-[9px] text-white/40">{ROOT_MENU_ITEMS[0]?.helper}</p>
+                    </div>
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/[0.05] text-white/35">
+                      <ChevronRight size={15} />
+                    </div>
+                  </button>
+                  <div className="pt-4">
+                    <p className="px-3 pb-2 text-[8px] font-black uppercase tracking-[0.32em] text-white/20">Seções</p>
+                    <div className="space-y-2">
+                      {ROOT_SECTION_ITEMS.map(item => {
+                        const Icon = item.icon;
+                        const active = (location.hash || "#superadmin-overview") === item.href;
                         return (
-                          <button
-                            key={unit.id}
-                            onClick={() => handleUnitChange(unit)}
+                          <a
+                            key={item.href}
+                            href={item.href}
+                            onClick={() => setSidebarOpen(false)}
                             className={cn(
-                              "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all",
-                              isActive ? "bg-develoi-gold/15 text-develoi-gold" : "text-white/50 hover:bg-white/5 hover:text-white"
+                              "group flex w-full items-center gap-3 rounded-[22px] border px-3.5 py-3 transition-all duration-200",
+                              active
+                                ? "border-white/[0.08] bg-white/[0.07] text-white shadow-[0_14px_30px_rgba(0,0,0,0.16)]"
+                                : "border-transparent text-white/58 hover:border-white/[0.08] hover:bg-white/[0.04] hover:text-white"
                             )}
                           >
                             <div className={cn(
-                              "w-6 h-6 rounded-md flex items-center justify-center shrink-0",
-                              isActive ? "bg-develoi-gold/20" : "bg-white/5"
+                              "flex h-10 w-10 items-center justify-center rounded-2xl border shrink-0 transition-all",
+                              active
+                                ? "border-develoi-gold/20 bg-develoi-gold/18 text-develoi-gold"
+                                : "border-white/[0.05] bg-white/[0.04] text-white/45 group-hover:border-white/[0.1] group-hover:text-white"
                             )}>
-                              <Building2 size={10} className={isActive ? "text-develoi-gold" : "text-white/30"} />
+                              <Icon size={15} />
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-[10px] font-black uppercase tracking-wide truncate leading-none">{unit.name}</p>
-                              {isMasterUnit ? (
-                                <p className="text-[8px] mt-0.5 opacity-60">Todas as unidades</p>
-                              ) : unit.location && unit.location !== "Todas" ? (
-                                <p className="text-[8px] mt-0.5 opacity-60 truncate">{unit.location}</p>
-                              ) : null}
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-[11px] font-black tracking-[0.04em]">{item.label}</p>
+                              <p className="mt-1 truncate text-[9px] text-white/34">{item.helper}</p>
                             </div>
-                            {isActive && (
-                              <div className="w-4 h-4 rounded-full bg-develoi-gold/20 flex items-center justify-center shrink-0">
-                                <div className="w-1.5 h-1.5 rounded-full bg-develoi-gold" />
-                              </div>
-                            )}
-                          </button>
+                            <div className={cn(
+                              "flex h-8 w-8 items-center justify-center rounded-full transition-all",
+                              active
+                                ? "bg-white/[0.06] text-develoi-gold"
+                                : "text-white/20 opacity-0 group-hover:opacity-100"
+                            )}>
+                              <ChevronRight size={15} />
+                            </div>
+                          </a>
                         );
                       })}
                     </div>
                   </div>
-                )}
-              </AnimatePresence>
-            </div>
-          </div>
-        )}
-
-        {/* Nav */}
-        <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-0.5">
-          <p className="px-2 mb-2 text-[8px] font-black text-white/20 uppercase tracking-[0.25em]">Menu</p>
-          {isRootShell ? (
-            <>
-              <button
-                onClick={() => { navigate("/super-admin"); setSidebarOpen(false); }}
-                className="group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-all bg-white/10 text-white"
-              >
-                <div className="w-8 h-8 rounded-lg bg-develoi-gold/20 flex items-center justify-center shrink-0">
-                  <ShieldCheck size={15} className="text-develoi-gold" />
+                </>
+              ) : (
+                <div className="space-y-2">
+                  {menuItems.map(item => {
+                    const Icon = item.icon;
+                    const active = location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
+                    return (
+                      <button
+                        key={item.path}
+                        onClick={() => { navigate(item.path); setSidebarOpen(false); }}
+                        className={cn(
+                          "group flex w-full items-center gap-3 rounded-[24px] border px-3.5 py-3 text-left transition-all duration-200",
+                          active
+                            ? "border-[#d7b25d]/55 bg-[linear-gradient(135deg,#d7b25d_0%,#c5963c_100%)] text-[#091829] shadow-[0_18px_38px_rgba(197,160,77,0.28)]"
+                            : "border-transparent text-white/60 hover:border-white/[0.08] hover:bg-white/[0.05] hover:text-white"
+                        )}
+                      >
+                        <div className={cn(
+                          "flex h-10 w-10 items-center justify-center rounded-2xl border shrink-0 transition-all",
+                          active
+                            ? "border-white/35 bg-[#fff4d1]/80 text-[#091829]"
+                            : "border-white/[0.05] bg-white/[0.04] text-white/48 group-hover:border-white/[0.1] group-hover:bg-white/[0.07] group-hover:text-white"
+                        )}>
+                          <Icon size={16} strokeWidth={active ? 2.4 : 2} />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className={cn(
+                            "truncate text-[11px] font-black tracking-[0.06em]",
+                            active ? "text-[#091829]" : "text-current"
+                          )}>
+                            {item.label}
+                          </p>
+                          <p className={cn(
+                            "mt-1 truncate text-[9px]",
+                            active ? "text-[#523c12]/80" : "text-white/34"
+                          )}>
+                            {item.helper}
+                          </p>
+                        </div>
+                        <div className={cn(
+                          "flex h-8 w-8 items-center justify-center rounded-full transition-all",
+                          active
+                            ? "bg-[#091829]/10 text-[#091829]"
+                            : "text-white/20 opacity-0 group-hover:opacity-100"
+                        )}>
+                          <ChevronRight size={15} />
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
-                <span className="text-[10px] font-black uppercase tracking-widest">Central Root</span>
-              </button>
-              <div className="pt-3">
-                <p className="px-2 mb-2 text-[8px] font-black text-white/20 uppercase tracking-[0.25em]">Seções</p>
-                {ROOT_SECTION_ITEMS.map(item => {
-                  const Icon = item.icon;
-                  const active = (location.hash || "#superadmin-overview") === item.href;
-                  return (
-                    <a key={item.href} href={item.href} onClick={() => setSidebarOpen(false)}
-                      className={cn(
-                        "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 transition-all",
-                        active ? "bg-develoi-gold/15 text-white" : "text-white/40 hover:bg-white/5 hover:text-white"
-                      )}
-                    >
-                      <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border", active ? "bg-develoi-gold/20 border-develoi-gold/20 text-develoi-gold" : "bg-white/5 border-white/8 text-white/40")}>
-                        <Icon size={14} />
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-black uppercase tracking-wider leading-none">{item.label}</p>
-                        <p className="text-[9px] text-white/30 mt-0.5">{item.helper}</p>
-                      </div>
-                    </a>
-                  );
-                })}
-              </div>
-            </>
-          ) : (
-            menuItems.map(item => {
-              const Icon = item.icon;
-              const active = location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
-              return (
-                <button
-                  key={item.path}
-                  onClick={() => { navigate(item.path); setSidebarOpen(false); }}
-                  className={cn(
-                    "group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-all duration-150",
-                    active ? "bg-develoi-gold text-white shadow-lg shadow-develoi-gold/25" : "text-white/40 hover:bg-white/6 hover:text-white"
-                  )}
-                >
-                  <div className={cn(
-                    "w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-all",
-                    active ? "bg-white/20" : "bg-white/5 group-hover:bg-white/10"
-                  )}>
-                    <Icon size={15} strokeWidth={active ? 2.5 : 2} />
-                  </div>
-                  <span className="text-[10px] font-black uppercase tracking-widest">{item.label}</span>
-                  {active && <div className="ml-auto w-1 h-4 rounded-full bg-white/40" />}
-                </button>
-              );
-            })
-          )}
-        </nav>
+              )}
+            </div>
+          </nav>
 
-        {/* User card footer */}
-        <div className="p-3 border-t border-white/5">
-          <div className="flex items-center gap-3 rounded-xl bg-white/5 px-3 py-2.5">
-            <div className="w-8 h-8 rounded-lg bg-develoi-gold/20 border border-develoi-gold/20 flex items-center justify-center shrink-0 text-[11px] font-black text-develoi-gold">
-              {(user?.full_name || "U").split(" ").slice(0, 2).map((n: string) => n[0]).join("").toUpperCase()}
+          {/* User card footer */}
+          <div className="px-4 pb-4 pt-1">
+            <div className="flex items-center gap-3 rounded-[26px] border border-white/[0.07] bg-white/[0.05] px-3.5 py-3 shadow-[0_14px_30px_rgba(0,0,0,0.18)]">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-develoi-gold/20 bg-develoi-gold/18 shrink-0 text-[11px] font-black text-develoi-gold">
+                {(user?.full_name || "U").split(" ").slice(0, 2).map((n: string) => n[0]).join("").toUpperCase()}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[11px] font-black tracking-[0.03em] text-white">{user?.full_name || "Usuário"}</p>
+                <p className="mt-1 truncate text-[9px] font-bold uppercase tracking-[0.24em] text-white/36">{user?.access_profile || user?.role || "Membro"}</p>
+              </div>
+              <button
+                onClick={handleLogout}
+                title="Sair"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-white/[0.07] bg-white/[0.04] text-white/30 transition-colors hover:border-rose-400/20 hover:bg-rose-500/10 hover:text-rose-300"
+              >
+                <LogOut size={15} />
+              </button>
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-[10px] font-black text-white truncate leading-none">{user?.full_name || "Usuário"}</p>
-              <p className="text-[9px] text-white/30 font-bold uppercase tracking-widest mt-0.5 truncate">{user?.access_profile || user?.role || "Membro"}</p>
-            </div>
-            <button onClick={handleLogout} title="Sair" className="p-1.5 text-white/20 hover:text-rose-400 transition-colors rounded-lg hover:bg-rose-500/10 shrink-0">
-              <LogOut size={14} />
-            </button>
           </div>
         </div>
       </aside>
