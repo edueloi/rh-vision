@@ -1,8 +1,31 @@
 import React, { useState, useRef } from "react";
-import { User, Mail, ShieldCheck, Camera, Save, X, Trash2, Upload, Briefcase, Loader2, Building2, KeyRound, Lock, Eye, EyeOff } from "lucide-react";
+import {
+  User, Mail, ShieldCheck, Camera, Trash2, Upload,
+  Briefcase, Loader2, Building2, KeyRound, Lock
+} from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import { Badge, Button, Modal, useToast } from "@/src/components/ui";
+import { Badge, Button, Input, Modal, PageWrapper, useToast } from "@/src/components/ui";
 import { cn } from "@/src/lib/utils";
+
+// ── Info row (read-only) ───────────────────────────────────────────────────────
+
+function InfoRow({ icon: Icon, label, value, color = "text-zinc-500" }: {
+  icon: React.ElementType; label: string; value: string; color?: string;
+}) {
+  return (
+    <div className="flex items-center gap-3 py-3 border-b border-zinc-50 last:border-0">
+      <div className="w-8 h-8 rounded-xl bg-zinc-50 border border-zinc-100 flex items-center justify-center shrink-0">
+        <Icon size={14} className={color} />
+      </div>
+      <div className="min-w-0">
+        <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">{label}</p>
+        <p className="text-xs font-bold text-zinc-800 truncate">{value}</p>
+      </div>
+    </div>
+  );
+}
+
+// ── Main ──────────────────────────────────────────────────────────────────────
 
 export default function Profile() {
   const toast = useToast();
@@ -10,109 +33,51 @@ export default function Profile() {
 
   const storedUser = JSON.parse(localStorage.getItem("auth_user") || "{}");
   const [user, setUser] = useState(storedUser);
-  const [isEditing, setIsEditing] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [showRemoveModal, setShowRemoveModal] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
 
-  const [formData, setFormData] = useState({
-    full_name: user.full_name || "",
-    email: user.email || "",
-  });
+  // Password form state
+  const [pwForm, setPwForm] = useState({ current: "", next: "", confirm: "" });
+  const [pwLoading, setPwLoading] = useState(false);
 
   const persist = (updated: any) => {
     setUser(updated);
     localStorage.setItem("auth_user", JSON.stringify(updated));
   };
 
-  const handleSave = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/users/${user.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      });
-      if (!res.ok) throw new Error();
-      persist({ ...user, ...formData });
-      setIsEditing(false);
-      toast.success("Perfil atualizado com sucesso!");
-    } catch {
-      toast.error("Erro ao salvar alterações.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setUploading(true);
-    
-    // Fallback: Read file as Base64 for local persistence
     const reader = new FileReader();
-    reader.onload = async (e) => {
-      const base64Url = e.target?.result as string;
-      
+    reader.onload = async (ev) => {
+      const base64Url = ev.target?.result as string;
       const body = new FormData();
       body.append("file", file);
-      
       try {
         const res = await fetch(`/api/users/${user.id}/photo`, { method: "POST", body });
         if (!res.ok) throw new Error();
         const data = await res.json();
         persist({ ...user, photo_url: data.photo_url || base64Url });
-        toast.success("Foto atualizada!");
+        toast.success("Foto atualizada com sucesso!");
       } catch {
-        // If API fails (no backend), save base64 locally
         persist({ ...user, photo_url: base64Url });
-        toast.success("Foto atualizada (Local)!");
+        toast.success("Foto atualizada!");
       } finally {
         setUploading(false);
+        e.target.value = "";
       }
     };
-    reader.onerror = () => {
-      toast.error("Erro ao ler arquivo.");
-      setUploading(false);
-    };
+    reader.onerror = () => { toast.error("Erro ao ler arquivo."); setUploading(false); };
     reader.readAsDataURL(file);
-  };
-
-  const [showRemoveModal, setShowRemoveModal] = useState(false);
-
-  const [passwordForm, setPasswordForm] = useState({ current: "", next: "", confirm: "" });
-  const [passwordLoading, setPasswordLoading] = useState(false);
-  const [showCurrent, setShowCurrent] = useState(false);
-  const [showNext, setShowNext] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
-
-  const handleChangePassword = async () => {
-    if (!passwordForm.current) { toast.error("Informe a senha atual."); return; }
-    if (passwordForm.next.length < 6) { toast.error("A nova senha deve ter pelo menos 6 caracteres."); return; }
-    if (passwordForm.next !== passwordForm.confirm) { toast.error("A confirmação não corresponde à nova senha."); return; }
-    setPasswordLoading(true);
-    try {
-      const res = await fetch(`/api/users/${user.id}/password`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ current_password: passwordForm.current, new_password: passwordForm.next }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Erro ao alterar senha.");
-      setPasswordForm({ current: "", next: "", confirm: "" });
-      toast.success("Senha alterada com sucesso!");
-    } catch (err: any) {
-      toast.error(err.message || "Erro ao alterar senha.");
-    } finally {
-      setPasswordLoading(false);
-    }
   };
 
   const handlePhotoRemove = async () => {
     setShowRemoveModal(false);
     setUploading(true);
     try {
-      const res = await fetch(`/api/users/${user.id}/photo`, { method: "DELETE" });
-      if (!res.ok) throw new Error();
+      await fetch(`/api/users/${user.id}/photo`, { method: "DELETE" });
       persist({ ...user, photo_url: null });
       toast.success("Foto removida.");
     } catch {
@@ -122,69 +87,53 @@ export default function Profile() {
     }
   };
 
+  const handleChangePassword = async () => {
+    if (!pwForm.current) { toast.error("Informe a senha atual."); return; }
+    if (pwForm.next.length < 6) { toast.error("A nova senha deve ter ao menos 6 caracteres."); return; }
+    if (pwForm.next !== pwForm.confirm) { toast.error("As novas senhas não coincidem."); return; }
+    setPwLoading(true);
+    try {
+      const res = await fetch(`/api/users/${user.id}/password`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ current_password: pwForm.current, new_password: pwForm.next }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erro ao alterar senha.");
+      setPwForm({ current: "", next: "", confirm: "" });
+      setShowPasswordModal(false);
+      toast.success("Senha alterada com sucesso!");
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao alterar senha.");
+    } finally {
+      setPwLoading(false);
+    }
+  };
+
   const initials = (user.full_name || "U")
-    .split(" ")
-    .slice(0, 2)
-    .map((n: string) => n[0])
-    .join("")
-    .toUpperCase();
+    .split(" ").slice(0, 2).map((n: string) => n[0]).join("").toUpperCase();
 
   return (
-    <div className="w-full px-4 sm:px-6 py-6 space-y-8">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-black text-zinc-900 tracking-tighter uppercase">Meu Perfil</h1>
-          <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mt-0.5">
-            Gerencie suas informações pessoais e credenciais de acesso
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <AnimatePresence mode="wait">
-            {isEditing ? (
-              <motion.div key="editing" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} className="flex gap-2">
-                <button
-                  onClick={() => { setIsEditing(false); setFormData({ full_name: user.full_name, email: user.email }); }}
-                  className="h-11 px-5 rounded-2xl border-2 border-zinc-200 text-zinc-500 text-xs font-black uppercase tracking-widest hover:border-zinc-900 hover:text-zinc-900 transition-all flex items-center gap-2"
-                >
-                  <X size={15} /> Cancelar
-                </button>
-                <button
-                  onClick={handleSave}
-                  disabled={loading}
-                  className="h-11 px-6 rounded-2xl bg-develoi-navy text-white text-xs font-black uppercase tracking-widest hover:bg-develoi-gold transition-all flex items-center gap-2 shadow-xl shadow-develoi-navy/20 disabled:opacity-60"
-                >
-                  {loading ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
-                  Salvar
-                </button>
-              </motion.div>
-            ) : (
-              <motion.button
-                key="view"
-                initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }}
-                onClick={() => setIsEditing(true)}
-                className="h-11 px-6 rounded-2xl border-2 border-zinc-200 text-zinc-700 text-xs font-black uppercase tracking-widest hover:border-develoi-navy hover:text-develoi-navy transition-all flex items-center gap-2"
-              >
-                <Camera size={15} /> Editar Perfil
-              </motion.button>
-            )}
-          </AnimatePresence>
-        </div>
-      </div>
+    <PageWrapper title="Meu Perfil" subtitle="Gerencie suas informações e credenciais de acesso">
+      <div className="grid gap-5 lg:grid-cols-[300px,minmax(0,1fr)]">
 
-      <div className="grid gap-6 lg:grid-cols-[320px,minmax(0,1fr)]">
-        {/* Left column */}
-        <div className="space-y-5">
+        {/* ── LEFT COLUMN ── */}
+        <div className="space-y-4">
+
           {/* Photo card */}
-          <div className="bg-white rounded-3xl border border-zinc-100 shadow-xl shadow-zinc-100/60 overflow-hidden">
+          <div className="bg-white rounded-2xl border border-zinc-200 overflow-hidden shadow-sm">
             {/* Banner */}
-            <div className="h-24 bg-gradient-to-br from-develoi-navy via-develoi-navy to-develoi-gold/40 relative">
-              <div className="absolute inset-0 opacity-20" style={{ backgroundImage: "radial-gradient(circle at 30% 50%, white 1px, transparent 1px)", backgroundSize: "24px 24px" }} />
+            <div className="h-20 bg-gradient-to-br from-develoi-navy via-develoi-navy to-develoi-gold/30 relative">
+              <div
+                className="absolute inset-0 opacity-[0.07]"
+                style={{ backgroundImage: "radial-gradient(circle, white 1px, transparent 1px)", backgroundSize: "20px 20px" }}
+              />
             </div>
 
-            <div className="px-6 pb-6 -mt-12 text-center">
-              <div className="relative inline-block">
-                <div className="w-24 h-24 rounded-2xl border-4 border-white shadow-xl overflow-hidden bg-develoi-navy flex items-center justify-center">
+            <div className="px-5 pb-5 -mt-10 flex flex-col items-center text-center">
+              {/* Avatar */}
+              <div className="relative mb-3">
+                <div className="w-20 h-20 rounded-2xl border-4 border-white shadow-lg overflow-hidden bg-develoi-navy flex items-center justify-center">
                   {user.photo_url ? (
                     <img
                       src={user.photo_url}
@@ -193,232 +142,235 @@ export default function Profile() {
                       onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
                     />
                   ) : (
-                    <span className="text-2xl font-black text-develoi-gold">{initials}</span>
+                    <span className="text-xl font-black text-develoi-gold">{initials}</span>
                   )}
                   {uploading && (
                     <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                      <Loader2 size={20} className="animate-spin text-white" />
+                      <Loader2 size={18} className="animate-spin text-white" />
                     </div>
                   )}
                 </div>
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   disabled={uploading}
-                  className="absolute -bottom-2 -right-2 w-8 h-8 bg-develoi-gold rounded-xl flex items-center justify-center text-white shadow-lg hover:bg-develoi-navy transition-all disabled:opacity-50"
+                  className="absolute -bottom-1.5 -right-1.5 w-7 h-7 bg-develoi-gold rounded-xl flex items-center justify-center text-white shadow-md hover:bg-develoi-navy transition-colors disabled:opacity-50"
                 >
-                  <Camera size={14} />
+                  <Camera size={12} />
                 </button>
                 <input ref={fileInputRef} type="file" className="hidden" accept="image/*" onChange={handlePhotoUpload} />
               </div>
 
-              <div className="mt-4 mb-5">
-                <h3 className="text-lg font-black text-zinc-900 tracking-tight">{user.full_name || "Usuário"}</h3>
-                <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mt-0.5">{user.access_profile || user.role || "Membro"}</p>
-              </div>
+              <h3 className="text-base font-black text-zinc-900 leading-tight">{user.full_name || "Usuário"}</h3>
+              <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mt-0.5 mb-4">
+                {user.access_profile || user.role || "Membro"}
+              </p>
 
-              <div className="flex flex-col gap-2">
-                <button
+              <div className="w-full flex flex-col gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  fullWidth
+                  iconLeft={<Upload size={12} />}
                   onClick={() => fileInputRef.current?.click()}
                   disabled={uploading}
-                  className="w-full h-10 rounded-2xl border-2 border-zinc-100 text-zinc-500 text-[10px] font-black uppercase tracking-widest hover:border-develoi-navy hover:text-develoi-navy transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                 >
-                  <Upload size={13} /> Trocar Foto
-                </button>
+                  Trocar foto
+                </Button>
                 {user.photo_url && (
-                  <button
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    fullWidth
+                    iconLeft={<Trash2 size={12} />}
                     onClick={() => setShowRemoveModal(true)}
-                    className="w-full h-10 rounded-2xl text-rose-400 text-[10px] font-black uppercase tracking-widest hover:bg-rose-50 transition-all flex items-center justify-center gap-2"
+                    className="!text-rose-500 hover:!bg-rose-50"
                   >
-                    <Trash2 size={13} /> Remover Foto
-                  </button>
+                    Remover foto
+                  </Button>
                 )}
               </div>
             </div>
           </div>
 
           {/* Account info */}
-          <div className="bg-white rounded-3xl border border-zinc-100 p-5 space-y-4">
-            <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Dados da Conta</p>
-            {[
-              { icon: ShieldCheck, label: "Status", value: "Verificada e Ativa", color: "text-emerald-600" },
-              { icon: Building2, label: "Unidade", value: user.unit_name || "Matriz", color: "text-develoi-navy" },
-              { icon: KeyRound, label: "Permissão", value: user.access_profile || "Operação RH", color: "text-develoi-gold" },
-            ].map(item => (
-              <div key={item.label} className="flex items-center gap-3 py-2.5 border-b border-zinc-50 last:border-0">
-                <div className="w-8 h-8 rounded-xl bg-zinc-50 flex items-center justify-center shrink-0">
-                  <item.icon size={15} className={item.color} />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">{item.label}</p>
-                  <p className="text-xs font-black text-zinc-800 truncate">{item.value}</p>
-                </div>
-              </div>
-            ))}
+          <div className="bg-white rounded-2xl border border-zinc-200 p-4 shadow-sm">
+            <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1">Dados da Conta</p>
+            <InfoRow icon={ShieldCheck} label="Status" value="Verificada e Ativa" color="text-emerald-500" />
+            <InfoRow icon={Building2} label="Unidade" value={user.unit_name || "Matriz"} color="text-develoi-navy" />
+            <InfoRow icon={KeyRound} label="Permissão" value={user.access_profile || "Operação RH"} color="text-develoi-gold" />
           </div>
         </div>
 
-        {/* Right column */}
-        <div className="space-y-5">
-          {/* Basic info */}
-          <div className="bg-white rounded-3xl border border-zinc-100 shadow-xl shadow-zinc-100/60 p-6">
-            <div className="mb-6">
-              <p className="text-xs font-black text-zinc-900 uppercase tracking-widest">Informações Básicas</p>
-              <p className="text-[10px] text-zinc-400 font-bold mt-0.5">Dados usados para identificação em relatórios e logs do sistema.</p>
+        {/* ── RIGHT COLUMN ── */}
+        <div className="space-y-4">
+
+          {/* Basic info — read only */}
+          <div className="bg-white rounded-2xl border border-zinc-200 p-5 shadow-sm">
+            <div className="flex items-start justify-between gap-3 mb-5">
+              <div>
+                <p className="text-sm font-black text-zinc-900 uppercase tracking-wide">Informações Básicas</p>
+                <p className="text-[10px] text-zinc-400 font-medium mt-0.5">Dados de identificação no sistema — apenas leitura.</p>
+              </div>
+              <Badge color="default" size="sm">Somente leitura</Badge>
             </div>
 
             <div className="grid sm:grid-cols-2 gap-4">
               {[
-                { label: "Nome Completo", key: "full_name", icon: User, placeholder: "Seu nome completo", type: "text" },
-                { label: "E-mail Corporativo", key: "email", icon: Mail, placeholder: "seu.email@empresa.com", type: "email" },
-              ].map(field => (
-                <div key={field.key} className={cn("space-y-2", !isEditing && "opacity-70")}>
-                  <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block">{field.label}</label>
-                  <div className={cn(
-                    "flex items-center gap-3 rounded-2xl border-2 px-4 h-12 transition-all",
-                    isEditing ? "border-develoi-navy/20 bg-zinc-50 focus-within:border-develoi-navy focus-within:bg-white" : "border-zinc-100 bg-zinc-50/50"
-                  )}>
-                    <field.icon size={15} className="text-zinc-300 shrink-0" />
-                    <input
-                      type={field.type}
-                      value={formData[field.key as keyof typeof formData]}
-                      onChange={e => setFormData(p => ({ ...p, [field.key]: e.target.value }))}
-                      disabled={!isEditing}
-                      placeholder={field.placeholder}
-                      className="flex-1 bg-transparent text-sm font-bold text-zinc-800 placeholder:text-zinc-300 outline-none disabled:cursor-default"
-                    />
+                { label: "Nome Completo", value: user.full_name || "—", icon: User },
+                { label: "E-mail Corporativo", value: user.email || "—", icon: Mail },
+              ].map(f => (
+                <div key={f.label}>
+                  <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block mb-1.5">{f.label}</label>
+                  <div className="flex items-center gap-3 h-11 px-3.5 rounded-xl border border-zinc-100 bg-zinc-50 text-sm font-semibold text-zinc-600">
+                    <f.icon size={14} className="text-zinc-300 shrink-0" />
+                    <span className="truncate">{f.value}</span>
                   </div>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Access & Security */}
-          <div className="bg-white rounded-3xl border border-zinc-100 p-6">
-            <div className="mb-6">
-              <p className="text-xs font-black text-zinc-900 uppercase tracking-widest">Acesso e Segurança</p>
-              <p className="text-[10px] text-zinc-400 font-bold mt-0.5">Nível de permissão e cargo ocupado no Recrute IA.</p>
+          {/* Access & roles */}
+          <div className="bg-white rounded-2xl border border-zinc-200 p-5 shadow-sm">
+            <div className="mb-5">
+              <p className="text-sm font-black text-zinc-900 uppercase tracking-wide">Acesso e Funções</p>
+              <p className="text-[10px] text-zinc-400 font-medium mt-0.5">Nível de permissão e cargo na plataforma.</p>
             </div>
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div className="rounded-2xl border-2 border-zinc-100 bg-zinc-50/50 p-4 flex items-center gap-4">
-                <div className="w-11 h-11 rounded-xl bg-develoi-navy/5 flex items-center justify-center shrink-0">
-                  <ShieldCheck size={20} className="text-develoi-navy" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1">Perfil de Acesso</p>
-                  <p className="text-sm font-black text-zinc-900 truncate">{user.access_profile || "Operação RH"}</p>
-                  <span className="inline-flex items-center mt-1 px-2 py-0.5 bg-develoi-gold/10 text-develoi-gold rounded-lg text-[9px] font-black uppercase tracking-widest">Sincronizado</span>
-                </div>
-              </div>
-              <div className="rounded-2xl border-2 border-zinc-100 bg-zinc-50/50 p-4 flex items-center gap-4">
-                <div className="w-11 h-11 rounded-xl bg-develoi-navy/5 flex items-center justify-center shrink-0">
-                  <Briefcase size={20} className="text-develoi-navy" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1">Cargo / Função</p>
-                  <p className="text-sm font-black text-zinc-900 truncate">{user.role || "Recrutador"}</p>
-                  <p className="text-[9px] font-bold text-zinc-400 mt-0.5">Unidade: {user.unit_name || user.unit_id || "Geral"}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Change Password */}
-          <div className="bg-white rounded-3xl border border-zinc-100 p-6">
-            <div className="mb-6">
-              <p className="text-xs font-black text-zinc-900 uppercase tracking-widest">Alterar Senha</p>
-              <p className="text-[10px] text-zinc-400 font-bold mt-0.5">Redefina sua senha de acesso à plataforma.</p>
-            </div>
-            <div className="space-y-3">
-              {([
-                { label: "Senha Atual", key: "current", show: showCurrent, toggle: () => setShowCurrent(v => !v) },
-                { label: "Nova Senha", key: "next", show: showNext, toggle: () => setShowNext(v => !v) },
-                { label: "Confirmar Nova Senha", key: "confirm", show: showConfirm, toggle: () => setShowConfirm(v => !v) },
-              ] as const).map(field => (
-                <div key={field.key} className="space-y-1.5">
-                  <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block">{field.label}</label>
-                  <div className="flex items-center gap-3 rounded-2xl border-2 border-zinc-100 bg-zinc-50 px-4 h-12 focus-within:border-develoi-navy focus-within:bg-white transition-all">
-                    <Lock size={14} className="text-zinc-300 shrink-0" />
-                    <input
-                      type={field.show ? "text" : "password"}
-                      value={passwordForm[field.key]}
-                      onChange={e => setPasswordForm(p => ({ ...p, [field.key]: e.target.value }))}
-                      placeholder="••••••••"
-                      className="flex-1 bg-transparent text-sm font-bold text-zinc-800 placeholder:text-zinc-300 outline-none"
-                    />
-                    <button type="button" onClick={field.toggle} className="text-zinc-300 hover:text-zinc-500 transition-colors shrink-0">
-                      {field.show ? <EyeOff size={14} /> : <Eye size={14} />}
-                    </button>
+            <div className="grid sm:grid-cols-2 gap-3">
+              {[
+                { icon: ShieldCheck, label: "Perfil de Acesso", value: user.access_profile || "Operação RH", sub: "Sincronizado" },
+                { icon: Briefcase, label: "Cargo / Função", value: user.role || "Recrutador", sub: `Unidade: ${user.unit_name || user.unit_id || "Geral"}` },
+              ].map(item => (
+                <div key={item.label} className="flex items-center gap-3 p-4 rounded-xl bg-zinc-50 border border-zinc-100">
+                  <div className="w-10 h-10 rounded-xl bg-develoi-navy/8 flex items-center justify-center shrink-0">
+                    <item.icon size={18} className="text-develoi-navy" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">{item.label}</p>
+                    <p className="text-sm font-black text-zinc-900 truncate">{item.value}</p>
+                    <p className="text-[9px] text-zinc-400 font-medium mt-0.5">{item.sub}</p>
                   </div>
                 </div>
               ))}
-              <div className="pt-2">
-                <button
-                  onClick={handleChangePassword}
-                  disabled={passwordLoading || !passwordForm.current || !passwordForm.next || !passwordForm.confirm}
-                  className="h-11 px-6 rounded-2xl bg-develoi-navy text-white text-[10px] font-black uppercase tracking-widest hover:bg-develoi-gold transition-all flex items-center gap-2 shadow-xl shadow-develoi-navy/20 disabled:opacity-40"
-                >
-                  {passwordLoading ? <Loader2 size={14} className="animate-spin" /> : <KeyRound size={14} />}
-                  Alterar Senha
-                </button>
-              </div>
             </div>
           </div>
 
-          {/* Save bar */}
-          <AnimatePresence>
-            {isEditing && (
-              <motion.div
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 16 }}
-                className="flex items-center justify-between gap-4 rounded-3xl bg-zinc-900 px-6 py-5 shadow-2xl shadow-zinc-900/20"
+          {/* Security */}
+          <div className="bg-white rounded-2xl border border-zinc-200 p-5 shadow-sm">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-black text-zinc-900 uppercase tracking-wide">Segurança</p>
+                <p className="text-[10px] text-zinc-400 font-medium mt-0.5">Gerencie o acesso à sua conta.</p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                iconLeft={<Lock size={13} />}
+                onClick={() => { setPwForm({ current: "", next: "", confirm: "" }); setShowPasswordModal(true); }}
               >
-                <div className="hidden sm:block">
-                  <p className="text-sm font-black text-white">Alterações não salvas</p>
-                  <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Clique em salvar para aplicar</p>
-                </div>
-                <div className="flex gap-3 ml-auto">
-                  <button
-                    onClick={() => { setIsEditing(false); setFormData({ full_name: user.full_name, email: user.email }); }}
-                    className="h-11 px-5 rounded-2xl text-white/60 text-[10px] font-black uppercase tracking-widest hover:text-white hover:bg-white/10 transition-all"
-                  >
-                    Descartar
-                  </button>
-                  <button
-                    onClick={handleSave}
-                    disabled={loading}
-                    className="h-11 px-7 rounded-2xl bg-develoi-gold text-white text-[10px] font-black uppercase tracking-widest hover:bg-white hover:text-develoi-navy transition-all flex items-center gap-2 shadow-xl shadow-develoi-gold/30 disabled:opacity-60"
-                  >
-                    {loading ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-                    Salvar Perfil
-                  </button>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+                Alterar Senha
+              </Button>
+            </div>
+
+            <div className="mt-4 flex items-center gap-3 p-3.5 bg-zinc-50 rounded-xl border border-zinc-100">
+              <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center shrink-0">
+                <ShieldCheck size={14} className="text-emerald-600" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-zinc-700">Senha configurada</p>
+                <p className="text-[10px] text-zinc-400 font-medium">Use o botão acima para redefinir sua senha de acesso.</p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
+      {/* ── MODAL: Remove photo ── */}
       <Modal
         open={showRemoveModal}
         onClose={() => setShowRemoveModal(false)}
-        title="Remover Foto de Perfil"
-        description="Tem certeza que deseja remover sua foto de perfil? Uma imagem com as suas iniciais será gerada automaticamente."
-        icon={<Trash2 size={20} />}
+        title="Remover foto de perfil"
+        description="Sua foto será removida e as iniciais serão exibidas no lugar."
+        icon={<Trash2 size={18} />}
         size="sm"
         footer={
-          <div className="flex items-center justify-end gap-3 w-full">
-            <Button variant="outline" onClick={() => setShowRemoveModal(false)}>
-              Cancelar
-            </Button>
-            <Button variant="danger" onClick={handlePhotoRemove} iconLeft={<Trash2 size={16} />}>
-              Remover Foto
+          <div className="flex justify-end gap-2 w-full">
+            <Button variant="outline" size="sm" onClick={() => setShowRemoveModal(false)}>Cancelar</Button>
+            <Button variant="danger" size="sm" iconLeft={<Trash2 size={13} />} onClick={handlePhotoRemove}>
+              Remover
             </Button>
           </div>
         }
       >
         <></>
       </Modal>
-    </div>
+
+      {/* ── MODAL: Change password ── */}
+      <Modal
+        open={showPasswordModal}
+        onClose={() => { if (!pwLoading) setShowPasswordModal(false); }}
+        title="Alterar senha"
+        description="Digite sua senha atual e escolha uma nova com no mínimo 6 caracteres."
+        icon={<KeyRound size={18} />}
+        size="sm"
+        footer={
+          <div className="flex justify-end gap-2 w-full">
+            <Button variant="outline" size="sm" onClick={() => setShowPasswordModal(false)} disabled={pwLoading}>
+              Cancelar
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              iconLeft={<KeyRound size={13} />}
+              loading={pwLoading}
+              disabled={!pwForm.current || !pwForm.next || !pwForm.confirm}
+              onClick={handleChangePassword}
+            >
+              Salvar senha
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-3 pt-1">
+          <Input
+            label="Senha atual"
+            type="password"
+            placeholder="••••••••"
+            showPasswordToggle
+            value={pwForm.current}
+            onChange={e => setPwForm(p => ({ ...p, current: e.target.value }))}
+            icon={<Lock size={13} />}
+            required
+            disabled={pwLoading}
+          />
+          <Input
+            label="Nova senha"
+            type="password"
+            placeholder="Mínimo 6 caracteres"
+            showPasswordToggle
+            value={pwForm.next}
+            onChange={e => setPwForm(p => ({ ...p, next: e.target.value }))}
+            icon={<Lock size={13} />}
+            hint={pwForm.next && pwForm.next.length < 6 ? "Mínimo 6 caracteres" : undefined}
+            error={pwForm.next && pwForm.confirm && pwForm.next !== pwForm.confirm ? "As senhas não coincidem" : undefined}
+            required
+            disabled={pwLoading}
+          />
+          <Input
+            label="Confirmar nova senha"
+            type="password"
+            placeholder="Repita a nova senha"
+            showPasswordToggle
+            value={pwForm.confirm}
+            onChange={e => setPwForm(p => ({ ...p, confirm: e.target.value }))}
+            icon={<Lock size={13} />}
+            error={pwForm.confirm && pwForm.next !== pwForm.confirm ? "As senhas não coincidem" : undefined}
+            success={!!(pwForm.confirm && pwForm.next === pwForm.confirm && pwForm.confirm.length >= 6)}
+            required
+            disabled={pwLoading}
+          />
+        </div>
+      </Modal>
+    </PageWrapper>
   );
 }
