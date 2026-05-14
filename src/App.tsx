@@ -363,6 +363,41 @@ function AppContent() {
           width: 0;
           height: 0;
         }
+
+        /* Collapsed icon tooltip */
+        .sidebar-collapsed .sidebar-icon-btn {
+          position: relative;
+        }
+        .sidebar-collapsed .sidebar-icon-btn::after {
+          content: attr(data-tooltip);
+          position: absolute;
+          left: calc(100% + 12px);
+          top: 50%;
+          transform: translateY(-50%) scale(0.92);
+          background: #0c1e38;
+          color: #fff;
+          font-size: 10px;
+          font-weight: 700;
+          letter-spacing: 0.04em;
+          padding: 5px 10px;
+          border-radius: 8px;
+          white-space: nowrap;
+          opacity: 0;
+          pointer-events: none;
+          transition: opacity 180ms ease, transform 180ms ease;
+          z-index: 200;
+          box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+          border: 1px solid rgba(255,255,255,0.08);
+        }
+        .sidebar-collapsed .sidebar-icon-btn:hover::after {
+          opacity: 1;
+          transform: translateY(-50%) scale(1);
+        }
+
+        /* Collapsed icon glow on hover */
+        .sidebar-collapsed .sidebar-icon-btn:hover .sidebar-icon-ring {
+          box-shadow: 0 0 16px rgba(197,160,77,0.18);
+        }
       `}</style>
       {sidebarOpen && (
         <div
@@ -372,7 +407,8 @@ function AppContent() {
       )}
 
       <aside className={cn(
-        "fixed inset-y-0 left-0 z-[50] flex h-[100dvh] flex-col overflow-hidden border-r border-white/[0.06] shadow-[22px_0_60px_rgba(3,8,20,0.24)] transition-transform duration-300 sidebar-transition",
+        "fixed inset-y-0 left-0 z-[50] flex h-[100dvh] flex-col border-r border-white/[0.06] shadow-[22px_0_60px_rgba(3,8,20,0.24)] transition-transform duration-300 sidebar-transition",
+        sidebarCollapsed ? "overflow-hidden lg:overflow-visible" : "overflow-hidden",
         "lg:sticky lg:translate-x-0",
         sidebarCollapsed
           ? "w-[84vw] max-w-[18rem] sm:w-72 lg:w-[4.75rem] lg:min-w-[4.75rem] lg:max-w-[4.75rem]"
@@ -391,12 +427,12 @@ function AppContent() {
           {/* Logo */}
           <div className={cn(
             "px-4 pb-3 pt-4 sm:px-5 sm:pb-5 sm:pt-6 transition-all duration-200",
-            sidebarCollapsed && "lg:px-2 lg:pt-4 lg:pb-2"
+            sidebarCollapsed && "lg:px-3 lg:pt-4 lg:pb-3 lg:flex lg:justify-center"
           )}>
             {isRootShell ? (
               <div className={cn(
                 "flex flex-1 items-center gap-3 rounded-[22px] border border-white/[0.07] bg-white/[0.04] px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] sm:rounded-[24px] sm:px-3.5 sm:py-3 transition-all duration-200",
-                sidebarCollapsed && "lg:justify-center lg:px-0 lg:py-2.5 lg:rounded-2xl"
+                sidebarCollapsed && "lg:justify-center lg:px-0 lg:py-2 lg:rounded-2xl lg:border-white/[0.05]"
               )}>
                 <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-develoi-gold/20 bg-develoi-gold/15 shrink-0">
                   <Brain size={20} className="text-develoi-gold" />
@@ -409,9 +445,12 @@ function AppContent() {
             ) : (
               <div className={cn(
                 "flex flex-1 items-center gap-3 rounded-[22px] border border-white/[0.07] bg-white/[0.04] px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] sm:rounded-[24px] sm:px-3.5 sm:py-3 transition-all duration-200",
-                sidebarCollapsed && "lg:justify-center lg:px-0 lg:py-2.5 lg:rounded-2xl"
+                sidebarCollapsed && "lg:justify-center lg:px-0 lg:py-2 lg:rounded-2xl lg:border-white/[0.05]"
               )}>
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white shadow-[0_10px_30px_rgba(255,255,255,0.14)] shrink-0 overflow-hidden sm:h-11 sm:w-11">
+                <div className={cn(
+                  "flex h-10 w-10 items-center justify-center rounded-2xl bg-white shadow-[0_10px_30px_rgba(255,255,255,0.14)] shrink-0 overflow-hidden sm:h-11 sm:w-11 transition-all",
+                  sidebarCollapsed && "lg:h-10 lg:w-10"
+                )}>
                   <img src="/icon_logo_recruteia.png" alt="Recrute IA" className="h-7 w-7 object-contain" />
                 </div>
                 <div className={cn("min-w-0 sidebar-content-fade")}>
@@ -423,12 +462,15 @@ function AppContent() {
           </div>
 
           {/* Divider: logo → nav */}
-          <div className="mx-4 border-t border-white/[0.07] sm:mx-5" />
+          <div className={cn(
+            "mx-4 border-t border-white/[0.07] sm:mx-5 transition-all",
+            sidebarCollapsed && "lg:mx-3"
+          )} />
 
           {/* Nav */}
           <nav className={cn(
-            "custom-scrollbar min-h-0 flex-1 overflow-y-auto px-3 pb-3 pt-1 sm:px-4 sm:pb-4 transition-all duration-200",
-            sidebarCollapsed && "lg:px-1.5"
+            "custom-scrollbar min-h-0 flex-1 overflow-y-auto px-3 pb-3 pt-3 sm:px-4 sm:pb-4 transition-all duration-200",
+            sidebarCollapsed && "lg:px-2.5"
           )}>
             <p className={cn(
               "px-3 pb-3 text-[9px] font-black uppercase tracking-[0.32em] text-white/24 sidebar-content-fade"
@@ -495,7 +537,10 @@ function AppContent() {
                 </div>
               </>
             ) : (
-              <div className="space-y-1">
+              <div className={cn(
+                "space-y-1",
+                sidebarCollapsed && "lg:space-y-0.5"
+              )}>
                 {menuItems.map(item => {
                   const Icon = item.icon;
                   const active = location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
@@ -503,20 +548,21 @@ function AppContent() {
                     <button
                       key={item.path}
                       onClick={() => { navigate(item.path); setSidebarOpen(false); }}
-                      title={sidebarCollapsed ? item.label : undefined}
+                      data-tooltip={item.label}
                       className={cn(
-                        "group flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition-all duration-200",
+                        "sidebar-icon-btn group flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition-all duration-200",
                         active
                           ? "border border-[#d7b25d]/40 bg-[linear-gradient(135deg,rgba(215,178,93,0.18)_0%,rgba(197,150,60,0.12)_100%)] text-white shadow-[0_8px_24px_rgba(197,160,77,0.12)]"
                           : "border border-transparent text-white/55 hover:bg-white/[0.04] hover:text-white",
-                        sidebarCollapsed && "lg:justify-center lg:px-0 lg:py-2.5"
+                        sidebarCollapsed && "lg:justify-center lg:px-0 lg:py-2 lg:rounded-xl"
                       )}
                     >
                       <div className={cn(
-                        "flex h-9 w-9 items-center justify-center rounded-xl shrink-0 transition-all",
+                        "sidebar-icon-ring flex h-9 w-9 items-center justify-center rounded-xl shrink-0 transition-all",
                         active
-                          ? "bg-develoi-gold/20 text-develoi-gold"
-                          : "bg-white/[0.05] text-white/40 group-hover:bg-white/[0.08] group-hover:text-white/70"
+                          ? "bg-develoi-gold/20 text-develoi-gold ring-1 ring-develoi-gold/25"
+                          : "bg-white/[0.05] text-white/40 group-hover:bg-white/[0.08] group-hover:text-white/70",
+                        sidebarCollapsed && "lg:h-10 lg:w-10 lg:rounded-[14px]"
                       )}>
                         <Icon size={18} strokeWidth={active ? 2.2 : 1.8} />
                       </div>
@@ -550,29 +596,30 @@ function AppContent() {
 
             {/* Divider: menu → atalhos */}
             <div className={cn(
-              "mx-2 mt-4 border-t border-white/[0.07] sm:mx-3",
-              sidebarCollapsed && "lg:mx-1"
+              "mx-2 mt-4 border-t border-white/[0.07] sm:mx-3 transition-all",
+              sidebarCollapsed && "lg:mx-1 lg:mt-2"
             )} />
 
             {/* Atalhos section with collapse toggle (desktop only) */}
             <div className={cn(
-              "mt-5 hidden lg:block",
-              sidebarCollapsed && "lg:mt-3"
+              "mt-4 hidden lg:block",
+              sidebarCollapsed && "lg:mt-2"
             )}>
               <p className={cn(
                 "px-3 pb-2 text-[9px] font-black uppercase tracking-[0.32em] text-white/24 sidebar-content-fade"
               )}>Atalhos</p>
               <button
                 onClick={toggleSidebar}
-                title={sidebarCollapsed ? "Expandir menu" : "Recolher menu"}
+                data-tooltip={sidebarCollapsed ? "Expandir" : "Recolher"}
                 className={cn(
-                  "group flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition-all duration-200 border border-transparent text-white/55 hover:bg-white/[0.04] hover:text-white",
-                  sidebarCollapsed && "lg:justify-center lg:px-0 lg:py-2.5"
+                  "sidebar-icon-btn group flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition-all duration-200 border border-transparent text-white/55 hover:bg-white/[0.04] hover:text-white",
+                  sidebarCollapsed && "lg:justify-center lg:px-0 lg:py-2 lg:rounded-xl"
                 )}
               >
                 <div className={cn(
-                  "flex h-9 w-9 items-center justify-center rounded-xl shrink-0 transition-all",
-                  "bg-develoi-gold/12 text-develoi-gold/70 group-hover:bg-develoi-gold/18 group-hover:text-develoi-gold"
+                  "sidebar-icon-ring flex h-9 w-9 items-center justify-center rounded-xl shrink-0 transition-all",
+                  "bg-develoi-gold/12 text-develoi-gold/70 group-hover:bg-develoi-gold/18 group-hover:text-develoi-gold",
+                  sidebarCollapsed && "lg:h-10 lg:w-10 lg:rounded-[14px]"
                 )}>
                   {sidebarCollapsed ? (
                     <ChevronsRight size={18} strokeWidth={1.8} />
@@ -599,18 +646,18 @@ function AppContent() {
 
           {/* Divider: nav → user card */}
           <div className={cn(
-            "mx-4 border-t border-white/[0.07] sm:mx-5",
-            sidebarCollapsed && "lg:mx-2"
+            "mx-4 border-t border-white/[0.07] sm:mx-5 transition-all",
+            sidebarCollapsed && "lg:mx-3"
           )} />
 
           {/* User card footer */}
           <div className={cn(
-            "px-3 pb-3 pt-1 sm:px-4 sm:pb-4 transition-all duration-200",
-            sidebarCollapsed && "lg:px-1.5 lg:pb-3"
+            "px-3 pb-3 pt-2 sm:px-4 sm:pb-4 transition-all duration-200",
+            sidebarCollapsed && "lg:px-2.5 lg:pb-3 lg:pt-2"
           )}>
             <div className={cn(
               "flex items-center gap-3 rounded-2xl border border-white/[0.06] bg-white/[0.04] px-3 py-2.5 transition-all duration-200",
-              sidebarCollapsed && "lg:justify-center lg:flex-col lg:gap-2 lg:px-1.5 lg:py-2.5"
+              sidebarCollapsed && "lg:flex-col lg:gap-1.5 lg:px-1 lg:py-2 lg:border-transparent lg:bg-transparent"
             )}>
               <div className={cn(
                 "relative flex h-9 w-9 items-center justify-center rounded-xl bg-develoi-gold/18 shrink-0 text-[11px] font-black text-develoi-gold sm:h-10 sm:w-10",
@@ -627,9 +674,10 @@ function AppContent() {
               <button
                 onClick={handleLogout}
                 title="Sair"
+                data-tooltip="Sair"
                 className={cn(
-                  "flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/[0.04] text-white/30 transition-colors hover:bg-rose-500/10 hover:text-rose-300 sm:h-9 sm:w-9",
-                  sidebarCollapsed && "lg:h-8 lg:w-8"
+                  "sidebar-icon-btn flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/[0.04] text-white/30 transition-colors hover:bg-rose-500/10 hover:text-rose-300 sm:h-9 sm:w-9",
+                  sidebarCollapsed && "lg:h-10 lg:w-10 lg:rounded-[14px] lg:bg-white/[0.05]"
                 )}
               >
                 <LogOut size={15} />
