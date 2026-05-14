@@ -4036,7 +4036,7 @@ Retorne EXATAMENTE este JSON:
       // Processamento em Background com concorrência controlada
       (async () => {
         const ai = createGeminiClient();
-        const CONCURRENCY = 4;
+        const CONCURRENCY = 8;
 
         const processFile = async (file: any) => {
           try {
