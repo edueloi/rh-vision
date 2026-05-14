@@ -1379,16 +1379,6 @@ async function ensureContactStatusTable() {
   }
 }
 
-async function ensureAiSearchSessionsFiltersColumn() {
-  try {
-    await prisma.$executeRawUnsafe(`
-      ALTER TABLE ai_search_sessions ADD COLUMN IF NOT EXISTS filters_json LONGTEXT NULL
-    `);
-  } catch (err: any) {
-    // Column already exists or table doesn't exist yet — both are safe to ignore
-  }
-}
-
 async function ensureUserPreferencesTable() {
   try {
     await prisma.$executeRawUnsafe(`
@@ -1419,7 +1409,6 @@ async function startServer() {
   await initDb();
   await ensureUnitCountryColumn();
   await ensureContactStatusTable();
-  await ensureAiSearchSessionsFiltersColumn();
   await ensureUserPreferencesTable();
 
   app.use(cors());
