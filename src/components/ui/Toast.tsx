@@ -154,7 +154,7 @@ interface ToastContextType {
   error: (message: string) => void;
   warning: (message: string) => void;
   info: (message: string) => void;
-  loading: (message: string) => string;
+  loading: (message: string, autoCloseMs?: number) => string;
   dismiss: (id: string) => void;
 }
 
@@ -180,11 +180,14 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  const showLoading = useCallback((message: string): string => {
+  const showLoading = useCallback((message: string, autoCloseMs = 0): string => {
     const id = Math.random().toString(36).slice(2, 9);
     setToasts((prev) => [...prev.slice(-3), { id, type: 'loading', message, persist: true }]);
+    if (autoCloseMs > 0) {
+      setTimeout(() => remove(id), autoCloseMs);
+    }
     return id;
-  }, []);
+  }, [remove]);
 
   const ctx: ToastContextType = {
     show,

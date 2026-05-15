@@ -539,50 +539,25 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
         : `Aurora IA iniciando análise de ${filesToProcess.length} arquivos…`
     );
 
-    const batchResults: ImportedJobReview[] = [];
     try {
-      for (let i = 0; i < filesToProcess.length; i++) {
-        const file = filesToProcess[i];
-        setAnalyzeProgress({ current: i + 1, total: filesToProcess.length, fileName: file.name });
+      // Envia todos de uma vez — o servidor processa em background e salva como rascunho
+      const body = new FormData();
+      filesToProcess.forEach(f => body.append("files", f));
+      body.append("tenant_id", String(tenantId));
+      body.append("unit_id", String(currentUnit.id));
 
-        if (filesToProcess.length > 1) {
-          toast.dismiss(loadingToastId);
-          toast.loading(`Aurora IA analisando ${i + 1} de ${filesToProcess.length}: "${file.name}"…`);
-        }
-
-        const body = new FormData();
-        body.append("file", file);
-        body.append("tenant_id", String(tenantId));
-        body.append("unit_id", String(currentUnit.id));
-
-        const importRes = await fetch("/api/jobs/import", { method: "POST", body });
-        const importResponse = await importRes.json();
-        if (!importRes.ok) {
-          throw new Error(importResponse.error || `Erro ao enviar o arquivo ${file.name}.`);
-        }
-
-        const analyzeRes = await fetch(`/api/jobs/import/${importResponse.id}/analyze`, { method: "POST" });
-        const analyzeResponse = await analyzeRes.json();
-        if (!analyzeRes.ok) {
-          throw new Error(analyzeResponse.error || `Erro ao interpretar o arquivo ${file.name}.`);
-        }
-
-        batchResults.push({ importId: importResponse.id, fileName: file.name, data: analyzeResponse.data });
-      }
-
-      if (batchResults.length === 0) throw new Error("Nenhuma vaga foi importada.");
+      const res = await fetch("/api/jobs/import/batch-auto", { method: "POST", body });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erro ao enviar arquivos.");
 
       toast.dismiss(loadingToastId);
-      setImportedReviews((prev) => [...prev, ...batchResults]);
-      if (!currentImportId) {
-        loadImportedReview(batchResults[0]);
-      }
-
+      const count = data.queued as number;
       toast.success(
-        batchResults.length === 1
-          ? "Vaga importada com sucesso. Revise os campos antes de salvar."
-          : `${batchResults.length} vagas importadas para revisão no lote atual.`
+        count === 1
+          ? "Vaga enviada para processamento — será salva como rascunho em instantes."
+          : `${count} vagas enviadas para processamento — serão salvas como rascunho em instantes.`
       );
+      onSuccess();
     } catch (error) {
       toast.dismiss(loadingToastId);
       toast.error(error instanceof Error ? error.message : "Erro ao analisar arquivo.");

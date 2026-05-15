@@ -2031,6 +2031,138 @@ Retorne EXATAMENTE este JSON:
     }
   });
 
+  // Batch auto-import: recebe múltiplos arquivos, responde imediatamente e processa em background
+  app.post('/api/jobs/import/batch-auto', upload.array('files', 20), async (req, res) => {
+    const { tenant_id, unit_id } = req.body;
+    const files = req.files as Express.Multer.File[];
+
+    if (!tenant_id || !unit_id) return res.status(400).json({ error: 'tenant_id and unit_id are required' });
+    if (!files || files.length === 0) return res.status(400).json({ error: 'No files provided' });
+
+    // Registra todos os imports no banco e responde imediatamente
+    const importIds: number[] = [];
+    for (const file of files) {
+      try {
+        const extractedText = await extractJobTextFromBuffer(file.buffer, file.originalname, file.mimetype);
+        const result = await db.prepare(`
+          INSERT INTO job_imports (tenant_id, unit_id, file_name, file_type, file_size, status, extracted_text)
+          VALUES (?, ?, ?, ?, ?, 'uploaded', ?)
+        `).run(tenant_id, unit_id, file.originalname, file.mimetype, file.size, extractedText);
+        const importId = Number(result.lastInsertRowid);
+        await saveImportedJobFile(importId, tenant_id, file).catch(() => {});
+        importIds.push(importId);
+      } catch (err) {
+        console.error('[batch-auto] upload error:', err);
+      }
+    }
+
+    res.json({ success: true, queued: importIds.length, importIds });
+
+    // Processa em background — não bloqueia a resposta
+    (async () => {
+      const ai = createGeminiClient();
+      for (const importId of importIds) {
+        try {
+          const importData = await db.prepare('SELECT * FROM job_imports WHERE id = ?').get(importId) as any;
+          if (!importData) continue;
+
+          await db.prepare('UPDATE job_imports SET status = "analyzing_ai" WHERE id = ?').run(importId);
+
+          const actualExtractedText = importData.extracted_text || await extractJobTextFromStoredFile(importData);
+
+          const strictPrompt = `
+Analise o texto de uma vaga e extraia TODAS as informações relevantes.
+Regras obrigatórias:
+- Não invente dados. Se algo não estiver no texto, retorne null.
+- Preserve a redação original nas responsabilidades e requisitos.
+- Retorne JSON válido sem comentários ou markdown.
+
+Texto da vaga:
+${actualExtractedText}
+
+Retorne EXATAMENTE este JSON:
+{
+  "title": string | null, "department": string | null, "description": string | null,
+  "responsibilities": string | null, "technical_requirements": string | null,
+  "mandatory_requirements": string | null, "desirable_requirements": string | null,
+  "eliminatory_criteria": string | null, "benefits": string | null,
+  "city": string | null, "state": string | null,
+  "work_model": "Presencial" | "Híbrido" | "Home Office" | null,
+  "contract_type": "CLT" | "PJ" | "Estágio" | "Temporário" | "Freelancer" | "Outro" | null,
+  "seniority_level": "Operacional" | "Júnior" | "Pleno" | "Sênior" | "Coordenação" | "Gerência" | "Diretoria" | null,
+  "education_level": string | null, "min_experience_years": number | null,
+  "salary_min": number | null, "salary_max": number | null,
+  "workload": string | null, "work_schedule": string | null,
+  "requires_cnh": boolean | null, "cnh_category": string | null,
+  "requires_travel": boolean | null, "requires_relocation": boolean | null,
+  "tags": string | null, "compatibility_threshold": number,
+  "weight_technical": number, "weight_experience": number, "weight_education": number,
+  "weight_location": number, "weight_soft_skills": number, "weight_culture": number,
+  "confidence": { "title": "Alta"|"Média"|"Baixa", "city": "Alta"|"Média"|"Baixa", "salary": "Alta"|"Média"|"Baixa", "requirements": "Alta"|"Média"|"Baixa" },
+  "ai_summary": string | null
+}`;
+
+          const aiResult = await ai.models.generateContent({
+            model: GEMINI_MODEL,
+            contents: [{ role: 'user', parts: [{ text: strictPrompt }] }],
+            config: { responseMimeType: 'application/json', maxOutputTokens: 1800, temperature: 0.0, operationLabel: 'batch-auto vaga' }
+          });
+
+          const parsedData = normalizeImportedJobParsedData(parseJsonFromAiResponseSafe(aiResult.text || '{}'), actualExtractedText);
+
+          await db.prepare(`
+            UPDATE job_imports SET status = "ready_for_review", extracted_text = ?, parsed_data_json = ?,
+            confidence_json = ?, ai_summary = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?
+          `).run(actualExtractedText, JSON.stringify(parsedData), JSON.stringify(parsedData.confidence), parsedData.ai_summary, importId);
+
+          // Salva como rascunho automaticamente
+          const jobFields: Record<string, any> = {
+            title: parsedData.title || importData.file_name,
+            department: parsedData.department,
+            description: parsedData.description,
+            responsibilities: parsedData.responsibilities,
+            technical_requirements: parsedData.technical_requirements,
+            mandatory_requirements: parsedData.mandatory_requirements,
+            desirable_requirements: parsedData.desirable_requirements,
+            eliminatory_criteria: parsedData.eliminatory_criteria,
+            benefits: parsedData.benefits,
+            city: parsedData.city,
+            state: parsedData.state,
+            work_model: parsedData.work_model,
+            contract_type: parsedData.contract_type,
+            seniority_level: parsedData.seniority_level,
+            education_level: parsedData.education_level,
+            min_experience_years: parsedData.min_experience_years,
+            salary_min: parsedData.salary_min,
+            salary_max: parsedData.salary_max,
+            workload: parsedData.workload,
+            work_schedule: parsedData.work_schedule,
+            requires_cnh: parsedData.requires_cnh ? 1 : 0,
+            cnh_category: parsedData.cnh_category,
+            requires_travel: parsedData.requires_travel ? 1 : 0,
+            requires_relocation: parsedData.requires_relocation ? 1 : 0,
+            tags: parsedData.tags,
+            status: 'Rascunho',
+          };
+          const keys = Object.keys(jobFields);
+          const placeholders = keys.map(() => '?').join(',');
+          const values = keys.map(k => jobFields[k]);
+          const insertResult = await db.prepare(
+            `INSERT INTO jobs (${keys.join(',')}, tenant_id, unit_id, created_at, updated_at) VALUES (${placeholders}, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`
+          ).run(...values, importData.tenant_id, importData.unit_id);
+
+          await db.prepare('UPDATE job_imports SET status = "created_job", job_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+            .run(insertResult.lastInsertRowid, importId);
+
+        } catch (err) {
+          console.error(`[batch-auto] error processing import ${importId}:`, err);
+          await db.prepare('UPDATE job_imports SET status = "error", error_message = ? WHERE id = ?')
+            .run(err instanceof Error ? err.message : String(err), importId);
+        }
+      }
+    })();
+  });
+
   app.delete('/api/jobs/import/:id', async (req, res) => {
     const importId = req.params.id;
     try {
@@ -3890,7 +4022,7 @@ DISC: ${c.disc?.predominant_profile ? `${c.disc.predominant_profile} (D:${c.disc
 
       // 1. Find or create candidate
       let candidateId: number | bigint | any;
-      const existingCandidate = await db.prepare('SELECT id FROM candidates WHERE email = ? AND tenant_id = ?').get(candidateInfo.email, tool.tenant_id) as any;
+      const existingCandidate = await db.prepare('SELECT id FROM candidates WHERE email = ? AND tenant_id = ? AND deleted_at IS NULL').get(candidateInfo.email, tool.tenant_id) as any;
 
       if (existingCandidate) {
         candidateId = existingCandidate.id;
@@ -3964,7 +4096,7 @@ DISC: ${c.disc?.predominant_profile ? `${c.disc.predominant_profile} (D:${c.disc
       const tenantId = job.tenant_id;
 
       let candidateId;
-      const existingCandidate = await db.prepare('SELECT id FROM candidates WHERE email = ? AND tenant_id = ?').get(email, tenantId) as any;
+      const existingCandidate = await db.prepare('SELECT id FROM candidates WHERE email = ? AND tenant_id = ? AND deleted_at IS NULL').get(email, tenantId) as any;
 
       if (existingCandidate) {
         candidateId = existingCandidate.id;
@@ -4224,7 +4356,7 @@ DISC: ${c.disc?.predominant_profile ? `${c.disc.predominant_profile} (D:${c.disc
               );
 
               const existing = data.email
-                ? await db.prepare('SELECT id FROM candidates WHERE email = ? AND tenant_id = ?').get(data.email, batch.tenant_id) as any
+                ? await db.prepare('SELECT id FROM candidates WHERE email = ? AND tenant_id = ? AND deleted_at IS NULL').get(data.email, batch.tenant_id) as any
                 : null;
 
               const status = existing ? 'duplicate' : 'completed';
@@ -4459,7 +4591,7 @@ DISC: ${c.disc?.predominant_profile ? `${c.disc.predominant_profile} (D:${c.disc
           );
 
           const existing = data.email
-            ? await db.prepare('SELECT id FROM candidates WHERE email = ? AND tenant_id = ?').get(data.email, batch.tenant_id) as any
+            ? await db.prepare('SELECT id FROM candidates WHERE email = ? AND tenant_id = ? AND deleted_at IS NULL').get(data.email, batch.tenant_id) as any
             : null;
           let status = 'completed';
           let duplicateStatus = 'none';

@@ -212,15 +212,26 @@ export default function ImportResumes() {
   // Auto-refresh while processing + notificação ao concluir
   const prevProcessedRef = useRef<number>(-1);
   const processingToastRef = useRef<string | number | null>(null);
+
+  // Polling global: roda independente da view enquanto houver lote em processamento
   useEffect(() => {
-    if (view !== "details" || !selectedBatch) return;
-    if (selectedBatch.status !== "processing" && selectedBatch.status !== "uploaded") return;
+    const hasProcessing = batches.some(b => b.status === "processing" || b.status === "uploaded");
+    if (!hasProcessing) return;
+
+    const id = setInterval(() => {
+      fetchBatches();
+      if (view === "details" && selectedBatch) openBatchDetails(selectedBatch);
+    }, 3500);
+    return () => clearInterval(id);
+  }, [batches, view, selectedBatch]);
+
+  // Notificação ao concluir + dismiss do toast de aguarde
+  useEffect(() => {
+    if (!selectedBatch) return;
     const allDone = selectedBatch.total_files > 0 && selectedBatch.processed_files >= selectedBatch.total_files;
 
-    // Dispara notificação uma única vez quando conclui
     if (allDone && prevProcessedRef.current !== selectedBatch.processed_files) {
       prevProcessedRef.current = selectedBatch.processed_files;
-      // Fechar o toast de processamento em andamento
       if (processingToastRef.current !== null) {
         toast.dismiss(String(processingToastRef.current));
         processingToastRef.current = null;
@@ -233,14 +244,7 @@ export default function ImportResumes() {
       });
       toast.success(`✓ Lote "${selectedBatch.name}" processado — ${selectedBatch.created_candidates} candidatos gerados.`);
     }
-
-    if (allDone) return;
-    prevProcessedRef.current = selectedBatch.processed_files;
-    const id = setInterval(() => openBatchDetails(selectedBatch), 3500);
-    return () => {
-      clearInterval(id);
-    };
-  }, [view, selectedBatch]);
+  }, [selectedBatch]);
 
   // Limpar toast de processamento ao sair da view de detalhes
   useEffect(() => {
@@ -1042,7 +1046,7 @@ export default function ImportResumes() {
       fetch(`/api/imports/${batchId}/start`, { method: "POST" });
 
       toast.dismiss(loadId);
-      processingToastRef.current = toast.loading(`Aurora IA processando "${nbForm.name}"... (${nbQueue.length} arquivo${nbQueue.length !== 1 ? "s" : ""})`);
+      processingToastRef.current = toast.loading(`Aurora IA processando "${nbForm.name}"... (${nbQueue.length} arquivo${nbQueue.length !== 1 ? "s" : ""})`, 3000);
       pushNotif({
         type: "info",
         title: `Lote "${nbForm.name}" enviado`,
