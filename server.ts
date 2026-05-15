@@ -3106,40 +3106,90 @@ Retorne EXATAMENTE este JSON:
       let summary = `${cachedCandidates.length} candidato(s) recuperado(s) do cache.`;
 
       if (candidatesToProcess.length > 0) {
+        // Build job checklist string for explicit requirement crossing
+        const jobChecklist = [
+          job.requires_cnh ? `CNH obrigatória categoria ${job.cnh_category || 'não especificada'}` : null,
+          job.requires_travel ? 'Disponibilidade para viagens obrigatória' : null,
+          job.requires_relocation ? 'Disponibilidade para mudança de cidade/estado obrigatória' : null,
+          job.min_experience_years ? `Mínimo ${job.min_experience_years} ano(s) de experiência` : null,
+          job.work_model === 'Presencial' ? `Presença física em ${job.city}/${job.state} obrigatória` : null,
+        ].filter(Boolean).join('\n- ');
+
         const prompt = `
         Você é a Aurora AI, sistema analítico de recrutamento corporativo.
         Avalie CADA candidato de forma INDEPENDENTE e ABSOLUTA em relação à vaga — NÃO compare candidatos entre si.
-        O score de cada candidato deve refletir SOMENTE a aderência dele à vaga, ignorando os demais.
+        O score deve refletir SOMENTE a aderência do candidato à vaga, ignorando os demais.
 
-        REGRAS DE SCORING (aplique de forma determinística):
-        - Score 0–40 (Incompatível): área de atuação completamente diferente da vaga, ou localização fora do raio sem possibilidade remota.
-        - Score 41–69 (Fit Baixo): tem alguma relação com a área mas falta experiência relevante ou requisitos críticos.
-        - Score 70–89 (Alto Fit): atende a maioria dos requisitos obrigatórios, experiência comprovada na área, localização compatível.
-        - Score 90–100 (Altíssimo Fit): atende todos os requisitos, experiência sólida e direta, perfil ideal.
-
-        CRITÉRIOS DETERMINÍSTICOS (avalie nessa ordem):
-        1. ÁREA/EXPERIÊNCIA (peso 50%): experiência direta e comprovada na função? Se não, score máximo 50.
-        2. LOCALIZAÇÃO (peso 20%): cidade dentro de ${radius} km do local da vaga "${job.city}/${job.state}"? Modelo: ${job.work_model}. Se presencial e fora do raio, desconte 20 pontos.
-        3. FORMAÇÃO (peso 15%): formação compatível com o exigido? Avalie proporcionalmente.
-        4. SKILLS TÉCNICAS (peso 15%): habilidades técnicas mencionadas batem com os requisitos? Avalie proporcionalmente.
-        Precisão: ${precisionMode}${precisionMode === 'Rigorosa' ? ' — se não tiver experiência EXATA na função, score máximo 45.' : '.'}
-
-        IMPORTANTE: Um candidato com experiência administrativa genérica para uma vaga técnica específica NÃO pode ter score >= 70.
-        O score deve ser CONSISTENTE — se você repetir a análise, o score do mesmo candidato deve ser o mesmo.
-
-        VAGA ALVO:
+        ══════════════════════════════════════
+        VAGA ALVO
+        ══════════════════════════════════════
         Título: ${job.title}
         Local: ${job.city}/${job.state} | Modelo: ${job.work_model}
-        Requisitos obrigatórios: ${(job.mandatory_requirements || '').substring(0, 800)}
-        Descrição: ${(job.description || '').substring(0, 600)}
-        Requisitos técnicos: ${(job.technical_requirements || '').substring(0, 500)}
-        Exp. mínima: ${job.min_experience_years} anos
+        Exp. mínima: ${job.min_experience_years ?? 0} ano(s)
+        Requisitos obrigatórios:
+        ${(job.mandatory_requirements || 'Não informado').substring(0, 800)}
+        Requisitos técnicos:
+        ${(job.technical_requirements || 'Não informado').substring(0, 500)}
+        Requisitos desejáveis:
+        ${(job.desirable_requirements || 'Não informado').substring(0, 400)}
+        Descrição da função:
+        ${(job.description || 'Não informado').substring(0, 600)}
 
-        CANDIDATOS (avalie cada um individualmente, inclua no JSON só os com score >= ${scoreThreshold}):
+        CHECKLIST DE REQUISITOS CRÍTICOS DA VAGA (cruze com cada candidato):
+        ${jobChecklist ? `- ${jobChecklist}` : '- Nenhum requisito crítico adicional identificado'}
+
+        ══════════════════════════════════════
+        REGRAS DE SCORING (aplique na ordem, de forma determinística)
+        ══════════════════════════════════════
+        ATENÇÃO: o que importa é o CARGO/FUNÇÃO exercida pelo candidato, NÃO o setor da empresa onde trabalhou.
+        Exemplo: alguém que trabalhou como "Analista Administrativo" em empresa de transporte NÃO tem experiência
+        em "Técnico de Frota" — a função é diferente, mesmo que tenha feito tarefas periféricas de frota.
+        Se nas experiências o candidato realizou ATIVIDADES da função (mesmo que o cargo tenha outro nome), registre
+        isso nos strengths com o contexto exato: "Realizou X na empresa Y como parte das atividades do cargo Z".
+
+        1. CARGO/FUNÇÃO (peso 50%):
+           - Exerceu a função exata ou muito próxima (mesmo nome ou sinônimo direto)? → Score máx 100 neste critério.
+           - Exerceu cargo diferente mas com ATIVIDADES diretas da função (ex: admin que fazia controle de frota)? → Score máx 65 neste critério. Score final máx 65.
+           - Cargo e atividades de área completamente diferente? → Score máx 30 neste critério. Score final máx 45.
+        2. LOCALIZAÇÃO (peso 20%):
+           - Presencial: candidato na cidade ou dentro de ${radius} km? → Score máx 100.
+           - Fora do raio? → Desconte 20 pontos do total. Score máx 50 neste critério.
+           - Remoto/Híbrido: localização não penaliza.
+        3. FORMAÇÃO (peso 15%): compatível com o exigido? Avalie proporcionalmente.
+        4. SKILLS TÉCNICAS (peso 15%): habilidades batem com os requisitos? Avalie proporcionalmente.
+        Precisão: ${precisionMode}${precisionMode === 'Rigorosa' ? ' — sem cargo EXATO na função: score total máx 45.' : precisionMode === 'Equilibrada' ? ' — considere atividades realizadas mesmo que o cargo tenha nome diferente, mas seja claro nos attention_points.' : ' — seja generoso com candidatos que tenham potencial, mas sempre explique nos attention_points.'}
+
+        CLASSIFICAÇÃO FINAL:
+        - 0–40: Incompatível | 41–69: Fit Baixo | 70–89: Alto Fit | 90–100: Altíssimo Fit
+
+        ══════════════════════════════════════
+        INSTRUÇÕES PARA attention_points (OBRIGATÓRIO)
+        ══════════════════════════════════════
+        SEMPRE inclua nos attention_points o cruzamento explícito de cada item abaixo:
+
+        A) CARGO vs FUNÇÃO DA VAGA:
+           - Se o cargo exercido é diferente do título da vaga mas tem atividades relacionadas:
+             "⚠ Cargo exercido: [cargo do candidato] — não é [título da vaga], porém realizou [atividade específica] na empresa [X]"
+           - Se o cargo é completamente diferente sem atividades relacionadas:
+             "✗ Sem experiência na função de [título da vaga] — histórico é de [área do candidato]"
+
+        B) REQUISITOS CRÍTICOS DA VAGA (um item por requisito):
+           - CNH: "✓ CNH cat. X declarada" / "✗ CNH não informada no currículo — vaga exige cat. ${job.cnh_category || 'não especificada'}" / "⚠ Menciona condução de veículos mas CNH não declarada explicitamente"
+           - Viagens: se exigido, informar se candidato declarou disponibilidade
+           - Mudança: se exigido, informar se candidato declarou disponibilidade
+           - Exp. mínima: "✓ X anos identificados" / "✗ Tempo de experiência insuficiente ou não identificado"
+
+        NÃO deixe nenhum desses itens sem cruzamento nos attention_points.
+
+        ══════════════════════════════════════
+        CANDIDATOS
+        ══════════════════════════════════════
         ${candidatesToProcess.map(c => `
 === ID:${c.id} | ${c.full_name} | ${c.city}/${c.state}
 Cargo desejado: ${c.desired_position || 'N/I'} | Área: ${c.desired_area || 'N/I'}
 Formação: ${c.education_level || 'N/I'} | ${(c.academic_education || '').substring(0, 250)}
+CNH declarada: ${c.has_cnh ? `Sim — categoria ${c.cnh_category || 'não especificada'}` : 'Não declarada'}
+Disponível para viagens: ${c.available_to_travel ? 'Sim' : 'Não declarado'}
 Resumo: ${(c.professional_summary || '').substring(0, 500)}
 Experiências: ${(c.professional_experiences || 'Não informado').substring(0, 1500)}
 Skills técnicas: ${(c.hard_skills || 'N/I').substring(0, 250)}

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { encodeId } from '@/src/lib/hashid';
 import {
   Brain, Sparkles, Bot, Send, Target, CheckCircle2, AlertCircle,
   MessageSquare, History, Settings as SettingsIcon, ChevronRight,
@@ -779,6 +780,7 @@ function SettingsModal(props: SettingsModalProps) {
 // ─── Match details modal ──────────────────────────────────────────────────────
 
 function MatchDetailsModal({ rec, radius, onClose }: { rec: MatchResult; radius: number; onClose: () => void }) {
+  const navigate = useNavigate();
   const initials = (rec.full_name || 'C').split(' ').map(n => n[0]).join('').substring(0, 2);
   const isHighFit = rec.classification === 'Alto Fit' || rec.classification === 'Altíssimo Fit';
 
@@ -803,9 +805,15 @@ function MatchDetailsModal({ rec, radius, onClose }: { rec: MatchResult; radius:
                   )}
                 </p>
               </div>
-              <div className="text-right shrink-0">
+              <div className="text-right shrink-0 flex flex-col items-end gap-2">
                 <div className="text-3xl font-black text-develoi-navy dark:text-develoi-gold">{rec.compatibility_score}%</div>
                 <Badge color={isHighFit ? 'success' : 'gold'}>{rec.classification}</Badge>
+                <button
+                  onClick={() => { onClose(); navigate(`/candidatos/${encodeId(Number(rec.candidate_id))}`); }}
+                  className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-develoi-navy dark:text-develoi-gold hover:underline mt-1"
+                >
+                  <User size={11} /> Ver Perfil
+                </button>
               </div>
             </div>
           </div>
