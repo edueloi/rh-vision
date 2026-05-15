@@ -296,7 +296,7 @@ function FieldHeader({
 }
 
 export default function JobForm({ job, initialData, onBack, onSuccess }: JobFormProps) {
-  const { currentUnit } = useUnit();
+  const { currentUnit, units } = useUnit();
   const tenantId = getTenantId();
   const toast = useToast();
   const isMasterUnit = currentUnit.is_master === 1;
@@ -304,6 +304,8 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
   const unitCity = isMasterUnit ? "" : currentUnit.location.split(",")[0] || "";
   const unitState = isMasterUnit ? "" : currentUnit.location.split(",")[1]?.trim() || "";
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importUnitId, setImportUnitId] = useState<string>(() => currentUnit.id);
+  const [importCity, setImportCity] = useState<string>(() => unitCity);
 
   const createBaseFormData = (
     mode: "manual" | "import",
@@ -544,7 +546,8 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
       const body = new FormData();
       filesToProcess.forEach(f => body.append("files", f));
       body.append("tenant_id", String(tenantId));
-      body.append("unit_id", String(currentUnit.id));
+      body.append("unit_id", String(importUnitId || currentUnit.id));
+      if (importCity.trim()) body.append("city", importCity.trim());
 
       const res = await fetch("/api/jobs/import/batch-auto", { method: "POST", body });
       const data = await res.json();
@@ -876,6 +879,40 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
         description="Use arquivos reais da vaga. A plataforma vai estruturar apenas os campos com evidência textual."
         icon={FileUp}
       >
+        {units.length > 1 && (
+          <div className="mb-6 grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">
+                Unidade
+              </label>
+              <Select
+                value={importUnitId}
+                onChange={(e) => {
+                  const uid = e.target.value;
+                  setImportUnitId(uid);
+                  const unit = units.find(u => u.id === uid);
+                  if (unit?.city) setImportCity(unit.city);
+                  else setImportCity("");
+                }}
+              >
+                {units.map(u => (
+                  <option key={u.id} value={u.id}>{u.name}{u.city ? ` — ${u.city}` : ""}</option>
+                ))}
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">
+                Cidade (padrão para vagas importadas)
+              </label>
+              <Input
+                value={importCity}
+                onChange={(e) => setImportCity(e.target.value)}
+                placeholder="Ex: São Paulo"
+              />
+            </div>
+          </div>
+        )}
+
         <div
           onDragOver={(event) => {
             event.preventDefault();

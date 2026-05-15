@@ -20,6 +20,20 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  TrendingUp,
+  Target,
+  Brain,
+  PhoneCall,
+  PlayCircle,
+  Star,
+  UserCheck,
+  Handshake,
+  UserX,
+  ThumbsDown,
+  CheckCircle2,
+  Loader2,
+  Building2,
+  AlertCircle,
 } from "lucide-react";
 import {
   useToast,
@@ -44,6 +58,304 @@ import { useUserPreferences } from "@/src/lib/useUserPreferences";
 
 type SortField = 'name' | 'date';
 type SortDir = 'asc' | 'desc';
+
+// ── Etapas do Funil ────────────────────────────────────────────────────────────
+
+const FUNNEL_STAGE_OPTIONS = [
+  { value: "Triagem",             label: "Triagem",             color: "text-zinc-500",    bgLight: "bg-zinc-50",     borderLight: "border-zinc-200",   textLight: "text-zinc-600",   icon: <Target size={13} /> },
+  { value: "IA Match",            label: "IA Match",            color: "text-blue-600",    bgLight: "bg-blue-50",     borderLight: "border-blue-200",   textLight: "text-blue-700",   icon: <Brain size={13} /> },
+  { value: "Entrevista",          label: "Entrevista agendada", color: "text-purple-600",  bgLight: "bg-purple-50",   borderLight: "border-purple-200", textLight: "text-purple-700", icon: <PhoneCall size={13} /> },
+  { value: "Entrevista Realizada",label: "Entrevista realizada",color: "text-indigo-600",  bgLight: "bg-indigo-50",   borderLight: "border-indigo-200", textLight: "text-indigo-700", icon: <PlayCircle size={13} /> },
+  { value: "Finalista",           label: "Finalista",           color: "text-amber-700",   bgLight: "bg-amber-50",    borderLight: "border-amber-200",  textLight: "text-amber-800",  icon: <Star size={13} /> },
+  { value: "Aprovado",            label: "Aprovado",            color: "text-emerald-600", bgLight: "bg-emerald-50",  borderLight: "border-emerald-200",textLight: "text-emerald-700",icon: <UserCheck size={13} /> },
+  { value: "Contratado",          label: "Contratado",          color: "text-white",       bgLight: "bg-develoi-navy",borderLight: "border-develoi-navy",textLight: "text-white",      icon: <Handshake size={13} /> },
+  { value: "Desistência",         label: "Desistência",         color: "text-orange-600",  bgLight: "bg-orange-50",   borderLight: "border-orange-200", textLight: "text-orange-700", icon: <UserX size={13} />, isNegative: true },
+  { value: "Sem Sucesso",         label: "Sem sucesso",         color: "text-red-600",     bgLight: "bg-red-50",      borderLight: "border-red-200",    textLight: "text-red-700",    icon: <ThumbsDown size={13} />, isNegative: true },
+];
+
+function getFunnelStageOpt(value: string) {
+  return FUNNEL_STAGE_OPTIONS.find(s => s.value === value) ?? FUNNEL_STAGE_OPTIONS[0];
+}
+
+// ── Modal de Etapa do Funil ────────────────────────────────────────────────────
+
+function FunnelStageModal({ candidate, tenantId, unitId, onClose, onSaved }: {
+  candidate: { id: number; full_name: string } | null;
+  tenantId: string;
+  unitId: string;
+  onClose: () => void;
+  onSaved: (matchId: number, stage: string) => void;
+}) {
+  const toast = useToast();
+  const [matches, setMatches] = useState<any[]>([]);
+  const [availableJobs, setAvailableJobs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState<number | null>(null);
+  const [linking, setLinking] = useState<number | null>(null);
+  const [view, setView] = useState<'stages' | 'link'>('stages');
+
+  useEffect(() => {
+    if (!candidate) return;
+    setLoading(true);
+    setView('stages');
+    fetch(`/api/candidates/${candidate.id}`)
+      .then(r => r.json())
+      .then(data => setMatches(data.matches ?? []))
+      .catch(() => toast.error("Erro ao carregar vagas do candidato."))
+      .finally(() => setLoading(false));
+  }, [candidate?.id]);
+
+  // Busca vagas disponíveis com score de aderência do candidato
+  const fetchAvailableJobs = async () => {
+    try {
+      const [jobsRes, scoresRes] = await Promise.all([
+        fetch(`/api/jobs?tenantId=${tenantId}&unitId=${unitId}`),
+        fetch(`/api/candidates/${candidate!.id}/ai-scores`).catch(() => ({ ok: false, json: async () => [] })),
+      ]);
+      const jobs = jobsRes.ok ? await jobsRes.json() : [];
+      const scores: any[] = (scoresRes as any).ok ? await (scoresRes as any).json() : [];
+
+      // Filtra vagas já vinculadas
+      const linkedJobIds = new Set(matches.map((m: any) => m.job_id));
+      const filtered = jobs
+        .filter((j: any) => !linkedJobIds.has(j.id))
+        .map((j: any) => ({
+          ...j,
+          ai_score: scores.find((s: any) => s.job_id === j.id)?.compatibility_score ?? null,
+        }))
+        .sort((a: any, b: any) => (b.ai_score ?? -1) - (a.ai_score ?? -1));
+
+      setAvailableJobs(filtered);
+    } catch {
+      toast.error("Erro ao carregar vagas.");
+    }
+  };
+
+  const handleShowLink = async () => {
+    setView('link');
+    await fetchAvailableJobs();
+  };
+
+  const handleLink = async (jobId: number) => {
+    setLinking(jobId);
+    try {
+      const res = await fetch(`/api/candidates/${candidate!.id}/link-job`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ job_id: jobId, tenant_id: tenantId }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Erro ao vincular.");
+      }
+      // Recarrega matches e volta para a aba de etapas
+      const updated = await fetch(`/api/candidates/${candidate!.id}`).then(r => r.json());
+      setMatches(updated.matches ?? []);
+      setView('stages');
+      toast.success("Candidato vinculado à vaga.");
+    } catch (e: any) {
+      toast.error(e.message || "Erro ao vincular candidato à vaga.");
+    } finally {
+      setLinking(null);
+    }
+  };
+
+  const handleSelect = async (matchId: number, jobId: number, stage: string) => {
+    setSaving(matchId);
+    try {
+      const res = await fetch(`/api/aurora-ai/matches/${jobId}/stage/${candidate!.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ funnel_stage: stage }),
+      });
+      if (!res.ok) throw new Error();
+      setMatches(prev => prev.map(m => m.id === matchId ? { ...m, status: stage } : m));
+      onSaved(matchId, stage);
+      toast.success("Etapa atualizada.");
+    } catch {
+      toast.error("Erro ao atualizar etapa.");
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  if (!candidate) return null;
+
+  return (
+    <Modal open={!!candidate} onClose={onClose} title={`Etapa do Processo · ${candidate.full_name}`}>
+      <div className="space-y-4 py-2">
+        {loading ? (
+          <div className="flex flex-col items-center gap-3 py-10">
+            <Loader2 size={24} className="animate-spin text-develoi-navy" />
+            <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Carregando vagas...</p>
+          </div>
+
+        ) : view === 'link' ? (
+          /* ── Tela de vincular a vaga ── */
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setView('stages')}
+                className="text-[9px] font-black uppercase tracking-widest text-zinc-400 hover:text-zinc-700 flex items-center gap-1 transition-colors"
+              >
+                ← Voltar
+              </button>
+              <span className="text-[9px] font-black uppercase tracking-widest text-zinc-300">|</span>
+              <p className="text-[9px] font-black uppercase tracking-widest text-zinc-400">Vincular a Vaga</p>
+            </div>
+
+            {availableJobs.length === 0 ? (
+              <div className="flex flex-col items-center gap-3 py-8 text-center">
+                <div className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center">
+                  <Building2 size={18} className="text-zinc-400" />
+                </div>
+                <p className="text-xs font-bold text-zinc-600">Nenhuma vaga disponível</p>
+                <p className="text-xs text-zinc-400">Todas as vagas já foram vinculadas ou não há vagas abertas.</p>
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+                {availableJobs.map((job: any) => (
+                  <div key={job.id} className="flex items-center gap-3 bg-zinc-50 rounded-2xl border border-zinc-100 p-3">
+                    <div className="w-8 h-8 bg-white rounded-xl flex items-center justify-center border border-zinc-200 shrink-0">
+                      <Building2 size={13} className="text-zinc-400" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-black text-zinc-800 truncate">{job.title}</p>
+                      <p className="text-[9px] font-bold text-zinc-400">{job.city}/{job.state} · {job.work_model}</p>
+                    </div>
+                    {job.ai_score !== null && (
+                      <span className={cn(
+                        "text-[9px] font-black px-2 py-1 rounded-full border shrink-0",
+                        job.ai_score >= 90 ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
+                        job.ai_score >= 75 ? "bg-blue-50 text-blue-700 border-blue-200" :
+                        "bg-amber-50 text-amber-700 border-amber-200"
+                      )}>
+                        {job.ai_score}% IA
+                      </span>
+                    )}
+                    <button
+                      onClick={() => handleLink(job.id)}
+                      disabled={linking === job.id}
+                      className="h-7 px-3 rounded-xl bg-develoi-navy text-white text-[9px] font-black uppercase tracking-wide hover:bg-[#0a1e3a] transition-all disabled:opacity-50 shrink-0 flex items-center gap-1"
+                    >
+                      {linking === job.id ? <Loader2 size={10} className="animate-spin" /> : <CheckCircle2 size={10} />}
+                      Vincular
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+        ) : matches.length === 0 ? (
+          /* ── Sem vagas vinculadas ── */
+          <div className="flex flex-col items-center gap-4 py-8 text-center">
+            <div className="w-14 h-14 rounded-full bg-zinc-100 flex items-center justify-center">
+              <TrendingUp size={24} className="text-zinc-400" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-zinc-700">Nenhuma vaga vinculada</p>
+              <p className="text-xs text-zinc-400 mt-1">Deseja vincular este candidato a uma vaga?</p>
+            </div>
+            <button
+              onClick={handleShowLink}
+              className="h-9 px-5 rounded-xl bg-develoi-navy text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#0a1e3a] transition-all flex items-center gap-2"
+            >
+              <Building2 size={13} />
+              Ver vagas disponíveis
+            </button>
+          </div>
+
+        ) : (
+          /* ── Etapas por vaga vinculada ── */
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-[9px] font-black uppercase tracking-widest text-zinc-400">Etapa por vaga</p>
+              <button
+                onClick={handleShowLink}
+                className="text-[9px] font-black uppercase tracking-widest text-develoi-navy hover:text-develoi-gold flex items-center gap-1 transition-colors"
+              >
+                <Building2 size={10} /> Vincular outra vaga
+              </button>
+            </div>
+
+            {matches.map((match: any) => {
+              const currentOpt = getFunnelStageOpt(match.status ?? "Triagem");
+              const isSaving = saving === match.id;
+              return (
+                <div key={match.id} className="bg-zinc-50 rounded-2xl border border-zinc-100 p-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 bg-white rounded-xl flex items-center justify-center border border-zinc-200 shrink-0">
+                      <Building2 size={13} className="text-zinc-400" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-black text-zinc-800 truncate">{match.job_title}</p>
+                      <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">{match.job_city}/{match.job_state}</p>
+                    </div>
+                    {match.compatibility_score > 0 && (
+                      <span className={cn(
+                        "text-[9px] font-black px-2 py-1 rounded-full border shrink-0",
+                        match.compatibility_score >= 90 ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
+                        match.compatibility_score >= 75 ? "bg-blue-50 text-blue-700 border-blue-200" :
+                        "bg-amber-50 text-amber-700 border-amber-200"
+                      )}>
+                        {match.compatibility_score}% IA
+                      </span>
+                    )}
+                    <div className={cn(
+                      "flex items-center gap-1 text-[9px] font-black uppercase tracking-wide px-2 py-1 rounded-full border shrink-0",
+                      currentOpt.bgLight, currentOpt.borderLight, currentOpt.textLight
+                    )}>
+                      {isSaving ? <Loader2 size={10} className="animate-spin" /> : currentOpt.icon}
+                      <span>{currentOpt.label}</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {FUNNEL_STAGE_OPTIONS.map(opt => {
+                      const isActive = (match.status ?? "Triagem") === opt.value;
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          disabled={isSaving}
+                          onClick={() => !isActive && handleSelect(match.id, match.job_id, opt.value)}
+                          className={cn(
+                            "flex items-center gap-1.5 px-2 py-2 rounded-xl border text-[9px] font-bold transition-all",
+                            isActive
+                              ? cn(opt.bgLight, opt.borderLight, opt.textLight, "shadow-sm")
+                              : "bg-white border-zinc-200 text-zinc-500 hover:border-zinc-300 hover:bg-zinc-50",
+                            isSaving && "opacity-40 cursor-not-allowed",
+                            opt.isNegative && !isActive && "hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+                          )}
+                        >
+                          <span className={isActive ? "" : opt.isNegative ? "text-red-400" : "text-zinc-400"}>
+                            {opt.icon}
+                          </span>
+                          <span className="truncate">{opt.label}</span>
+                          {isActive && <CheckCircle2 size={9} className="shrink-0 ml-auto" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {getFunnelStageOpt(match.status ?? "Triagem").isNegative && (
+                    <div className="flex items-start gap-1.5 bg-orange-50 border border-orange-100 rounded-xl px-2.5 py-2">
+                      <AlertCircle size={10} className="shrink-0 mt-0.5 text-orange-400" />
+                      <p className="text-[9px] font-medium text-orange-700">
+                        Candidato <strong>não aparecerá</strong> na Aderência AI desta vaga. Para reativar, mova para <strong>Triagem</strong>.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </Modal>
+  );
+}
 
 const PREFS_KEY = (tenantId: string) => `rh_candidates_prefs_${tenantId}`;
 
@@ -110,6 +422,7 @@ export default function Candidates() {
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [deleteBulkConfirm, setDeleteBulkConfirm] = useState(false);
+  const [funnelModalCandidate, setFunnelModalCandidate] = useState<{ id: number; full_name: string } | null>(null);
 
   const savedPrefs = useMemo(() => loadPrefs(tenantId), [tenantId]);
 
@@ -477,7 +790,7 @@ export default function Candidates() {
         <div className="bg-white border border-zinc-100 rounded-xl shadow-sm overflow-hidden">
 
           {/* Table header */}
-          <div className="grid grid-cols-[3rem_1fr_auto] md:grid-cols-[3rem_1fr_7rem_7rem_9rem] items-center border-b-2 border-zinc-200 bg-zinc-100 border-l-2 border-l-transparent">
+          <div className="grid grid-cols-[3rem_1fr_auto] md:grid-cols-[3rem_1fr_7rem_7rem_11rem] items-center border-b-2 border-zinc-200 bg-zinc-100 border-l-2 border-l-transparent">
             <div className="flex items-center justify-center py-2.5">
               <Checkbox checked={allSelected} indeterminate={someSelected} onChange={toggleSelectAll} />
             </div>
@@ -529,7 +842,7 @@ export default function Candidates() {
                     key={c.id}
                     layout
                     className={cn(
-                      "grid grid-cols-[3rem_1fr_auto] md:grid-cols-[3rem_1fr_7rem_7rem_9rem] items-center transition-colors duration-100 border-b border-zinc-200",
+                      "grid grid-cols-[3rem_1fr_auto] md:grid-cols-[3rem_1fr_7rem_7rem_11rem] items-center transition-colors duration-100 border-b border-zinc-200",
                       isSelected
                         ? "bg-amber-50 border-l-2 border-l-develoi-gold"
                         : idx % 2 === 0
@@ -620,6 +933,15 @@ export default function Candidates() {
                         title="Avaliações"
                       >
                         <ClipboardCheck size={13} />
+                      </IconButton>
+                      <IconButton
+                        onClick={() => setFunnelModalCandidate({ id: c.id, full_name: c.full_name })}
+                        variant="ghost"
+                        className="h-7 w-7 text-zinc-400 hover:text-emerald-600 hover:bg-emerald-50"
+                        aria-label="Etapa do processo"
+                        title="Gerenciar etapa do processo"
+                      >
+                        <TrendingUp size={13} />
                       </IconButton>
                       <IconButton
                         onClick={() => navigate(`/candidatos/${encodeId(c.id)}/editar`)}
@@ -765,6 +1087,15 @@ export default function Candidates() {
             Tem certeza que deseja remover <strong>{selectedIds.size} candidato{selectedIds.size !== 1 ? 's' : ''}</strong> permanentemente? Esta ação não pode ser desfeita.
           </p>
         </Modal>
+
+        {/* Funnel stage modal */}
+        <FunnelStageModal
+          candidate={funnelModalCandidate}
+          tenantId={tenantId}
+          unitId={queryUnitId}
+          onClose={() => setFunnelModalCandidate(null)}
+          onSaved={() => {}}
+        />
 
       </div>
     </PageWrapper>

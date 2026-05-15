@@ -3,7 +3,8 @@ import {
   Target, ChevronDown, Download, Mail, Phone,
   Brain, FileText, CheckCircle2, Zap, Briefcase, Loader2, MapPin,
   Star, Users, Award, ChevronRight, Sparkles, MessageSquare, PhoneCall,
-  Clock, XCircle, AlertCircle, Ban, CheckCheck, HelpCircle, Save
+  Clock, XCircle, AlertCircle, Ban, CheckCheck, HelpCircle, Save,
+  TrendingUp, UserX, ThumbsDown, PlayCircle, Trophy, UserCheck, Handshake
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Badge, Button, PanelCard, EmptyState, PageWrapper, SectionTitle } from "@/src/components/ui";
@@ -34,6 +35,7 @@ interface MatchResult {
   risk_reason: string;
   contact_status: string;
   contact_notes?: string;
+  funnel_stage: string;
 }
 
 // ── Status de contato ──────────────────────────────────────────────────────────
@@ -134,6 +136,241 @@ const CONTACT_STATUSES: ContactStatusOption[] = [
 
 function getContactStatusOption(value: string): ContactStatusOption {
   return CONTACT_STATUSES.find(s => s.value === value) ?? CONTACT_STATUSES[0];
+}
+
+// ── Etapas do Funil ────────────────────────────────────────────────────────────
+
+interface FunnelStageOption {
+  value: string;
+  label: string;
+  color: string;
+  bgLight: string;
+  borderLight: string;
+  textLight: string;
+  icon: React.ReactNode;
+  isNegative?: boolean;
+}
+
+const FUNNEL_STAGES_OPTIONS: FunnelStageOption[] = [
+  {
+    value: "Triagem",
+    label: "Triagem",
+    color: "text-zinc-500",
+    bgLight: "bg-zinc-50",
+    borderLight: "border-zinc-200",
+    textLight: "text-zinc-600",
+    icon: <Target size={13} />,
+  },
+  {
+    value: "IA Match",
+    label: "IA Match",
+    color: "text-blue-600",
+    bgLight: "bg-blue-50",
+    borderLight: "border-blue-200",
+    textLight: "text-blue-700",
+    icon: <Brain size={13} />,
+  },
+  {
+    value: "Entrevista",
+    label: "Entrevista agendada",
+    color: "text-purple-600",
+    bgLight: "bg-purple-50",
+    borderLight: "border-purple-200",
+    textLight: "text-purple-700",
+    icon: <PhoneCall size={13} />,
+  },
+  {
+    value: "Entrevista Realizada",
+    label: "Entrevista realizada",
+    color: "text-indigo-600",
+    bgLight: "bg-indigo-50",
+    borderLight: "border-indigo-200",
+    textLight: "text-indigo-700",
+    icon: <PlayCircle size={13} />,
+  },
+  {
+    value: "Finalista",
+    label: "Finalista",
+    color: "text-amber-700",
+    bgLight: "bg-amber-50",
+    borderLight: "border-amber-200",
+    textLight: "text-amber-800",
+    icon: <Star size={13} />,
+  },
+  {
+    value: "Aprovado",
+    label: "Aprovado",
+    color: "text-emerald-600",
+    bgLight: "bg-emerald-50",
+    borderLight: "border-emerald-200",
+    textLight: "text-emerald-700",
+    icon: <UserCheck size={13} />,
+  },
+  {
+    value: "Contratado",
+    label: "Contratado",
+    color: "text-white",
+    bgLight: "bg-develoi-navy",
+    borderLight: "border-develoi-navy",
+    textLight: "text-white",
+    icon: <Handshake size={13} />,
+  },
+  {
+    value: "Desistência",
+    label: "Desistência",
+    color: "text-orange-600",
+    bgLight: "bg-orange-50",
+    borderLight: "border-orange-200",
+    textLight: "text-orange-700",
+    icon: <UserX size={13} />,
+    isNegative: true,
+  },
+  {
+    value: "Sem Sucesso",
+    label: "Sem sucesso",
+    color: "text-red-600",
+    bgLight: "bg-red-50",
+    borderLight: "border-red-200",
+    textLight: "text-red-700",
+    icon: <ThumbsDown size={13} />,
+    isNegative: true,
+  },
+];
+
+function getFunnelStageOption(value: string): FunnelStageOption {
+  return FUNNEL_STAGES_OPTIONS.find(s => s.value === value) ?? FUNNEL_STAGES_OPTIONS[0];
+}
+
+// ── Componente do painel de etapa do funil ─────────────────────────────────────
+
+function FunnelStagePanel({
+  match,
+  jobId,
+  tenantId,
+  onSaved,
+}: {
+  match: MatchResult;
+  jobId: string;
+  tenantId: string;
+  onSaved: (candidateId: number, stage: string) => void;
+}) {
+  const toast = useToast();
+  const [stage, setStage] = useState(match.funnel_stage ?? "Triagem");
+  const [saving, setSaving] = useState(false);
+  const [dropOpen, setDropOpen] = useState(false);
+  const dropRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setStage(match.funnel_stage ?? "Triagem");
+  }, [match.funnel_stage]);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (dropRef.current && !dropRef.current.contains(e.target as Node)) {
+        setDropOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const selected = getFunnelStageOption(stage);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/aurora-ai/matches/${jobId}/stage/${match.candidate_id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ funnel_stage: stage }),
+      });
+      if (!res.ok) throw new Error();
+      onSaved(match.candidate_id, stage);
+      toast.success("Etapa do processo atualizada.");
+    } catch {
+      toast.error("Erro ao atualizar etapa do processo.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      <p className="text-[9px] font-black uppercase tracking-widest text-zinc-400 flex items-center gap-1.5">
+        <TrendingUp size={11} />
+        Etapa do Processo
+      </p>
+
+      <div className="relative" ref={dropRef}>
+        <button
+          type="button"
+          onClick={() => setDropOpen(!dropOpen)}
+          className={cn(
+            "w-full flex items-center gap-2 px-3 py-2.5 rounded-2xl border text-sm font-bold transition-all shadow-sm",
+            selected.bgLight, selected.borderLight, selected.textLight
+          )}
+        >
+          <span>{selected.icon}</span>
+          <span className="flex-1 text-left text-xs">{selected.label}</span>
+          <ChevronDown size={12} className={cn("shrink-0 transition-transform", dropOpen && "rotate-180")} />
+        </button>
+
+        <AnimatePresence>
+          {dropOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: -4, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -4, scale: 0.97 }}
+              transition={{ duration: 0.12 }}
+              className="absolute z-50 top-full mt-1 left-0 right-0 bg-white rounded-2xl border border-zinc-200 shadow-xl overflow-hidden"
+            >
+              {FUNNEL_STAGES_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => { setStage(opt.value); setDropOpen(false); }}
+                  className={cn(
+                    "w-full flex items-center gap-2.5 px-3 py-2.5 text-left text-xs font-bold transition-colors hover:bg-zinc-50",
+                    stage === opt.value && "bg-zinc-50",
+                    opt.isNegative && "text-red-600"
+                  )}
+                >
+                  <span className={opt.isNegative ? "text-red-500" : opt.color}>{opt.icon}</span>
+                  <span className="flex-1 text-zinc-700">{opt.label}</span>
+                  {opt.isNegative && (
+                    <span className="text-[8px] font-black uppercase tracking-wide text-orange-400 bg-orange-50 border border-orange-100 rounded-full px-1.5 py-0.5">
+                      saída
+                    </span>
+                  )}
+                  {stage === opt.value && <CheckCircle2 size={11} className="shrink-0 text-develoi-navy" />}
+                </button>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {selected.isNegative && (
+        <div className="flex items-start gap-2 rounded-xl bg-orange-50 border border-orange-100 p-2.5">
+          <AlertCircle size={11} className="shrink-0 mt-0.5 text-orange-400" />
+          <p className="text-[10px] font-medium text-orange-700 leading-relaxed">
+            Candidato marcado como <strong>{selected.label}</strong> — será contabilizado nos indicadores de não-conversão.
+          </p>
+        </div>
+      )}
+
+      <Button
+        size="sm"
+        variant="secondary"
+        iconLeft={saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+        onClick={handleSave}
+        disabled={saving}
+        className="w-full justify-center"
+      >
+        {saving ? "Salvando..." : "Salvar etapa"}
+      </Button>
+    </div>
+  );
 }
 
 // ── Componente do painel de contato ────────────────────────────────────────────
@@ -406,6 +643,14 @@ export default function Matches() {
     ));
   };
 
+  const handleStageSaved = (candidateId: number, stage: string) => {
+    setMatches(prev => prev.map(m =>
+      m.candidate_id === candidateId
+        ? { ...m, funnel_stage: stage }
+        : m
+    ));
+  };
+
   const handleDownloadCV = (e: React.MouseEvent, candidateId: number) => {
     e.stopPropagation();
     window.open(`/api/candidates/${candidateId}/cv/download`, '_blank');
@@ -582,6 +827,7 @@ export default function Matches() {
           const isExpanded = expanded === match.candidate_id;
           const cfg = getScoreConfig(match.compatibility_score);
           const contactOpt = getContactStatusOption(match.contact_status);
+          const stageOpt = getFunnelStageOption(match.funnel_stage ?? "Triagem");
 
           return (
             <motion.div
@@ -617,6 +863,14 @@ export default function Matches() {
                           {match.disc_profile}
                         </Badge>
                       )}
+                      {/* Badge de etapa do funil */}
+                      <span className={cn(
+                        "inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wide px-2 py-0.5 rounded-full border",
+                        stageOpt.bgLight, stageOpt.borderLight, stageOpt.textLight
+                      )}>
+                        {stageOpt.icon}
+                        {stageOpt.label}
+                      </span>
                       {/* Badge de status de contato */}
                       {match.contact_status && (
                         <span className={cn(
@@ -708,6 +962,16 @@ export default function Matches() {
                                 </ul>
                               </div>
                             )}
+
+                            {/* Etapa do Processo */}
+                            <div className="bg-white rounded-2xl border border-zinc-100 shadow-sm p-3">
+                              <FunnelStagePanel
+                                match={match}
+                                jobId={selectedJobId}
+                                tenantId={tenantId}
+                                onSaved={handleStageSaved}
+                              />
+                            </div>
 
                             {/* Status de contato */}
                             <div className="bg-white rounded-2xl border border-zinc-100 shadow-sm p-3">

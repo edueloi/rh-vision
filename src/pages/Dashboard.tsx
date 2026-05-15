@@ -22,12 +22,15 @@ import React from "react";
 const COLORS = ["#07152B", "#C5A04D", "#6CB4E4", "#10B981", "#F5A623", "#8B5CF6"];
 
 const FUNNEL_STAGES = [
-  { key: "Triagem",    label: "Triagem",    color: "bg-zinc-100 text-zinc-600 dark:bg-white/10 dark:text-white/60" },
-  { key: "IA Match",  label: "IA Match",   color: "bg-blue-50 text-blue-600 border border-blue-100 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20" },
-  { key: "Entrevista",label: "Entrevista", color: "bg-violet-50 text-violet-600 border border-violet-100 dark:bg-violet-500/10 dark:text-violet-400 dark:border-violet-500/20" },
-  { key: "Finalista", label: "Finalista",  color: "bg-amber-50 text-amber-600 border border-amber-100 dark:bg-develoi-gold/10 dark:text-develoi-gold dark:border-develoi-gold/20" },
-  { key: "Aprovado",  label: "Aprovado",   color: "bg-emerald-50 text-emerald-600 border border-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20" },
-  { key: "Contratado",label: "Contratado", color: "bg-develoi-navy text-white shadow-md dark:bg-develoi-gold dark:text-develoi-navy" },
+  { key: "Triagem",             label: "Triagem",          color: "bg-zinc-100 text-zinc-600 dark:bg-white/10 dark:text-white/60" },
+  { key: "IA Match",            label: "IA Match",         color: "bg-blue-50 text-blue-600 border border-blue-100 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20" },
+  { key: "Entrevista",          label: "Entrevista",       color: "bg-violet-50 text-violet-600 border border-violet-100 dark:bg-violet-500/10 dark:text-violet-400 dark:border-violet-500/20" },
+  { key: "Entrevista Realizada",label: "Ent. Realizada",   color: "bg-indigo-50 text-indigo-600 border border-indigo-100 dark:bg-indigo-500/10 dark:text-indigo-400 dark:border-indigo-500/20" },
+  { key: "Finalista",           label: "Finalista",        color: "bg-amber-50 text-amber-700 border border-amber-100 dark:bg-develoi-gold/10 dark:text-develoi-gold dark:border-develoi-gold/20" },
+  { key: "Aprovado",            label: "Aprovado",         color: "bg-emerald-50 text-emerald-600 border border-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20" },
+  { key: "Contratado",          label: "Contratado",       color: "bg-develoi-navy text-white shadow-md dark:bg-develoi-gold dark:text-develoi-navy" },
+  { key: "Desistência",         label: "Desistência",      color: "bg-orange-50 text-orange-600 border border-orange-100 dark:bg-orange-500/10 dark:text-orange-400 dark:border-orange-500/20" },
+  { key: "Sem Sucesso",         label: "Sem Sucesso",      color: "bg-red-50 text-red-600 border border-red-100 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20" },
 ];
 
 const QUICK_ICONS: Record<string, React.ElementType> = {

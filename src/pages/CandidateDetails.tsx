@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   X,
   User,
@@ -25,7 +25,20 @@ import {
   Brain,
   Eye,
   PauseCircle,
-  ArrowLeft
+  ArrowLeft,
+  ChevronDown,
+  TrendingUp,
+  Target,
+  PhoneCall,
+  PlayCircle,
+  Star,
+  UserCheck,
+  Handshake,
+  UserX,
+  ThumbsDown,
+  AlertCircle,
+  Loader2,
+  CheckCircle2
 } from "lucide-react";
 import {
   PanelCard,
@@ -45,6 +58,119 @@ import { cn } from "@/src/lib/utils";
 import { useUnit } from "@/src/lib/useUnit";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { decodeId, encodeId } from "@/src/lib/hashid";
+
+// ── Etapas do Funil (reutilizadas aqui) ───────────────────────────────────────
+
+const FUNNEL_STAGE_OPTIONS = [
+  { value: "Triagem",             label: "Triagem",             color: "text-zinc-500",   bgLight: "bg-zinc-50",    borderLight: "border-zinc-200",  textLight: "text-zinc-600",  icon: <Target size={12} /> },
+  { value: "IA Match",            label: "IA Match",            color: "text-blue-600",   bgLight: "bg-blue-50",    borderLight: "border-blue-200",  textLight: "text-blue-700",  icon: <Brain size={12} /> },
+  { value: "Entrevista",          label: "Entrevista agendada", color: "text-purple-600", bgLight: "bg-purple-50",  borderLight: "border-purple-200",textLight: "text-purple-700",icon: <PhoneCall size={12} /> },
+  { value: "Entrevista Realizada",label: "Entrevista realizada",color: "text-indigo-600", bgLight: "bg-indigo-50",  borderLight: "border-indigo-200",textLight: "text-indigo-700",icon: <PlayCircle size={12} /> },
+  { value: "Finalista",           label: "Finalista",           color: "text-amber-700",  bgLight: "bg-amber-50",   borderLight: "border-amber-200", textLight: "text-amber-800", icon: <Star size={12} /> },
+  { value: "Aprovado",            label: "Aprovado",            color: "text-emerald-600",bgLight: "bg-emerald-50", borderLight: "border-emerald-200",textLight: "text-emerald-700",icon: <UserCheck size={12} /> },
+  { value: "Contratado",          label: "Contratado",          color: "text-white",      bgLight: "bg-develoi-navy",borderLight: "border-develoi-navy",textLight: "text-white",    icon: <Handshake size={12} /> },
+  { value: "Desistência",         label: "Desistência",         color: "text-orange-600", bgLight: "bg-orange-50",  borderLight: "border-orange-200",textLight: "text-orange-700",icon: <UserX size={12} />, isNegative: true },
+  { value: "Sem Sucesso",         label: "Sem sucesso",         color: "text-red-600",    bgLight: "bg-red-50",     borderLight: "border-red-200",   textLight: "text-red-700",   icon: <ThumbsDown size={12} />, isNegative: true },
+];
+
+function getFunnelStageOpt(value: string) {
+  return FUNNEL_STAGE_OPTIONS.find(s => s.value === value) ?? FUNNEL_STAGE_OPTIONS[0];
+}
+
+function FunnelStageDropdown({ matchId, jobId, currentStage, onSaved }: {
+  matchId: number;
+  jobId: number;
+  currentStage: string;
+  onSaved: (matchId: number, stage: string) => void;
+}) {
+  const toast = useToast();
+  const [stage, setStage] = useState(currentStage ?? "Triagem");
+  const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => { setStage(currentStage ?? "Triagem"); }, [currentStage]);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const selected = getFunnelStageOpt(stage);
+
+  const handleSelect = async (value: string) => {
+    setOpen(false);
+    if (value === stage) return;
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/aurora-ai/matches/${jobId}/stage/${matchId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ funnel_stage: value }),
+      });
+      if (!res.ok) throw new Error();
+      setStage(value);
+      onSaved(matchId, value);
+      toast.success("Etapa atualizada com sucesso.");
+    } catch {
+      toast.error("Erro ao atualizar etapa.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        disabled={saving}
+        className={cn(
+          "flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-all shadow-sm",
+          selected.bgLight, selected.borderLight, selected.textLight
+        )}
+      >
+        {saving ? <Loader2 size={11} className="animate-spin" /> : selected.icon}
+        <span>{selected.label}</span>
+        <ChevronDown size={10} className={cn("transition-transform", open && "rotate-180")} />
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: -4, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -4, scale: 0.97 }}
+            transition={{ duration: 0.12 }}
+            className="absolute z-50 top-full mt-1 left-0 min-w-[200px] bg-white rounded-2xl border border-zinc-200 shadow-xl overflow-hidden"
+          >
+            {FUNNEL_STAGE_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => handleSelect(opt.value)}
+                className={cn(
+                  "w-full flex items-center gap-2 px-3 py-2.5 text-left text-xs font-bold transition-colors hover:bg-zinc-50",
+                  stage === opt.value && "bg-zinc-50"
+                )}
+              >
+                <span className={opt.isNegative ? "text-red-500" : opt.color}>{opt.icon}</span>
+                <span className="flex-1 text-zinc-700">{opt.label}</span>
+                {opt.isNegative && (
+                  <span className="text-[8px] font-black text-orange-400 bg-orange-50 border border-orange-100 rounded-full px-1.5 py-0.5 uppercase">saída</span>
+                )}
+                {stage === opt.value && <CheckCircle2 size={10} className="shrink-0 text-develoi-navy" />}
+              </button>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
 
 export default function CandidateDetailsPage() {
   const { candidateId: candidateSlug } = useParams<{ candidateId: string }>();
@@ -120,6 +246,18 @@ export default function CandidateDetailsPage() {
     }
     const url = `/api/candidates/${candidateId}/files/${primaryFile.id}${mode === 'download' ? '?download=1' : ''}`;
     window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleMatchStageSaved = (matchId: number, stage: string) => {
+    setCandidate(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        matches: prev.matches?.map((m: any) =>
+          m.id === matchId ? { ...m, status: stage } : m
+        )
+      };
+    });
   };
 
   const handleLinkJob = async () => {
@@ -542,7 +680,7 @@ export default function CandidateDetailsPage() {
                       <p className="text-xs font-black text-zinc-400 uppercase tracking-widest">Nenhuma vaga vinculada.</p>
                     </div>
                   ) : (
-                    candidate.matches?.map(match => (
+                    candidate.matches?.map((match: any) => (
                       <ContentCard key={match.id} className="group hover:border-develoi-navy/30 transition-all">
                         <div className="flex justify-between items-start mb-6">
                           <div className="flex items-center gap-4">
@@ -554,7 +692,12 @@ export default function CandidateDetailsPage() {
                               <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mt-0.5">{match.job_city}/{match.job_state}</p>
                             </div>
                           </div>
-                          <Badge color="default" size="sm">{match.status}</Badge>
+                          <FunnelStageDropdown
+                            matchId={Number(candidateId)}
+                            jobId={match.job_id}
+                            currentStage={match.status ?? "Triagem"}
+                            onSaved={(_, stage) => handleMatchStageSaved(match.id, stage)}
+                          />
                         </div>
                         <div className="flex items-center justify-between border-t border-zinc-50 pt-5">
                           <div className="flex flex-col">
