@@ -6,3 +6,12 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Arquivos de upload locais (currículos, fotos, vagas)
+uploads/
+storage/
+
+# Banco de dados local
+*.db
+*.db-shm
+*.db-wal

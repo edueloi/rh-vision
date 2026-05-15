@@ -3093,15 +3093,24 @@ Retorne EXATAMENTE este JSON:
 
       const prompt = `
         Você é a Aurora AI, sistema analítico de recrutamento corporativo.
-        Leia TODOS os candidatos abaixo com atenção e retorne NO JSON apenas os que tiverem score >= ${scoreThreshold}.
-        Candidatos com score abaixo de ${scoreThreshold} devem ser OMITIDOS do results — não inclua-os.
+        Avalie CADA candidato de forma INDEPENDENTE e ABSOLUTA em relação à vaga — NÃO compare candidatos entre si.
+        O score de cada candidato deve refletir SOMENTE a aderência dele à vaga, ignorando os demais.
 
-        CRITÉRIOS DE AVALIAÇÃO:
-        1. Experiência na área (CRÍTICO): área totalmente diferente = score baixo, exclua do resultado.
-        2. Localização: presencial exige cidade/região dentro do raio de ${radius} km.
-        3. Formação e habilidades: aderência real com os requisitos.
-        4. Superqualificação: mencione risco de turnover nos attention_points se aplicável.
-        Precisão: ${precisionMode}${precisionMode === 'Rigorosa' ? ' — score zero para quem não tem experiência exata na área.' : '.'}
+        REGRAS DE SCORING (aplique de forma determinística):
+        - Score 0–40 (Incompatível): área de atuação completamente diferente da vaga, ou localização fora do raio sem possibilidade remota.
+        - Score 41–69 (Fit Baixo): tem alguma relação com a área mas falta experiência relevante ou requisitos críticos.
+        - Score 70–89 (Alto Fit): atende a maioria dos requisitos obrigatórios, experiência comprovada na área, localização compatível.
+        - Score 90–100 (Altíssimo Fit): atende todos os requisitos, experiência sólida e direta, perfil ideal.
+
+        CRITÉRIOS DETERMINÍSTICOS (avalie nessa ordem):
+        1. ÁREA/EXPERIÊNCIA (peso 50%): experiência direta e comprovada na função? Se não, score máximo 50.
+        2. LOCALIZAÇÃO (peso 20%): cidade dentro de ${radius} km do local da vaga "${job.city}/${job.state}"? Modelo: ${job.work_model}. Se presencial e fora do raio, desconte 20 pontos.
+        3. FORMAÇÃO (peso 15%): formação compatível com o exigido? Avalie proporcionalmente.
+        4. SKILLS TÉCNICAS (peso 15%): habilidades técnicas mencionadas batem com os requisitos? Avalie proporcionalmente.
+        Precisão: ${precisionMode}${precisionMode === 'Rigorosa' ? ' — se não tiver experiência EXATA na função, score máximo 45.' : '.'}
+
+        IMPORTANTE: Um candidato com experiência administrativa genérica para uma vaga técnica específica NÃO pode ter score >= 70.
+        O score deve ser CONSISTENTE — se você repetir a análise, o score do mesmo candidato deve ser o mesmo.
 
         VAGA ALVO:
         Título: ${job.title}
@@ -3111,10 +3120,10 @@ Retorne EXATAMENTE este JSON:
         Requisitos técnicos: ${(job.technical_requirements || '').substring(0, 500)}
         Exp. mínima: ${job.min_experience_years} anos
 
-        CANDIDATOS (avalie todos, inclua no JSON só os com score >= ${scoreThreshold}):
+        CANDIDATOS (avalie cada um individualmente, inclua no JSON só os com score >= ${scoreThreshold}):
         ${candidatesToProcess.map(c => `
 === ID:${c.id} | ${c.full_name} | ${c.city}/${c.state}
-Cargo: ${c.desired_position || 'N/I'} | Área: ${c.desired_area || 'N/I'}
+Cargo desejado: ${c.desired_position || 'N/I'} | Área: ${c.desired_area || 'N/I'}
 Formação: ${c.education_level || 'N/I'} | ${(c.academic_education || '').substring(0, 250)}
 Resumo: ${(c.professional_summary || '').substring(0, 500)}
 Experiências: ${(c.professional_experiences || 'Não informado').substring(0, 1500)}
@@ -3122,10 +3131,7 @@ Skills técnicas: ${(c.hard_skills || 'N/I').substring(0, 250)}
 Skills comportamentais: ${(c.soft_skills || 'N/I').substring(0, 200)}
 DISC: ${c.disc?.predominant_profile ? `${c.disc.predominant_profile} (D:${c.disc.disc_d||0} I:${c.disc.disc_i||0} S:${c.disc.disc_s||0} C:${c.disc.disc_c||0})` : 'Não avaliado'}`).join('\n')}
 
-        ESCALA DE SCORE:
-        0-40: Incompatível. 41-69: Fit Baixo. 70-89: Alto Fit. 90-100: Altíssimo Fit.
-
-        REGRA FINAL: inclua no results SOMENTE candidatos com compatibility_score >= ${scoreThreshold}.
+        REGRA FINAL: inclua no results SOMENTE candidatos com compatibility_score >= ${scoreThreshold}. Candidatos abaixo de ${scoreThreshold} OMITA completamente.
         Retorne SOMENTE JSON válido sem markdown:
         {"results":[{"candidate_id":number,"compatibility_score":number,"classification":"string","distance_km":number,"strengths":["string"],"attention_points":["string"],"recommendation_reason":"string","risk_reason":"string"}],"summary":"string"}
       `;
@@ -3136,7 +3142,7 @@ DISC: ${c.disc?.predominant_profile ? `${c.disc.predominant_profile} (D:${c.disc
         config: {
           responseMimeType: 'application/json',
           maxOutputTokens: 16000,
-          reasoningEffort: 'medium',
+          temperature: 0.0,
           operationLabel: 'match inteligente de vaga',
         }
       });

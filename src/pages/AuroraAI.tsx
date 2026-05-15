@@ -13,7 +13,7 @@ import { useUserPreferences } from '@/src/lib/useUserPreferences';
 import { useUnit } from '@/src/lib/useUnit';
 import {
   useToast, PanelCard, Button, IconButton, Badge, Input, Select, Switch, Modal,
-  PageWrapper, SectionTitle,
+  PageWrapper, SectionTitle, EmptyState,
 } from '@/src/components/ui';
 
 // ─── SegmentedControl ────────────────────────────────────────────────────────
@@ -1005,6 +1005,7 @@ export default function AuroraAI() {
   const [selectedBatchId, setSelectedBatchId] = useState('');
   const [matchResults, setMatchResults] = useState<MatchResult[]>([]);
   const [isMatching, setIsMatching] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
   const [selectedMatch, setSelectedMatch] = useState<MatchResult | null>(null);
 
   // Filters — restored from backend user preferences
@@ -1117,6 +1118,7 @@ export default function AuroraAI() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || data.detail || 'Erro ao calcular aderência.');
       setMatchResults(data.results || []);
+      setHasSearched(true);
       toast.success('Análise de aderência concluída!');
       fetchSessions();
     } catch (err) {
@@ -1199,7 +1201,7 @@ export default function AuroraAI() {
                 radius={radius}
                 onlyWithDisc={onlyWithDisc}
                 isMatching={isMatching}
-                onJobChange={setSelectedJobId}
+                onJobChange={v => { setSelectedJobId(v); setHasSearched(false); setMatchResults([]); }}
                 onBatchChange={setSelectedBatchId}
                 onPrecisionChange={handlePrecisionChange}
                 onMinScoreChange={handleMinScoreChange}
@@ -1224,6 +1226,17 @@ export default function AuroraAI() {
                     />
                   ))}
                 </div>
+              )}
+
+              {!isMatching && hasSearched && matchResults.length === 0 && (
+                <PanelCard padding={false}>
+                  <EmptyState
+                    icon={<Sparkles size={40} />}
+                    title="Nenhum candidato compatível encontrado"
+                    description={`Não foi encontrado ninguém compatível com a vaga "${jobs.find(j => String(j.id) === String(selectedJobId))?.title ?? 'selecionada'}" com score mínimo de ${minScore}% e raio de ${radius} km.`}
+                    className="py-16"
+                  />
+                </PanelCard>
               )}
             </div>
           )}
