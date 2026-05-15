@@ -3087,11 +3087,26 @@ Retorne EXATAMENTE este JSON:
         ? candidates.filter((c: any) => c.disc && c.disc.predominant_profile)
         : candidates;
 
-      // Process up to 50 candidates — gpt-4.1-mini supports 32k output tokens
-      const candidatesToProcess = filteredCandidates.slice(0, 50);
       const scoreThreshold = Math.max(0, numericMinScore);
 
-      const prompt = `
+      // Reuse cached scores — only send to AI candidates not yet evaluated for this job
+      const cachedRows = await db.prepare(
+        'SELECT candidate_id, compatibility_score, classification, distance_km, strengths, attention_points, recommendation_reason, risk_reason, has_disc, disc_profile FROM ai_search_results WHERE job_id = ?'
+      ).all(jobId) as any[];
+      const cachedMap = new Map<number, any>(cachedRows.map((r: any) => [Number(r.candidate_id), r]));
+
+      const cachedCandidates = filteredCandidates.filter((c: any) => cachedMap.has(Number(c.id)));
+      const newCandidates    = filteredCandidates.filter((c: any) => !cachedMap.has(Number(c.id)));
+
+      // Process up to 50 new candidates — gpt-4.1-mini supports 32k output tokens
+      const candidatesToProcess = newCandidates.slice(0, 50);
+
+      // ── Step 1: call AI only for candidates not yet evaluated for this job ──
+      let newAiResults: any[] = [];
+      let summary = `${cachedCandidates.length} candidato(s) recuperado(s) do cache.`;
+
+      if (candidatesToProcess.length > 0) {
+        const prompt = `
         Você é a Aurora AI, sistema analítico de recrutamento corporativo.
         Avalie CADA candidato de forma INDEPENDENTE e ABSOLUTA em relação à vaga — NÃO compare candidatos entre si.
         O score de cada candidato deve refletir SOMENTE a aderência dele à vaga, ignorando os demais.
@@ -3136,85 +3151,108 @@ DISC: ${c.disc?.predominant_profile ? `${c.disc.predominant_profile} (D:${c.disc
         {"results":[{"candidate_id":number,"compatibility_score":number,"classification":"string","distance_km":number,"strengths":["string"],"attention_points":["string"],"recommendation_reason":"string","risk_reason":"string"}],"summary":"string"}
       `;
 
-      const aiResult = await ai.models.generateContent({
-        model: GEMINI_MODEL,
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        config: {
-          responseMimeType: 'application/json',
-          maxOutputTokens: 16000,
-          temperature: 0.0,
-          operationLabel: 'match inteligente de vaga',
-        }
-      });
+        const aiResult = await ai.models.generateContent({
+          model: GEMINI_MODEL,
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          config: {
+            responseMimeType: 'application/json',
+            maxOutputTokens: 16000,
+            temperature: 0.0,
+            operationLabel: 'match inteligente de vaga',
+          }
+        });
 
-      let analysis: any;
-      try {
-        analysis = JSON.parse(aiResult.text || '{"results":[],"summary":""}');
-      } catch {
-        // AI truncated JSON — try to extract partial results array
-        const partial = aiResult.text || '';
-        const match = partial.match(/"results"\s*:\s*(\[[\s\S]*)/);
-        if (match) {
-          // Close the array and object as best we can
-          let arr = match[1];
-          // Remove trailing incomplete object
-          const lastComplete = arr.lastIndexOf('}');
-          if (lastComplete !== -1) arr = arr.substring(0, lastComplete + 1) + ']';
-          try {
-            analysis = { results: JSON.parse(arr), summary: 'Análise parcial (resposta truncada)' };
-          } catch {
+        let analysis: any;
+        try {
+          analysis = JSON.parse(aiResult.text || '{"results":[],"summary":""}');
+        } catch {
+          const partial = aiResult.text || '';
+          const matchPartial = partial.match(/"results"\s*:\s*(\[[\s\S]*)/);
+          if (matchPartial) {
+            let arr = matchPartial[1];
+            const lastComplete = arr.lastIndexOf('}');
+            if (lastComplete !== -1) arr = arr.substring(0, lastComplete + 1) + ']';
+            try {
+              analysis = { results: JSON.parse(arr), summary: 'Análise parcial (resposta truncada)' };
+            } catch {
+              analysis = { results: [], summary: 'Erro ao processar resposta da IA' };
+            }
+          } else {
             analysis = { results: [], summary: 'Erro ao processar resposta da IA' };
           }
-        } else {
-          analysis = { results: [], summary: 'Erro ao processar resposta da IA' };
+        }
+
+        newAiResults = analysis.results;
+        summary = analysis.summary;
+
+        // Save only new results (cached ones already exist in the table)
+        const insertResultStmt = db.prepare(`
+          INSERT INTO ai_search_results
+          (session_id, candidate_id, job_id, compatibility_score, classification, distance_km, has_disc, disc_profile, strengths, attention_points, recommendation_reason, risk_reason, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        `);
+
+        for (const resItem of newAiResults) {
+          if (resItem.compatibility_score >= numericMinScore) {
+            const cand = candidates.find((c: any) => Number(c.id) === Number(resItem.candidate_id));
+            const hasDisc = !!(cand?.disc?.predominant_profile);
+            await insertResultStmt.run(
+              sessionId,
+              resItem.candidate_id,
+              jobId,
+              resItem.compatibility_score,
+              resItem.classification,
+              resItem.distance_km,
+              hasDisc ? 1 : 0,
+              cand?.disc?.predominant_profile || null,
+              JSON.stringify(resItem.strengths),
+              JSON.stringify(resItem.attention_points),
+              resItem.recommendation_reason,
+              resItem.risk_reason
+            );
+          }
         }
       }
-      
-      // Delete previous results for this job to avoid duplicates
-      await db.prepare('DELETE FROM ai_search_results WHERE job_id = ?').run(jobId);
 
-      // Save results
-      const insertResultStmt = db.prepare(`
-        INSERT INTO ai_search_results
-        (session_id, candidate_id, job_id, compatibility_score, classification, distance_km, has_disc, disc_profile, strengths, attention_points, recommendation_reason, risk_reason, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-      `);
+      await db.prepare('UPDATE ai_search_sessions SET summary = ? WHERE id = ?').run(summary, sessionId);
 
-      for (const resItem of analysis.results) {
-        if (resItem.compatibility_score >= numericMinScore) {
-          const cand = candidates.find((c: any) => Number(c.id) === Number(resItem.candidate_id));
-          const hasDisc = !!(cand?.disc?.predominant_profile);
-          await insertResultStmt.run(
-            sessionId,
-            resItem.candidate_id,
-            jobId,
-            resItem.compatibility_score,
-            resItem.classification,
-            resItem.distance_km,
-            hasDisc ? 1 : 0,
-            cand?.disc?.predominant_profile || null,
-            JSON.stringify(resItem.strengths),
-            JSON.stringify(resItem.attention_points),
-            resItem.recommendation_reason,
-            resItem.risk_reason
-          );
-        }
-      }
+      // ── Step 2: merge cached + new results, filter by current minScore ──
+      const cachedAsResults = cachedCandidates
+        .map((c: any) => {
+          const row = cachedMap.get(Number(c.id));
+          return {
+            candidate_id: c.id,
+            compatibility_score: row.compatibility_score,
+            classification: row.classification,
+            distance_km: row.distance_km,
+            strengths: typeof row.strengths === 'string' ? JSON.parse(row.strengths) : (row.strengths || []),
+            attention_points: typeof row.attention_points === 'string' ? JSON.parse(row.attention_points) : (row.attention_points || []),
+            recommendation_reason: row.recommendation_reason,
+            risk_reason: row.risk_reason,
+            full_name: c.full_name,
+            city: c.city,
+            state: c.state,
+            has_disc: !!(c.disc?.predominant_profile),
+            disc_profile: c.disc?.predominant_profile || null,
+            disc_d: c.disc?.disc_d || 0,
+            disc_i: c.disc?.disc_i || 0,
+            disc_s: c.disc?.disc_s || 0,
+            disc_c: c.disc?.disc_c || 0,
+            from_cache: true,
+          };
+        })
+        .filter((r: any) => r.compatibility_score >= numericMinScore);
 
-      // Update session summary
-      await db.prepare('UPDATE ai_search_sessions SET summary = ? WHERE id = ?').run(analysis.summary, sessionId);
-
-      let enhancedResults = analysis.results
+      const newAsResults = newAiResults
         .filter((resItem: any) => resItem.compatibility_score >= numericMinScore)
         .map((resItem: any) => {
           const candidate = candidates.find((c: any) => Number(c.id) === Number(resItem.candidate_id));
-          const hasDisc = !!(candidate?.disc?.predominant_profile);
           return {
             ...resItem,
             full_name: candidate?.full_name || 'Candidato',
             city: candidate?.city || 'Localidade',
             state: candidate?.state || 'NI',
-            has_disc: hasDisc,
+            has_disc: !!(candidate?.disc?.predominant_profile),
             disc_profile: candidate?.disc?.predominant_profile || null,
             disc_d: candidate?.disc?.disc_d || 0,
             disc_i: candidate?.disc?.disc_i || 0,
@@ -3223,14 +3261,13 @@ DISC: ${c.disc?.predominant_profile ? `${c.disc.predominant_profile} (D:${c.disc
           };
         });
 
+      const enhancedResults = [...cachedAsResults, ...newAsResults];
       enhancedResults.sort((a: any, b: any) => {
-        if (b.compatibility_score !== a.compatibility_score) {
-          return b.compatibility_score - a.compatibility_score;
-        }
+        if (b.compatibility_score !== a.compatibility_score) return b.compatibility_score - a.compatibility_score;
         return a.full_name.localeCompare(b.full_name);
       });
 
-      res.json({ sessionId, summary: analysis.summary, results: enhancedResults });
+      res.json({ sessionId, summary, results: enhancedResults });
     } catch (error: any) {
       console.error('[match-job]', error?.message || error);
       res.status(500).json({ error: 'Match job failed', detail: error?.message });
