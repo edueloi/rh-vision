@@ -16,6 +16,7 @@ import {
   ShieldCheck,
   Sparkles,
   Upload,
+  Zap,
 } from "lucide-react";
 import {
   Badge,
@@ -443,6 +444,8 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
   const [rawImportLoading, setRawImportLoading] = useState(false);
   const [rawImportError, setRawImportError] = useState("");
   const [rawImportTexts, setRawImportTexts] = useState<Record<number, string>>({});
+  const [isBatchSaving, setIsBatchSaving] = useState(false);
+  const [batchSaveProgress, setBatchSaveProgress] = useState<{ current: number; total: number } | null>(null);
   const [formData, setFormData] = useState<Partial<Job>>(() =>
     createBaseFormData(startsInImportMode ? "import" : "manual", { ...job, ...initialData })
   );
@@ -634,6 +637,47 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
     }
   };
 
+  const handleBatchAutoSave = async () => {
+    if (importedReviews.length === 0) return;
+    setIsBatchSaving(true);
+    const total = importedReviews.length;
+    let saved = 0;
+    let failed = 0;
+    const remaining: typeof importedReviews = [];
+
+    for (let i = 0; i < importedReviews.length; i++) {
+      const review = importedReviews[i];
+      setBatchSaveProgress({ current: i + 1, total });
+      try {
+        const payload = buildJobPayload(normalizeImportedJobData(review.data));
+        const response = await fetch(`/api/jobs/import/${review.importId}/create-job`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        if (!response.ok) throw new Error();
+        saved++;
+      } catch {
+        failed++;
+        remaining.push(review);
+      }
+    }
+
+    setIsBatchSaving(false);
+    setBatchSaveProgress(null);
+    setImportedReviews(remaining);
+
+    if (remaining.length === 0) {
+      setCurrentImportId(null);
+      setConfidence(null);
+      toast.success(`${saved} vaga${saved !== 1 ? 's' : ''} salva${saved !== 1 ? 's' : ''} automaticamente.`);
+      onSuccess();
+    } else {
+      loadImportedReview(remaining[0]);
+      toast.error(`${saved} salvas, ${failed} falharam — revise as restantes manualmente.`);
+    }
+  };
+
   const handleSave = async (isPublic = false) => {
     if (!formData.title || !formData.city || !formData.state) {
       toast.error("Preencha os campos obrigatórios: Título, Cidade e Estado.");
@@ -771,6 +815,21 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
           <p className="text-sm leading-relaxed text-zinc-500">
             Cada vaga permanece em fila até você revisar e salvar. Os campos vazios continuam vazios quando o documento não traz a informação.
           </p>
+
+          {importedReviews.length > 1 && (
+            <Button
+              variant="secondary"
+              size="sm"
+              fullWidth
+              disabled={isBatchSaving}
+              onClick={handleBatchAutoSave}
+              iconLeft={isBatchSaving ? <Loader2 size={14} className="animate-spin" /> : <Zap size={14} />}
+            >
+              {isBatchSaving && batchSaveProgress
+                ? `Salvando ${batchSaveProgress.current} de ${batchSaveProgress.total}…`
+                : `Salvar todas (${importedReviews.length}) automaticamente`}
+            </Button>
+          )}
         </div>
 
         <div className="space-y-2">

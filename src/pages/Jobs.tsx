@@ -1,11 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
+  ArrowUpDown,
   Briefcase,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  ChevronUp,
   Copy,
   ExternalLink,
   Globe,
@@ -129,6 +132,21 @@ export default function Jobs() {
   const setPageSize = (n: number) => {
     setPageSizeState(n);
     setPref("jobs_pageSize", n);
+    setCurrentPage(1);
+  };
+
+  // sorting
+  type SortField = 'title' | 'department' | 'status' | 'created_at';
+  const [sortBy, setSortBy] = useState<SortField>('title');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+
+  const handleSort = (field: SortField) => {
+    if (sortBy === field) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(field);
+      setSortDir('asc');
+    }
     setCurrentPage(1);
   };
 
@@ -272,7 +290,27 @@ export default function Jobs() {
   };
 
   // ── Pagination / selection ────────────────────────────────────────────────
-  const sortedJobs = useMemo(() => [...jobs], [jobs]);
+  const sortedJobs = useMemo(() => {
+    return [...jobs].sort((a, b) => {
+      let valA: string;
+      let valB: string;
+      if (sortBy === 'title') {
+        valA = a.title || '';
+        valB = b.title || '';
+      } else if (sortBy === 'department') {
+        valA = a.department || '';
+        valB = b.department || '';
+      } else if (sortBy === 'status') {
+        valA = a.status || '';
+        valB = b.status || '';
+      } else {
+        valA = a.created_at || '';
+        valB = b.created_at || '';
+      }
+      const cmp = valA.localeCompare(valB, 'pt-BR', { sensitivity: 'base' });
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+  }, [jobs, sortBy, sortDir]);
   const totalPages = Math.max(1, Math.ceil(sortedJobs.length / pageSize));
   const safePage = Math.min(currentPage, totalPages);
   const pagedJobs = sortedJobs.slice((safePage - 1) * pageSize, safePage * pageSize);
@@ -393,16 +431,28 @@ export default function Jobs() {
               <Checkbox checked={allSelected} indeterminate={someSelected} onChange={toggleSelectAll} />
             </div>
             <div className="px-4 py-2.5 border-l border-zinc-200">
-              <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Vaga</p>
+              <button onClick={() => handleSort('title')} className="flex items-center gap-1.5 group">
+                <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest group-hover:text-zinc-700">Vaga</p>
+                {sortBy === 'title' ? (sortDir === 'asc' ? <ChevronUp size={11} className="text-develoi-navy" /> : <ChevronDown size={11} className="text-develoi-navy" />) : <ArrowUpDown size={10} className="text-zinc-300 group-hover:text-zinc-400" />}
+              </button>
             </div>
             <div className="hidden md:flex items-center justify-center px-4 py-2.5 border-l border-zinc-200">
-              <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Depto.</p>
+              <button onClick={() => handleSort('department')} className="flex items-center gap-1.5 group">
+                <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest group-hover:text-zinc-700">Depto.</p>
+                {sortBy === 'department' ? (sortDir === 'asc' ? <ChevronUp size={11} className="text-develoi-navy" /> : <ChevronDown size={11} className="text-develoi-navy" />) : <ArrowUpDown size={10} className="text-zinc-300 group-hover:text-zinc-400" />}
+              </button>
             </div>
             <div className="hidden md:flex items-center justify-center px-4 py-2.5 border-l border-zinc-200">
-              <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Status</p>
+              <button onClick={() => handleSort('status')} className="flex items-center gap-1.5 group">
+                <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest group-hover:text-zinc-700">Status</p>
+                {sortBy === 'status' ? (sortDir === 'asc' ? <ChevronUp size={11} className="text-develoi-navy" /> : <ChevronDown size={11} className="text-develoi-navy" />) : <ArrowUpDown size={10} className="text-zinc-300 group-hover:text-zinc-400" />}
+              </button>
             </div>
             <div className="hidden md:flex items-center justify-center px-4 py-2.5 border-l border-zinc-200">
-              <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Criação</p>
+              <button onClick={() => handleSort('created_at')} className="flex items-center gap-1.5 group">
+                <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest group-hover:text-zinc-700">Criação</p>
+                {sortBy === 'created_at' ? (sortDir === 'asc' ? <ChevronUp size={11} className="text-develoi-navy" /> : <ChevronDown size={11} className="text-develoi-navy" />) : <ArrowUpDown size={10} className="text-zinc-300 group-hover:text-zinc-400" />}
+              </button>
             </div>
             <div className="flex items-center justify-end px-4 py-2.5 border-l border-zinc-200">
               <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Ações</p>
