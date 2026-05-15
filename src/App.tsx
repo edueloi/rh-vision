@@ -1036,7 +1036,7 @@ function AppContent() {
 
           <Routes>
             <Route path="/dashboard" element={guard(permissions.dashboard, <Dashboard />)} />
-            <Route path="/aurora-ai" element={guard(permissions.aurora_ai, <AuroraAI />)} />
+            <Route path="/aurora-ai/*" element={guard(permissions.aurora_ai, <AuroraAI />)} />
             <Route path="/matches" element={guard(permissions.aurora_ai, <Matches />)} />
             <Route path="/vagas/*" element={guard(permissions.jobs, <Jobs />)} />
             <Route path="/candidatos" element={guard(permissions.candidates, <Candidates />)} />

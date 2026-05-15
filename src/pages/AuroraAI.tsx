@@ -1,8 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Brain, Sparkles, Bot, Send, Target, CheckCircle2, AlertCircle,
   MessageSquare, History, Settings as SettingsIcon, ChevronRight,
-  Zap, User, MapPin, Cpu, Users, Search, BarChart3, Save, Loader2
+  Zap, User, MapPin, Cpu, Users, Search, BarChart3, Save, Loader2,
+  Package,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/src/lib/utils';
@@ -352,13 +354,16 @@ function AnalysisProgressOverlay({ jobTitle, visible }: { jobTitle: string; visi
 
 interface MatchFiltersProps {
   jobs: any[];
+  batches: any[];
   selectedJobId: string;
+  selectedBatchId: string;
   precisionMode: string;
   minScore: string;
   radius: string;
   onlyWithDisc: boolean;
   isMatching: boolean;
   onJobChange: (v: string) => void;
+  onBatchChange: (v: string) => void;
   onPrecisionChange: (v: string) => void;
   onMinScoreChange: (v: string) => void;
   onRadiusChange: (v: string) => void;
@@ -395,6 +400,27 @@ function MatchFilters(props: MatchFiltersProps) {
             value={props.precisionMode}
             onChange={props.onPrecisionChange}
           />
+        </div>
+
+        {/* Batch source selector */}
+        <div className="space-y-2">
+          <Select
+            label="Fonte dos Candidatos"
+            value={props.selectedBatchId}
+            onChange={e => props.onBatchChange(e.target.value)}
+          >
+            <option value="">Todos os candidatos</option>
+            {props.batches.map(b => (
+              <option key={b.id} value={b.id}>
+                {b.name || `Lote #${b.id}`}{b.job_title ? ` — ${b.job_title}` : ''} ({b.total_files ?? 0} arquivos)
+              </option>
+            ))}
+          </Select>
+          {props.selectedBatchId && (
+            <p className="text-[10px] text-blue-600 font-bold flex items-center gap-1">
+              <Package size={10} /> Analisando apenas candidatos do lote selecionado
+            </p>
+          )}
         </div>
 
         {/* Numeric filters + toggles */}
@@ -896,6 +922,18 @@ function MatchDetailsModal({ rec, radius, onClose }: { rec: MatchResult; radius:
 
 type ViewId = 'chat' | 'match' | 'history';
 
+const VIEW_PATHS: Record<ViewId, string> = {
+  chat:    '/aurora-ai/conversa',
+  match:   '/aurora-ai/aderencia',
+  history: '/aurora-ai/historico',
+};
+
+const PATH_TO_VIEW: Record<string, ViewId> = {
+  conversa:  'chat',
+  aderencia: 'match',
+  historico: 'history',
+};
+
 const VIEWS: { id: ViewId; label: string; icon: React.ElementType }[] = [
   { id: 'chat', label: 'Conversa', icon: MessageSquare },
   { id: 'match', label: 'Aderência', icon: Target },
@@ -933,8 +971,16 @@ export default function AuroraAI() {
   const queryUnitId = currentUnit.is_master ? 'master' : currentUnit.id;
   const activeUnitId = currentUnit.id;
   const toast = useToast();
+  const navigate = useNavigate();
+  const location = useLocation();
 
-  const [activeView, setActiveView] = useState<ViewId>('chat');
+  // Derive active view from URL path segment
+  const pathSegment = location.pathname.replace('/aurora-ai', '').replace(/^\//, '').split('/')[0];
+  const activeView: ViewId = PATH_TO_VIEW[pathSegment] ?? 'chat';
+
+  const setActiveView = useCallback((v: ViewId) => {
+    navigate(VIEW_PATHS[v], { replace: false });
+  }, [navigate]);
 
   // Chat state
   const [chatMessages, setChatMessages] = useState<Message[]>([{
@@ -950,11 +996,13 @@ export default function AuroraAI() {
 
   // Data state
   const [jobs, setJobs] = useState<any[]>([]);
+  const [batches, setBatches] = useState<any[]>([]);
   const [sessions, setSessions] = useState<any[]>([]);
   const [stats, setStats] = useState<any>(null);
 
   // Match state
   const [selectedJobId, setSelectedJobId] = useState('');
+  const [selectedBatchId, setSelectedBatchId] = useState('');
   const [matchResults, setMatchResults] = useState<MatchResult[]>([]);
   const [isMatching, setIsMatching] = useState(false);
   const [selectedMatch, setSelectedMatch] = useState<MatchResult | null>(null);
@@ -975,6 +1023,7 @@ export default function AuroraAI() {
     fetchJobs();
     fetchSessions();
     fetchStats();
+    fetchBatches();
   }, [queryUnitId]);
 
   useEffect(() => {
@@ -989,6 +1038,13 @@ export default function AuroraAI() {
     try {
       const res = await fetch(`/api/jobs?tenantId=${tenantId}&unitId=${queryUnitId}`);
       setJobs(await res.json());
+    } catch { /* silent */ }
+  }
+
+  async function fetchBatches() {
+    try {
+      const res = await fetch(`/api/imports?tenantId=${tenantId}`);
+      if (res.ok) setBatches(await res.json());
     } catch { /* silent */ }
   }
 
@@ -1054,15 +1110,17 @@ export default function AuroraAI() {
         body: JSON.stringify({
           jobId: selectedJobId, tenantId, unitId: queryUnitId,
           precisionMode, minScore, radius, onlyWithDisc,
-          filters: { precisionMode, minScore, radius, onlyWithDisc },
+          batchId: selectedBatchId || undefined,
+          filters: { precisionMode, minScore, radius, onlyWithDisc, batchId: selectedBatchId || undefined },
         }),
       });
       const data = await res.json();
+      if (!res.ok) throw new Error(data.error || data.detail || 'Erro ao calcular aderência.');
       setMatchResults(data.results || []);
       toast.success('Análise de aderência concluída!');
       fetchSessions();
-    } catch {
-      toast.error('Erro ao calcular aderência.');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao calcular aderência.');
     } finally {
       setIsMatching(false);
     }
@@ -1133,13 +1191,16 @@ export default function AuroraAI() {
             <div className="space-y-5 animate-in fade-in slide-in-from-bottom-3 duration-300">
               <MatchFilters
                 jobs={jobs}
+                batches={batches}
                 selectedJobId={selectedJobId}
+                selectedBatchId={selectedBatchId}
                 precisionMode={precisionMode}
                 minScore={minScore}
                 radius={radius}
                 onlyWithDisc={onlyWithDisc}
                 isMatching={isMatching}
                 onJobChange={setSelectedJobId}
+                onBatchChange={setSelectedBatchId}
                 onPrecisionChange={handlePrecisionChange}
                 onMinScoreChange={handleMinScoreChange}
                 onRadiusChange={handleRadiusChange}

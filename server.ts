@@ -3012,6 +3012,7 @@ Retorne EXATAMENTE este JSON:
       locationRule,
       onlyWithResume,
       onlyWithDisc,
+      batchId,
       statusFilter,
       sourceFilter,
       filters,
@@ -3035,23 +3036,35 @@ Retorne EXATAMENTE este JSON:
       
       const sessionId = sessionResult.lastInsertRowid;
 
-      // Fetch candidates
-      let candQuery = 'SELECT * FROM candidates WHERE tenant_id = ? AND deleted_at IS NULL';
-      const candParams: any[] = [tenantId];
+      // Fetch candidates — optionally restricted to a specific import batch
+      let candQuery: string;
+      let candParams: any[];
 
-      if (unitId && unitId !== 'master') {
-        candQuery += ' AND unit_id = ?';
-        candParams.push(unitId);
-      }
+      if (batchId) {
+        candQuery = `
+          SELECT c.* FROM candidates c
+          INNER JOIN import_files f ON f.candidate_id = c.id
+          WHERE f.batch_id = ? AND f.candidate_id IS NOT NULL AND c.tenant_id = ? AND c.deleted_at IS NULL
+        `;
+        candParams = [batchId, tenantId];
+      } else {
+        candQuery = 'SELECT * FROM candidates WHERE tenant_id = ? AND deleted_at IS NULL';
+        candParams = [tenantId];
 
-      if (statusFilter && statusFilter !== 'Todos') {
-        candQuery += ' AND status = ?';
-        candParams.push(statusFilter);
-      }
+        if (unitId && unitId !== 'master') {
+          candQuery += ' AND unit_id = ?';
+          candParams.push(unitId);
+        }
 
-      if (sourceFilter && sourceFilter !== 'Todos') {
-        candQuery += ' AND source = ?';
-        candParams.push(sourceFilter);
+        if (statusFilter && statusFilter !== 'Todos') {
+          candQuery += ' AND status = ?';
+          candParams.push(statusFilter);
+        }
+
+        if (sourceFilter && sourceFilter !== 'Todos') {
+          candQuery += ' AND source = ?';
+          candParams.push(sourceFilter);
+        }
       }
 
       const candidates = await db.prepare(candQuery).all(...candParams) as any[];
@@ -4174,6 +4187,110 @@ DISC: ${c.disc?.predominant_profile ? `${c.disc.predominant_profile} (D:${c.disc
           console.error("Critical background processing error:", criticalError);
         } finally {
           await db.prepare("UPDATE import_batches SET status = 'completed', updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(batchId);
+        }
+
+        // Auto-commit: envia automaticamente para candidatos após processar
+        try {
+          const filesToCommit = await db.prepare("SELECT * FROM import_files WHERE batch_id = ? AND status IN ('completed', 'duplicate')").all(batchId) as any[];
+          const batchData = await db.prepare('SELECT * FROM import_batches WHERE id = ?').get(batchId) as any;
+
+          for (const file of filesToCommit) {
+            try {
+              if (!file.parsed_data_json) continue;
+              const data = JSON.parse(file.parsed_data_json);
+              const hardSkillsText = Array.isArray(data.skills) ? data.skills.join(', ') : null;
+              const softSkillsText = Array.isArray(data.soft_skills) ? data.soft_skills.join(', ') : null;
+              const languagesText = Array.isArray(data.languages) ? data.languages.join(', ') : null;
+              const experiencesJson = stringifyStructuredListOrNull(data.experiences_list);
+              const educationJson = stringifyStructuredListOrNull(data.education_list);
+              const certificationsJson = stringifyStructuredListOrNull(data.certifications_list);
+              const projectsJson = stringifyStructuredListOrNull(data.projects_list);
+              const languagesJson = stringifyStructuredListOrNull(data.languages_list);
+              const hardSkillsJson = stringifyStructuredListOrNull(data.skills);
+              const softSkillsJson = stringifyStructuredListOrNull(data.soft_skills);
+              const objectivesJson = stringifyStructuredListOrNull(data.objectives_list);
+
+              if (file.status === 'completed') {
+                if (!data?.name || !data?.email) {
+                  await db.prepare('UPDATE import_files SET error_message = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+                    .run('Nome e e-mail são obrigatórios para concluir o cadastro.', file.id);
+                  continue;
+                }
+
+                const candRes = await db.prepare(`
+                  INSERT INTO candidates (
+                    tenant_id, unit_id, full_name, email, phone, city, state,
+                    desired_position, professional_summary, experience_years, hard_skills,
+                    education_level, languages, linkedin_url, portfolio_url, source, status
+                  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Importação em Massa', 'Novo')
+                `).run(
+                  file.tenant_id, file.unit_id, data.name, data.email, data.phone, data.city, data.state,
+                  data.role, data.summary, data.experience_years, hardSkillsText,
+                  data.education_level, languagesText, data.linkedin_url, data.portfolio_url
+                );
+
+                const candId = candRes.lastInsertRowid;
+
+                await db.prepare(`
+                  UPDATE candidates SET
+                    cpf=?,birth_date=?,address=?,desired_area=?,desired_salary=?,
+                    professional_experiences=?,academic_education=?,courses_certifications=?,
+                    soft_skills=?,experiences_json=?,education_json=?,certifications_json=?,
+                    projects_json=?,languages_json=?,hard_skills_json=?,soft_skills_json=?,
+                    objectives_json=?,has_cnh=?,cnh_category=?,available_to_travel=?,
+                    available_to_relocate=?,desired_work_model=?,desired_contract_type=?,
+                    internal_notes=?,updated_at=CURRENT_TIMESTAMP
+                  WHERE id=?
+                `).run(
+                  data.cpf,data.birth_date,data.address,data.desired_area,data.desired_salary,
+                  data.professional_experiences,data.academic_education,data.courses_certifications,
+                  softSkillsText,experiencesJson,educationJson,certificationsJson,
+                  projectsJson,languagesJson,hardSkillsJson,softSkillsJson,objectivesJson,
+                  data.has_cnh===null?false:Boolean(data.has_cnh),data.cnh_category,
+                  data.available_to_travel===null?false:Boolean(data.available_to_travel),
+                  data.available_to_relocate===null?false:Boolean(data.available_to_relocate),
+                  data.desired_work_model,data.desired_contract_type,
+                  buildCandidateImportNotes(data),candId
+                );
+
+                await attachImportedResumeToCandidate(candId, file);
+
+                if (batchData?.job_id) {
+                  await db.prepare(`
+                    INSERT INTO candidate_job_matches (candidate_id, job_id, compatibility_score, classification, status)
+                    VALUES (?, ?, ?, ?, 'Triagem')
+                  `).run(candId, batchData.job_id, file.compatibility_score, file.compatibility_classification);
+                }
+
+                await db.prepare('UPDATE import_files SET candidate_id = ?, status = "committed", error_message = NULL WHERE id = ?').run(candId, file.id);
+                await db.prepare('UPDATE import_batches SET created_candidates = created_candidates + 1 WHERE id = ?').run(batchId);
+
+              } else if (file.status === 'duplicate' && batchData?.duplicate_strategy === 'update') {
+                await db.prepare(`
+                  UPDATE candidates SET full_name=?,phone=?,city=?,state=?,professional_summary=?,
+                    desired_position=?,experience_years=?,hard_skills=?,education_level=?,
+                    languages=?,linkedin_url=?,portfolio_url=?,updated_at=CURRENT_TIMESTAMP
+                  WHERE id=?
+                `).run(
+                  data.name,data.phone,data.city,data.state,data.summary,data.role,
+                  data.experience_years,hardSkillsText,data.education_level,languagesText,
+                  data.linkedin_url,data.portfolio_url,file.duplicate_candidate_id
+                );
+
+                await attachImportedResumeToCandidate(file.duplicate_candidate_id, file);
+                await db.prepare('UPDATE import_files SET candidate_id = ?, status = "committed", error_message = NULL WHERE id = ?').run(file.duplicate_candidate_id, file.id);
+                await db.prepare('UPDATE import_batches SET updated_candidates = updated_candidates + 1 WHERE id = ?').run(batchId);
+              }
+            } catch (fileErr) {
+              console.error(`[auto-commit] Error for file ${file.id}:`, fileErr);
+              await db.prepare('UPDATE import_files SET error_message = ? WHERE id = ?').run(String(fileErr), file.id);
+            }
+          }
+
+          await db.prepare("UPDATE import_batches SET status = 'committed', updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(batchId);
+          console.log(`[auto-commit] Batch ${batchId} committed automatically.`);
+        } catch (commitErr) {
+          console.error(`[auto-commit] Failed for batch ${batchId}:`, commitErr);
         }
       })().catch(err => console.error("Critical background error:", err));
 
