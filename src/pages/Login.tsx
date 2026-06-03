@@ -33,11 +33,21 @@ export default function Login({ onLogin }: LoginProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
+      const data = await res.json();
       if (res.ok) {
-        const user = await res.json();
-        localStorage.setItem("auth_user", JSON.stringify(user));
-        toast.success(`Bem-vindo, ${user.full_name}!`);
-        onLogin(user);
+        localStorage.setItem("auth_user", JSON.stringify(data));
+        toast.success(`Bem-vindo, ${data.full_name}!`);
+        onLogin(data);
+      } else if (res.status === 403) {
+        // Tenant expirado ou suspenso — mostrar mensagem clara
+        if (data.code === 'TENANT_EXPIRED') {
+          const expDate = data.expired_at ? new Date(data.expired_at).toLocaleDateString('pt-BR') : '';
+          toast.error(`Acesso expirado${expDate ? ` em ${expDate}` : ''}. Entre em contato com o administrador.`, { duration: 8000 } as any);
+        } else if (data.code === 'TENANT_SUSPENDED') {
+          toast.error('Acesso suspenso. Entre em contato com o administrador.', { duration: 8000 } as any);
+        } else {
+          toast.error(data.error || 'Acesso negado.');
+        }
       } else {
         toast.error("Credenciais inválidas.");
       }

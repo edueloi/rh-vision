@@ -75,10 +75,13 @@ interface TenantAccess {
 }
 
 const VALIDITY_OPTIONS = [
-  { value: 30, label: "30 dias" },
-  { value: 90, label: "90 dias" },
-  { value: 180, label: "180 dias" },
-  { value: 365, label: "1 ano" },
+  { value: 7,    label: "7 dias (teste)"  },
+  { value: 30,   label: "30 dias"         },
+  { value: 90,   label: "90 dias"         },
+  { value: 180,  label: "180 dias"        },
+  { value: 365,  label: "1 ano"           },
+  { value: 730,  label: "2 anos"          },
+  { value: 3650, label: "10 anos"         },
 ];
 
 const PROFILE_OPTIONS: AccessProfile[] = [
@@ -113,10 +116,12 @@ const initialContractForm = {
 };
 
 function getPlanLabelForDays(days: number) {
-  if (days >= 365) return "Plano Anual";
-  if (days >= 180) return "Plano Semestral";
-  if (days >= 90) return "Plano Trimestral";
-  return "Trial 30 dias";
+  if (days >= 730)  return "Plano Bienal";
+  if (days >= 365)  return "Plano Anual";
+  if (days >= 180)  return "Plano Semestral";
+  if (days >= 90)   return "Plano Trimestral";
+  if (days >= 30)   return "Trial 30 dias";
+  return "Trial 7 dias";
 }
 
 function formatDate(value?: string | null) {

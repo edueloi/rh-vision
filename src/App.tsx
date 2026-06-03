@@ -53,6 +53,7 @@ import Profile from "./pages/Profile";
 import AccessGuide from "./pages/AccessGuide";
 import SettingsPage from "./pages/Settings";
 import Approvals from "./pages/Approvals";
+import AccessBlocked from "./pages/AccessBlocked";
 import { cn } from "./lib/utils";
 import { useUnit, Unit } from "./lib/useUnit";
 import { getWelcomeStorageKey, isRootAdmin } from "./lib/auth";
@@ -182,6 +183,7 @@ function AppContent() {
   const [user, setUser] = useState<any>(null);
   const [showWelcome, setShowWelcome] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
+  const [tenantBlock, setTenantBlock] = useState<{ code: 'TENANT_EXPIRED' | 'TENANT_SUSPENDED'; expired_at?: string } | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [unitMenuOpen, setUnitMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -294,6 +296,20 @@ function AppContent() {
         const parsedUser = JSON.parse(storedUser);
         setUser(parsedUser);
 
+        // Verificar validade do tenant ao restaurar sessão (exceto root/develoi)
+        if (parsedUser.id !== 'admin-root' && parsedUser.tenant_id !== 'develoi') {
+          fetch('/api/auth/tenant-status', {
+            headers: { 'x-tenant-id': parsedUser.tenant_id, 'x-user-id': parsedUser.id },
+          })
+            .then(r => r.json())
+            .then(data => {
+              if (!data.valid) {
+                setTenantBlock({ code: data.code, expired_at: data.expired_at });
+              }
+            })
+            .catch(() => { /* silent — não bloquear por falha de rede */ });
+        }
+
         const hasSeenWelcome = localStorage.getItem(getWelcomeStorageKey(parsedUser.id));
         if (!hasSeenWelcome) {
           setShowWelcome(true);
@@ -344,8 +360,20 @@ function AppContent() {
     setUser(null);
     setShowWelcome(false);
     setSidebarOpen(false);
+    setTenantBlock(null);
     navigate("/login", { replace: true });
   };
+
+  // Tela de bloqueio por tenant expirado/suspenso
+  if (tenantBlock && user) {
+    return (
+      <AccessBlocked
+        code={tenantBlock.code}
+        expiredAt={tenantBlock.expired_at}
+        onLogout={handleLogout}
+      />
+    );
+  }
 
   if (legacyPortalMode && !isPortalRoute) {
     return <Navigate to="/portal" replace />;
