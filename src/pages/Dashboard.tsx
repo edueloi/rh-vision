@@ -451,7 +451,7 @@ export default function Dashboard() {
         />
 
         <PendingApprovalsAlert count={pendingApprovals} />
-        <SmartAlerts alerts={alerts} />
+        {/* SmartAlerts desativados — <SmartAlerts alerts={alerts} /> */}
         <DashboardStats stats={stats} />
         <RecruitmentFunnel funnel={funnel} />
 
