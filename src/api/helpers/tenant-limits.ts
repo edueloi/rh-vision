@@ -69,7 +69,7 @@ export function checkAiAnalysisLimit(tenantId: string): LimitCheck {
 
   const yearMonth = new Date().toISOString().slice(0, 7); // '2026-06'
   const row = db.prepare(
-    'SELECT analyses FROM tenant_ai_usage WHERE tenant_id = ? AND year_month = ?'
+    'SELECT analyses FROM tenant_ai_usage WHERE tenant_id = ? AND `year_month` = ?'
   ).get(tenantId, yearMonth) as any;
   const current = Number(row?.analyses || 0);
 
@@ -88,11 +88,8 @@ export function checkAiAnalysisLimit(tenantId: string): LimitCheck {
 export function incrementAiAnalysis(tenantId: string): void {
   const yearMonth = new Date().toISOString().slice(0, 7);
   try {
-    db.prepare(`
-      INSERT INTO tenant_ai_usage (tenant_id, year_month, analyses)
-      VALUES (?, ?, 1)
-      ON DUPLICATE KEY UPDATE analyses = analyses + 1
-    `).run(tenantId, yearMonth);
+    const sql = 'INSERT INTO tenant_ai_usage (tenant_id, `year_month`, analyses) VALUES (?, ?, 1) ON DUPLICATE KEY UPDATE analyses = analyses + 1';
+    db.prepare(sql).run(tenantId, yearMonth);
   } catch { /* silent */ }
 }
 
@@ -109,7 +106,7 @@ export function getTenantUsage(tenantId: string) {
   ).get(tenantId) as any;
 
   const aiRow = db.prepare(
-    'SELECT analyses FROM tenant_ai_usage WHERE tenant_id = ? AND year_month = ?'
+    'SELECT analyses FROM tenant_ai_usage WHERE tenant_id = ? AND `year_month` = ?'
   ).get(tenantId, yearMonth) as any;
 
   return {
