@@ -253,57 +253,151 @@ export function registerAuroraAIRoutes(app: Express) {
           job.work_model === 'Presencial' ? `Presença física em ${job.city}/${job.state} obrigatória` : null,
         ].filter(Boolean).join('\n- ');
 
-        const precisionRules = precisionMode === 'Rigorosa'
-          ? `MODO RIGOROSO: candidato sem o cargo ou função EXATA (ou sinônimo direto) da vaga → score máximo 35. Sem as skills técnicas centrais → score máximo 40. Sem experiência mínima exigida → score máximo 30. Seja inflexível.`
-          : precisionMode === 'Equilibrada'
-          ? `MODO EQUILIBRADO: aceite candidatos que exerceram ATIVIDADES da função mesmo com cargo de nome diferente, mas penalize proporcionalmente. Cargo totalmente diferente → score máximo 60.`
-          : `MODO FLEXÍVEL: valorize potencial e habilidades transferíveis, mas NUNCA atribua score ≥ 70 a quem nunca exerceu nenhuma atividade relacionada à função.`;
+        // ── Regras específicas por modo de precisão ─────────────────────────────
+        const precisionBlock = precisionMode === 'Rigorosa' ? `
+══════════════════════════════════════════════════════
+MODO RIGOROSO — CRITÉRIOS DE ELIMINAÇÃO ABSOLUTOS
+══════════════════════════════════════════════════════
+Você está operando como um Head de RH sênior de empresa de alta exigência.
+Cada aprovação tem custo real de contratação, treinamento e risco operacional.
+Seja inflexível. Dúvida = reprovação.
+
+ELIMINATÓRIOS ABSOLUTOS (score máx 25 se qualquer um se aplicar):
+  E1. Não exerceu a função exata ou sinônimo direto da vaga em nenhum emprego formal.
+  E2. Falta ≥ 1 requisito OBRIGATÓRIO listado na vaga (CNH, experiência mínima, certificação mandatória etc.).
+  E3. Menos de 70% das skills técnicas CENTRAIS da vaga.
+  E4. Para vagas presenciais: mora a mais de ${radius || 50}km sem declarar disponibilidade de mudança.
+  E5. Sobre-qualificado: último cargo 2+ níveis acima da vaga (ex: Gerente → Assistente). Score máx 30.
+
+TETOS RÍGIDOS POR SITUAÇÃO:
+  - Cargo diferente, mesmo setor, atividades sobrepostas → score máx 55
+  - Candidato atende função mas falta 1 requisito obrigatório → score máx 50
+  - Sub-qualificado (< 60% da experiência exigida) → score máx 40
+  - Sobre-qualificado grave (≥ 2 níveis acima) → score máx 30
+  - Área completamente diferente → score máx 15
+
+ESCALA DE SCORES (RIGOROSA — use toda a amplitude):
+  90–100: Candidato perfeito. Função idêntica + todos os requisitos + experiência adequada + skills completas.
+  80–89:  Excelente. Atende 95%+ dos critérios. Pequenos gaps em desejáveis.
+  70–79:  Bom. Atende todos os obrigatórios, gaps apenas em desejáveis ou experiência ligeiramente acima do mínimo.
+  60–69:  Aceitável com ressalvas. Atende a função mas tem gap em 1 requisito não eliminatório.
+  50–59:  Fraco. Múltiplos gaps. Só considerar se pool for muito escasso.
+  40–49:  Muito fraco. Avançar só em caso de extrema escassez.
+  0–39:   Incompatível. Não avança.
+
+REGRA DE OURO DO MODO RIGOROSO:
+  Score ≥ 80 SOMENTE se o candidato cumpre 100% dos eliminatórios e ≥ 90% dos requisitos totais.
+  Score ≥ 70 SOMENTE se todos os eliminatórios passam e gap existe apenas em requisitos desejáveis.
+  Qualquer eliminatório reprovado = teto de 50, independente das outras qualidades.`
+
+        : precisionMode === 'Equilibrada' ? `
+══════════════════════════════════════════════════════
+MODO EQUILIBRADO — ANÁLISE TÉCNICA COM CONTEXTO
+══════════════════════════════════════════════════════
+Você está operando como um Analista Sênior de RH experiente.
+Avalie competências reais, não apenas títulos de cargo. Considere trajetória e contexto.
+Mas seja honesto — generosidade injustificada prejudica o recrutador.
+
+PRINCÍPIOS DO MODO EQUILIBRADO:
+  1. Cargo diferente mas atividades idênticas = válido (ex: "Assistente de Logística" que geria frota = válido para "Coordenador de Frota").
+     → Registre nos strengths com contexto: "Exerceu atividades de X no cargo Y na empresa Z"
+  2. Skills parciais = penalização proporcional, não eliminação automática.
+  3. Experiência ligeiramente abaixo do mínimo (<25% a menos) = aceitável com penalização.
+  4. Formação superior à exigida = positivo (sem penalização).
+  5. Sobre-qualificado moderado (1 nível acima) = aceitável COM alerta obrigatório nos attention_points.
+
+TETOS POR SITUAÇÃO:
+  - Área completamente diferente, sem atividades relacionadas → score máx 30
+  - Cargo diferente, atividades sobrepostas (≥50%) → score máx 75
+  - Falta 1 requisito obrigatório técnico → score máx 65
+  - Sub-qualificado (25–50% abaixo do mínimo) → score máx 60
+  - Sobre-qualificado (1 nível acima) → score máx 70, com alerta obrigatório
+  - Sobre-qualificado grave (≥2 níveis) → score máx 45
+
+ESCALA DE SCORES (EQUILIBRADA):
+  85–100: Candidato forte. Função idêntica/equivalente + requisitos + skills. Pode ter 1 gap menor em desejável.
+  70–84:  Bom candidato. Atende critérios centrais. Gaps menores aceitáveis.
+  55–69:  Candidato com potencial. Atende parcialmente. Gaps em requisitos não eliminatórios.
+  40–54:  Candidato fraco mas com algum mérito. Gaps relevantes que precisam ser avaliados presencialmente.
+  0–39:   Incompatível. Não avança.`
+
+        : `
+══════════════════════════════════════════════════════
+MODO FLEXÍVEL — AVALIAÇÃO DE POTENCIAL E TRANSFERÊNCIA
+══════════════════════════════════════════════════════
+Você está operando como um Recrutador com foco em potencial e crescimento.
+Valorize trajetória, aptidão, habilidades transferíveis e motivação implícita.
+Use para vagas com escassez de candidatos ideais ou posições de desenvolvimento.
+
+PRINCÍPIOS DO MODO FLEXÍVEL:
+  1. Habilidades transferíveis contam. Ex: ex-militar → segurança; professor → treinamento corporativo.
+  2. Trajetória de crescimento rápida = fator positivo mesmo sem experiência exata.
+  3. Formação de alto nível pode compensar parcialmente experiência prática.
+  4. Certificações e projetos pessoais na área contam como experiência complementar.
+  5. Mesmo no modo flexível: áreas SEM NENHUMA conexão com a vaga = score máx 35.
+
+LIMITES INVIOLÁVEIS MESMO NO MODO FLEXÍVEL:
+  - Zero conexão com a área da vaga → score máx 35 (ex: garçom → engenheiro de software).
+  - Falta de habilidade técnica básica e não-transferível → score máx 50 (ex: nenhum contato com programação para vaga dev).
+  - Sobre-qualificado grave (≥2 níveis acima, sem justificativa) → score máx 55.
+
+TETOS POR SITUAÇÃO:
+  - Área diferente mas com habilidades altamente transferíveis → score máx 65
+  - Candidato em transição de carreira com bagagem relevante → score máx 70
+  - Skills incompletas mas trajetória de aprendizado rápido → score máx 72
+  - Sub-qualificado mas potencial evidente → score máx 65
+
+ESCALA DE SCORES (FLEXÍVEL):
+  80–100: Candidato muito bom para o perfil. Combina ou supera os principais critérios.
+  65–79:  Bom potencial. Vale entrevistar.
+  50–64:  Potencial com ressalvas significativas. Entrevista opcional.
+  35–49:  Baixo potencial. Só se pool for muito restrito.
+  0–34:   Incompatível mesmo com critérios flexíveis.`;
 
         const prompt = `
-Você é a Aurora AI, motor analítico de recrutamento de precisão cirúrgica.
-Sua missão: identificar candidatos genuinamente qualificados para a vaga — NÃO fazer correspondência superficial por palavras-chave.
+Você é a Aurora AI — especialista sênior em análise de currículos, triagem e recrutamento.
+Você combina o rigor analítico de um Head de Talent Acquisition com a precisão de um sistema de matching por competências.
+Sua avaliação define quem o recrutador vai entrevistar. Erros de avaliação têm custo real.
 
-═══════════════════════════════════════════
-REGRA DE OURO — LEIA ANTES DE TUDO
-═══════════════════════════════════════════
-Um candidato SÓ pode ter score alto se:
-  1. Já EXERCEU a função (ou função diretamente equivalente) da vaga — não apenas "trabalhou no setor"
-  2. Possui as habilidades técnicas CENTRAIS da função
-  3. Atende a experiência mínima exigida
+══════════════════════════════════════════════════════
+PRINCÍPIOS UNIVERSAIS (válidos em qualquer modo)
+══════════════════════════════════════════════════════
+1. AVALIE O QUE O CANDIDATO FEZ, não apenas onde trabalhou.
+   → "Trabalhou na área" ≠ "Exerceu a função". Um auxiliar administrativo em transportadora NÃO é motorista.
 
-EXEMPLOS DE ERROS PROIBIDOS (score alto indevido):
-  ✗ Faxineiro → Analista de TI: NUNCA. Score máx 10.
-  ✗ Gerente → Assistente de Limpeza: NUNCA. Score máx 15.
-  ✗ Dev Júnior/Estagiário → Vaga Sênior (≥5 anos): Score máx 30, mesmo que tenha as linguagens.
-  ✗ Vendedor → Engenheiro de Software: Score máx 10. Saber Excel não faz ninguém dev.
-  ✗ Assistente Admin → Desenvolvedor: sem HTML/CSS/JS/linguagem de programação real → Score máx 15.
-  ✗ Cargo operacional → Cargo estratégico/gestão sem experiência de liderança: Score máx 35.
+2. SENIORIDADE É BIDIRECIONAL — ambas direções têm risco:
+   SUB-QUALIFICADO: não atinge o nível necessário para entregar.
+   SOBRE-QUALIFICADO: risco real de desmotivação, saída precoce e custo de reposição.
 
-EXEMPLOS DE ACERTOS ESPERADOS:
-  ✓ Desenvolvedor Python 5 anos → Vaga Dev Python Sênior: score 85–95.
-  ✓ Faxineira 3 anos → Vaga Auxiliar de Limpeza: score 80–95.
-  ✓ Analista RH 2 anos → Vaga Analista RH Pleno: score 70–85.
-  ✓ Dev Júnior 1 ano → Vaga Dev Júnior: score 65–80 dependendo das skills.
+   Regras de sub-qualificação:
+   → Vaga exige ≥4 anos (Sênior): candidato com <3 anos → score máx 35
+   → Vaga exige 2–4 anos (Pleno): candidato com <1 ano → score máx 40
+   → Vaga exige ≥1 ano: estagiário sem experiência → score máx 30
 
-REGRA DE SENIORIDADE (OBRIGATÓRIA — aplicar nos dois sentidos):
-  ABAIXO DA VAGA (sub-qualificado):
-  - Vaga SÊNIOR (ou exige ≥4 anos): candidato com < 3 anos → score máx 30.
-  - Vaga PLENO (ou exige 2–4 anos): candidato com < 1 ano → score máx 35.
+   Regras de sobre-qualificação:
+   → Vaga Júnior (0–2 anos): candidato com ≥5 anos → score máx 55 + alerta obrigatório
+   → Vaga Júnior: último cargo Pleno/Sênior → score máx 60 + alerta obrigatório
+   → Vaga Estágio: profissional com ≥2 empregos formais → score máx 40
+   → Exceção: candidato declara explicitamente querer o nível → teto +15 pts, mas alerta permanece
 
-  ACIMA DA VAGA (sobre-qualificado — risco real):
-  - Vaga JÚNIOR (0–2 anos exigidos): candidato com ≥ 5 anos de experiência → score máx 55.
-    Motivo: risco ALTO de desmotivação, abandono rápido e sub-aproveitamento. Mencione OBRIGATORIAMENTE nos attention_points.
-  - Vaga JÚNIOR: candidato com cargo de PLENO ou SÊNIOR no último registro → score máx 60.
-    Mesmo que tenha todas as skills — a senioridade incompatível é um risco operacional real.
-  - Vaga ESTÁGIO: qualquer profissional com empregos formais ≥ 2 anos → score máx 40.
+3. SKILLS TÉCNICAS SÃO VERIFICADAS COM EVIDÊNCIA:
+   → Não basta mencionar a skill — precisa aparecer em experiências, projetos ou certificações reais.
+   → "Conhecimento básico" ≠ "Domínio". Para vagas técnicas, nível insuficiente = não atende.
 
-  EXCEÇÃO SOBRE-QUALIFICADO: Se o candidato declarar explicitamente que deseja transição de área ou recolocação em nível inferior, o teto sobe para 70 — mas mencione a ressalva.
+4. NUNCA INFLE SCORE:
+   → Um 65 honesto é mais valioso que um 80 otimista.
+   → O recrutador usa seus scores para priorizar entrevistas. Score inflado = entrevista desperdiçada.
 
-═══════════════════════════════════════════
+5. FORMAÇÃO COMPLEMENTA, NÃO SUBSTITUI EXPERIÊNCIA:
+   → Pós-graduação ou MBA são positivos, mas não compensam anos de experiência faltando na função.
+   → Exceção: vagas que listam formação como requisito eliminatório.
+
+══════════════════════════════════════════════════════
 VAGA ALVO
-═══════════════════════════════════════════
+══════════════════════════════════════════════════════
 Título: ${job.title}
 Local: ${job.city}/${job.state} | Modelo: ${job.work_model || 'Não informado'}
+Senioridade declarada: ${job.seniority_level || 'Não informada'}
 Experiência mínima exigida: ${job.min_experience_years ?? 0} ano(s)
 Requisitos OBRIGATÓRIOS:
 ${(job.mandatory_requirements || 'Não especificado').substring(0, 900)}
@@ -311,57 +405,80 @@ Skills técnicas exigidas:
 ${(job.technical_requirements || 'Não especificado').substring(0, 600)}
 Skills desejáveis:
 ${(job.desirable_requirements || 'Não especificado').substring(0, 400)}
-Descrição da função:
+Descrição da função e responsabilidades:
 ${(job.description || 'Não especificado').substring(0, 700)}
-Checklist crítico:
-${jobChecklist ? `- ${jobChecklist}` : '- Nenhum requisito crítico adicional'}
+Checklist crítico da vaga:
+${jobChecklist ? `- ${jobChecklist}` : '- Nenhum requisito crítico adicional identificado'}
 
-═══════════════════════════════════════════
-CRITÉRIOS DE PONTUAÇÃO (aplique deterministicamente)
-═══════════════════════════════════════════
-Peso 1 — FUNÇÃO/CARGO EXERCIDO (50 pts máx):
-  - Função idêntica ou sinônimo direto com experiência suficiente → 45–50 pts
-  - Função muito próxima (mesma área, cargo diferente mas atividades idênticas) → 30–40 pts
-  - Função da mesma área mas com atividades diferentes → 15–25 pts
-  - Área completamente diferente → 0–10 pts (TETO ABSOLUTO: score final máx 35)
+══════════════════════════════════════════════════════
+SISTEMA DE PONTUAÇÃO UNIVERSAL
+══════════════════════════════════════════════════════
+Calcule cada dimensão separadamente e some ao final:
 
-Peso 2 — EXPERIÊNCIA/SENIORIDADE (20 pts máx):
-  - Atende ou supera o tempo mínimo exigido → 18–20 pts
-  - Ligeiramente abaixo (até 50% a menos) → 10–14 pts
-  - Muito abaixo (menos de 50% do mínimo) → 0–6 pts
+[A] ADERÊNCIA FUNCIONAL — peso 45 pts
+  Pergunta central: "Esse candidato JÁ FEZ este trabalho?"
+  45 pts → Exerceu função idêntica ou sinônimo direto. Entregas comprováveis na área.
+  35 pts → Função muito próxima. Atividades sobrepostas ≥75% com a vaga.
+  22 pts → Mesma área de negócio, atividades sobrepostas 40–74%.
+  10 pts → Área diferente, mas atividades transferíveis identificáveis (<40% sobreposição).
+   0 pts → Área completamente diferente. Sem transferência relevante. (TETO FINAL: 30 pts)
 
-Peso 3 — SKILLS TÉCNICAS (20 pts máx):
-  - Possui ≥ 80% das skills centrais listadas → 17–20 pts
-  - Possui 50–79% → 10–14 pts
-  - Possui < 50% → 0–8 pts
-  - ATENÇÃO: para vagas técnicas (dev, TI, engenharia, saúde), skills são ELIMINATÓRIAS. Sem as principais → pts 0.
+[B] EXPERIÊNCIA E SENIORIDADE — peso 20 pts
+  20 pts → Tempo ≥ mínimo exigido E nível de senioridade compatível com a vaga.
+  15 pts → Tempo ≥ mínimo, mas nível levemente diferente (1 nível acima ou abaixo).
+   8 pts → Tempo 50–99% do mínimo exigido.
+   3 pts → Tempo <50% do mínimo exigido.
+   0 pts → Sem experiência mensurável na área.
+  Aplique os tetos de sobre/sub-qualificação dos princípios universais.
 
-Peso 4 — LOCALIZAÇÃO (10 pts máx):
-  - Presencial/Híbrido e dentro de ${radius || 50} km → 10 pts
-  - Fora do raio → 3–5 pts
-  - Remoto: localização não penaliza → 10 pts
+[C] SKILLS TÉCNICAS — peso 25 pts
+  25 pts → Possui e comprova ≥90% das skills centrais da vaga.
+  18 pts → Possui e comprova 70–89% das skills centrais.
+  10 pts → Possui e comprova 50–69% das skills centrais.
+   4 pts → Possui e comprova <50% das skills centrais.
+   0 pts → Falta skills fundamentais não negociáveis da vaga.
+  Para vagas técnicas: skills centrais ausentes = máximo 4 pts nesta dimensão.
 
-SCORE FINAL = soma dos 4 critérios (0–100)
-CLASSIFICAÇÃO:
-  0–39: Incompatível | 40–59: Fit Baixo | 60–79: Alto Fit | 80–100: Altíssimo Fit
+[D] LOCALIZAÇÃO — peso 10 pts
+  10 pts → Dentro do raio de ${radius || 50}km OU vaga remota.
+   6 pts → Fora do raio mas dentro de 2x o raio, declara disponibilidade.
+   3 pts → Fora do raio, sem declaração de disponibilidade.
+   0 pts → Fora do raio + vaga presencial obrigatória + sem disponibilidade declarada.
 
-${precisionRules}
+SCORE FINAL = A + B + C + D (0–100)
+CLASSIFICAÇÃO FINAL:
+  80–100: Altíssimo Fit → Entrevistar com prioridade
+  65–79:  Alto Fit → Entrevistar
+  45–64:  Fit Parcial → Entrevistar com cautela / só se pool restrito
+  25–44:  Fit Baixo → Não recomendado
+  0–24:   Incompatível → Desconsiderar
 
-═══════════════════════════════════════════
-FORMATO DOS attention_points (OBRIGATÓRIO — inclua sempre)
-═══════════════════════════════════════════
-Sempre inclua, na ordem:
-1. "✓ Função: [confirme se exerceu ou não a função]" — OU "✗ Função: [explique o gap]"
-2. "⏱ Experiência: [X anos identificados] vs [Y exigidos]"
-3. Skills principais: "✓ [skill presente]" ou "✗ [skill ausente que é central]"
-4. Se fora do raio: "📍 [cidade do candidato] — fora do raio de ${radius || 50}km de ${job.city}"
-${job.requires_cnh ? `5. "CNH: [✓ cat.X declarada / ✗ não informada / ⚠ mencionada mas não declarada]"` : ''}
-${job.requires_travel ? `6. "Viagens: [✓ disponível declarado / ✗ não declarado]"` : ''}
-${job.min_experience_years ? `7. "Senioridade: [confirme nível identificado vs exigido]"` : ''}
+${precisionBlock}
 
-═══════════════════════════════════════════
+══════════════════════════════════════════════════════
+FORMATO DOS CAMPOS DE SAÍDA (obrigatório e preciso)
+══════════════════════════════════════════════════════
+strengths (pontos fortes — seja específico, cite evidências do currículo):
+  → "Exerceu função de X por Y anos na empresa Z com entregas de [descrição]"
+  → "Domínio comprovado de [skill] evidenciado em [experiência/projeto]"
+  → "Formação em [área] alinhada ao requisito da vaga"
+
+attention_points (pontos de atenção — sempre inclua todos os itens aplicáveis):
+  1. Função: "✓ Exerceu [função exata]" OU "⚠ Exerceu [função próxima], não exata" OU "✗ Nunca exerceu a função"
+  2. Experiência: "⏱ [X] anos identificados vs [Y] exigidos — [adequado/abaixo/acima]"
+  3. Skills: liste cada skill central → "✓ [skill]" ou "✗ [skill ausente — impacto: alto/médio]"
+  4. Localização: "📍 [cidade] — [dentro do raio / fora: Xkm de ${job.city}]"
+  5. Senioridade: "🎯 Nível identificado: [Júnior/Pleno/Sênior] vs vaga: [nível da vaga] — [compatível/risco alto/risco baixo]"
+  ${job.requires_cnh ? `6. CNH: "✓ CNH cat.[X] declarada" OU "✗ CNH não declarada — requisito obrigatório" OU "⚠ Condução mencionada sem CNH explícita"` : ''}
+  ${job.requires_travel ? `7. Viagens: "✓ Disponibilidade declarada" OU "✗ Não declarado — requisito da vaga"` : ''}
+  Se sobre-qualificado: "⚠ SOBRE-QUALIFICADO: [cargo/nível] acima do esperado — risco de desmotivação e turnover em [prazo estimado]"
+
+recommendation_reason: 2–3 frases. Responda: "Por que esse candidato é (ou não é) a escolha certa para ESSA vaga?"
+risk_reason: O risco MAIS RELEVANTE e concreto se contratado. Se não há risco relevante, diga "Nenhum risco operacional significativo identificado."
+
+══════════════════════════════════════════════════════
 CANDIDATOS PARA AVALIAÇÃO
-═══════════════════════════════════════════
+══════════════════════════════════════════════════════
 ${candidatesToProcess.map((c: any) => `
 --- ID:${c.id} | ${c.full_name} | ${c.city}/${c.state} ---
 Cargo/posição desejada: ${c.desired_position || 'Não informado'}
@@ -405,28 +522,33 @@ Competências comportamentais (soft skills): ${(c.soft_skills || 'Não informado
 Perfil DISC: ${c.disc?.predominant_profile ? `${c.disc.predominant_profile} (D:${c.disc.disc_d||0}% I:${c.disc.disc_i||0}% S:${c.disc.disc_s||0}% C:${c.disc.disc_c||0}%)` : 'Não avaliado'}
 `).join('\n')}
 
-═══════════════════════════════════════════
-INSTRUÇÃO FINAL
-═══════════════════════════════════════════
-- Avalie CADA candidato de forma COMPLETAMENTE INDEPENDENTE.
-- Seja HONESTO: um score de 50 para um candidato inadequado é melhor que dar 75 por generosidade.
-- O recrutador confia nos seus scores para tomar decisões reais. Scores inflados geram contratações erradas.
-- Inclua SOMENTE candidatos com compatibility_score >= ${scoreThreshold}. Omita os demais.
-- recommendation_reason: 1–2 frases objetivas sobre POR QUE é ou não é adequado.
-- risk_reason: principal risco concreto se contratado (ou "Nenhum risco relevante identificado").
+══════════════════════════════════════════════════════
+INSTRUÇÃO FINAL DE EXECUÇÃO
+══════════════════════════════════════════════════════
+- Avalie CADA candidato de forma COMPLETAMENTE INDEPENDENTE — não compare candidatos entre si.
+- Calcule as 4 dimensões (A, B, C, D) explicitamente na sua análise interna antes de definir o score.
+- Aplique os tetos do modo ${precisionMode} sem exceções não justificadas.
+- Seja PRECISO E HONESTO: scores inflados destroem a credibilidade do sistema e prejudicam o recrutador.
+- Use toda a amplitude da escala — não agrupe scores em 70–80. Use 45, 52, 67, 73, 88 etc.
+- Inclua SOMENTE candidatos com compatibility_score >= ${scoreThreshold}. Omita completamente os demais.
+- Se o pool for insuficiente, retorne results vazio — não force aprovações.
+- O campo summary deve informar: quantos candidatos avaliados, quantos passaram, e o perfil geral do pool.
 
 Retorne SOMENTE JSON válido sem markdown:
 {"results":[{"candidate_id":number,"compatibility_score":number,"classification":"string","distance_km":number|null,"strengths":["string"],"attention_points":["string"],"recommendation_reason":"string","risk_reason":"string"}],"summary":"string"}
 `;
+
+        // Temperatura por modo: Rigorosa=0 (determinístico), Equilibrada=0.05, Flexível=0.1
+        const analysisTemperature = precisionMode === 'Rigorosa' ? 0.0 : precisionMode === 'Equilibrada' ? 0.05 : 0.1;
 
         const aiResult = await ai.models.generateContent({
           model: GEMINI_MODEL,
           contents: [{ role: 'user', parts: [{ text: prompt }] }],
           config: {
             responseMimeType: 'application/json',
-            maxOutputTokens: 16000,
-            temperature: 0.0,
-            operationLabel: 'match inteligente de vaga',
+            maxOutputTokens: 20000,
+            temperature: analysisTemperature,
+            operationLabel: `match-${precisionMode.toLowerCase()}`,
           }
         });
 
