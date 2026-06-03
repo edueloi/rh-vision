@@ -30,8 +30,8 @@ if [[ "$1" == "--setup" ]]; then
   log "Clonando repositório..."
   mkdir -p /var/www
   cd /var/www
-  git clone https://github.com/SEU_USUARIO/SEU_REPOSITORIO.git $APP_DIR \
-    || fail "Erro ao clonar repositório. Ajuste a URL do repo neste script."
+  git clone https://github.com/edueloi/rh-vision.git $APP_DIR \
+    || fail "Erro ao clonar repositório."
 
   cd $APP_DIR
 
