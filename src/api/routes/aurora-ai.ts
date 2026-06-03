@@ -285,10 +285,19 @@ EXEMPLOS DE ACERTOS ESPERADOS:
   ✓ Analista RH 2 anos → Vaga Analista RH Pleno: score 70–85.
   ✓ Dev Júnior 1 ano → Vaga Dev Júnior: score 65–80 dependendo das skills.
 
-REGRA DE SENIORIDADE (OBRIGATÓRIA):
-  - Vaga SÊNIOR (ou exige ≥4 anos): candidato com < 3 anos identificados → score máx 30.
+REGRA DE SENIORIDADE (OBRIGATÓRIA — aplicar nos dois sentidos):
+  ABAIXO DA VAGA (sub-qualificado):
+  - Vaga SÊNIOR (ou exige ≥4 anos): candidato com < 3 anos → score máx 30.
   - Vaga PLENO (ou exige 2–4 anos): candidato com < 1 ano → score máx 35.
-  - Vaga JÚNIOR/ESTÁGIO: candidato pleno/sênior → pode ter score alto se quiser a função.
+
+  ACIMA DA VAGA (sobre-qualificado — risco real):
+  - Vaga JÚNIOR (0–2 anos exigidos): candidato com ≥ 5 anos de experiência → score máx 55.
+    Motivo: risco ALTO de desmotivação, abandono rápido e sub-aproveitamento. Mencione OBRIGATORIAMENTE nos attention_points.
+  - Vaga JÚNIOR: candidato com cargo de PLENO ou SÊNIOR no último registro → score máx 60.
+    Mesmo que tenha todas as skills — a senioridade incompatível é um risco operacional real.
+  - Vaga ESTÁGIO: qualquer profissional com empregos formais ≥ 2 anos → score máx 40.
+
+  EXCEÇÃO SOBRE-QUALIFICADO: Se o candidato declarar explicitamente que deseja transição de área ou recolocação em nível inferior, o teto sobe para 70 — mas mencione a ressalva.
 
 ═══════════════════════════════════════════
 VAGA ALVO
@@ -358,8 +367,34 @@ ${candidatesToProcess.map((c: any) => `
 Cargo/posição desejada: ${c.desired_position || 'Não informado'}
 Área de atuação: ${c.desired_area || 'Não informada'}
 Anos de experiência: ${c.experience_years ?? 'Não informado'}
-Nível de formação: ${c.education_level || 'Não informado'}
-Formação acadêmica: ${(c.academic_education || 'Não informada').substring(0, 300)}
+Nível de formação: ${(() => {
+  // Prioridade: education_level direto → detectar do education_json → academic_education
+  if (c.education_level) return c.education_level;
+  try {
+    const eduList = JSON.parse(c.education_json || '[]');
+    if (eduList.length > 0) {
+      const top = eduList.find((e: any) => /pós|mba|mestrado|doutorado/i.test(e.course || e.degree_type || ''))
+        || eduList.find((e: any) => /superior|gradua/i.test(e.course || e.degree_type || ''))
+        || eduList[0];
+      const label = top?.degree_type || top?.course || '';
+      if (/pós|pós-grad|especializ/i.test(label)) return 'Pós/MBA';
+      if (/mba/i.test(label)) return 'Pós/MBA';
+      if (/mestrado/i.test(label)) return 'Mestrado/Doutorado';
+      if (/doutorado/i.test(label)) return 'Mestrado/Doutorado';
+      if (/superior|gradua|bacharela|licencia/i.test(label)) return 'Superior Completo';
+      if (/técnico/i.test(label)) return 'Técnico';
+      if (label) return label;
+    }
+  } catch { /* ignore */ }
+  return c.academic_education ? 'Informado no texto' : 'Não informado';
+})()}
+Formação acadêmica (detalhada): ${(() => {
+  try {
+    const list = JSON.parse(c.education_json || '[]');
+    if (list.length > 0) return list.map((e: any) => `${e.course || ''}${e.institution ? ` — ${e.institution}` : ''}${e.status ? ` (${e.status})` : ''}`).join('; ');
+  } catch { /* ignore */ }
+  return (c.academic_education || 'Não informada').substring(0, 300);
+})()}
 CNH: ${c.has_cnh ? `Sim — cat. ${c.cnh_category || 'não especificada'}` : 'Não declarada'}
 Disponível para viagens: ${c.available_to_travel ? 'Sim' : 'Não declarado'}
 Resumo profissional: ${(c.professional_summary || 'Não informado').substring(0, 600)}
