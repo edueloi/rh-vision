@@ -962,7 +962,7 @@ export default function SuperAdmin() {
                           try {
                             await fetch(`/api/tenants/${selectedTenant.id}/sync-shigueno`, {
                               method: 'PATCH',
-                              headers: { 'Content-Type': 'application/json', ...({} as any) },
+                              headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
                               body: JSON.stringify({ sync_shigueno: !current }),
                             });
                             await fetchTenants();
