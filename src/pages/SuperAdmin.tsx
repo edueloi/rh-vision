@@ -843,6 +843,48 @@ export default function SuperAdmin() {
                       ))}
                     </div>
                   </div>
+
+                  {/* Sync Shigueno toggle */}
+                  <div className="border-t border-zinc-100 px-5 py-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-[13px] font-semibold text-zinc-900">Sincronizar com Portal Shigueno</p>
+                        <p className="mt-0.5 text-[11px] text-zinc-400">
+                          Vagas publicadas deste cliente serão enviadas automaticamente para o portal Shigueno.
+                        </p>
+                      </div>
+                      <button
+                        onClick={async () => {
+                          const current = !!(selectedTenant as any).sync_shigueno;
+                          try {
+                            await fetch(`/api/tenants/${selectedTenant.id}/sync-shigueno`, {
+                              method: 'PATCH',
+                              headers: { 'Content-Type': 'application/json', ...({} as any) },
+                              body: JSON.stringify({ sync_shigueno: !current }),
+                            });
+                            await fetchTenants();
+                          } catch { /* silent */ }
+                        }}
+                        className={cn(
+                          "relative flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 transition-colors",
+                          (selectedTenant as any).sync_shigueno
+                            ? "border-emerald-500 bg-emerald-500"
+                            : "border-zinc-300 bg-zinc-200"
+                        )}
+                      >
+                        <span className={cn(
+                          "inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
+                          (selectedTenant as any).sync_shigueno ? "translate-x-5" : "translate-x-0.5"
+                        )} />
+                      </button>
+                    </div>
+                    {(selectedTenant as any).sync_shigueno && (
+                      <p className="mt-2 flex items-center gap-1.5 text-[11px] font-medium text-emerald-700">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        Ativo — vagas deste cliente sincronizam com o portal
+                      </p>
+                    )}
+                  </div>
                 </div>
 
                 {/* Acessos card */}

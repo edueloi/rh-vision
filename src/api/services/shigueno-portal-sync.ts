@@ -1,16 +1,19 @@
 // Serviço de sync: empurra vagas do RH Vision → Portal Shigueno automaticamente
+// O tenant precisa ter sync_shigueno = true no banco (configurável pelo Super Admin)
+
+import db from '../../lib/db';
 
 const SHIGUENO_URL = process.env.SHIGUENO_PORTAL_URL || 'http://localhost:3008';
 const WEBHOOK_SECRET = process.env.SHIGUENO_WEBHOOK_SECRET || 'shigueno-webhook-2026';
 
-// Tenant(s) que devem ser sincronizados com o portal Shigueno.
-// Defina SHIGUENO_TENANT_IDS no .env com IDs separados por vírgula.
-// Ex: SHIGUENO_TENANT_IDS=shigueno,shigueno-ycjk
-// Se não definido, qualquer tenant é sincronizado (modo permissivo).
-const RAW_TENANT_IDS = process.env.SHIGUENO_TENANT_IDS || '';
-const ALLOWED_TENANT_IDS: string[] = RAW_TENANT_IDS
-  ? RAW_TENANT_IDS.split(',').map(s => s.trim()).filter(Boolean)
-  : [];
+function isSyncEnabled(tenant_id: string): boolean {
+  try {
+    const row = db.prepare('SELECT sync_shigueno FROM tenants WHERE id = ?').get(tenant_id) as any;
+    return row?.sync_shigueno === 1 || row?.sync_shigueno === true;
+  } catch {
+    return false;
+  }
+}
 
 export async function pushJobToShiguenoPortal(
   action: 'upsert' | 'delete',
@@ -26,9 +29,8 @@ export async function pushJobToShiguenoPortal(
     status?: string;
   }
 ): Promise<void> {
-  // Se SHIGUENO_TENANT_IDS estiver definido, só sincroniza tenants da lista.
-  // Se não estiver definido, sincroniza todos (útil em ambientes de teste).
-  if (ALLOWED_TENANT_IDS.length > 0 && !ALLOWED_TENANT_IDS.includes(job.tenant_id)) return;
+  // Verifica dinamicamente se o tenant tem sync ativado
+  if (!isSyncEnabled(job.tenant_id)) return;
 
   try {
     const response = await fetch(`${SHIGUENO_URL}/api/rh-vision/push-vacancy`, {
@@ -55,6 +57,8 @@ export async function pushJobToShiguenoPortal(
     if (!response.ok) {
       const text = await response.text();
       console.error(`[Shigueno Portal Sync] HTTP ${response.status}: ${text}`);
+    } else {
+      console.log(`[Shigueno Portal Sync] ✔ ${action} job ${job.id} (${job.title})`);
     }
   } catch (err) {
     console.error('[Shigueno Portal Sync] Falha ao conectar no portal:', err);

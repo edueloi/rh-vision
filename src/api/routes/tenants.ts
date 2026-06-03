@@ -186,6 +186,20 @@ export function registerTenantRoutes(app: Express) {
     }
   });
 
+  // Toggle sincronização com portal Shigueno — ativado/desativado pelo Super Admin
+  app.patch('/api/tenants/:id/sync-shigueno', async (req, res) => {
+    if (!isRootCaller(req)) return res.status(403).json({ error: 'Only root admin' });
+    const { id } = req.params;
+    const { sync_shigueno } = req.body;
+    try {
+      await db.prepare('UPDATE tenants SET sync_shigueno = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+        .run(sync_shigueno ? 1 : 0, id);
+      res.json({ success: true, sync_shigueno: !!sync_shigueno });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to update sync_shigueno' });
+    }
+  });
+
   app.patch('/api/tenants/:id/settings', async (req, res) => {
     const { id } = req.params;
     const { validity_days, plan_label, max_users, access_profile, status } = req.body;
