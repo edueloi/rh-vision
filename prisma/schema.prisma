@@ -54,7 +54,7 @@ model User {
   tenant_id        String    @db.VarChar(191)
   unit_id          String?   @db.VarChar(191)
   full_name        String    @db.VarChar(255)
-  email            String    @unique @db.VarChar(255)
+  email            String    @db.VarChar(255)
   password         String    @db.VarChar(255)
   role             String    @default("user") @db.VarChar(100)
   status           String    @default("Ativo") @db.VarChar(100)
@@ -64,6 +64,7 @@ model User {
   last_login       DateTime? @db.DateTime(0)
   created_at       DateTime  @default(now()) @db.DateTime(0)
 
+  @@unique([tenant_id, email])
   @@index([tenant_id])
   @@index([unit_id])
   @@map("users")
@@ -120,6 +121,10 @@ model Job {
   external_link_infojobs    String?   @db.VarChar(500)
   external_link_catho       String?   @db.VarChar(500)
   external_link_other       String?   @db.VarChar(500)
+  approval_status           String?   @db.VarChar(50)
+  approval_requested_by     String?   @db.VarChar(191)
+  approval_requested_at     DateTime? @db.DateTime(0)
+  approval_resolved_at      DateTime? @db.DateTime(0)
   created_at                DateTime  @default(now()) @db.DateTime(0)
   updated_at                DateTime  @default(now()) @updatedAt @db.DateTime(0)
   deleted_at                DateTime? @db.DateTime(0)
@@ -127,6 +132,7 @@ model Job {
   @@index([tenant_id])
   @@index([unit_id])
   @@index([status])
+  @@index([approval_status])
   @@map("jobs")
 }
 
@@ -590,4 +596,36 @@ model JobImport {
   @@index([unit_id])
   @@index([job_id])
   @@map("job_imports")
+}
+
+model JobApproval {
+  id              Int       @id @default(autoincrement())
+  job_id          Int
+  tenant_id       String    @db.VarChar(191)
+  action          String    @db.VarChar(50)
+  actor_id        String    @db.VarChar(191)
+  actor_name      String    @db.VarChar(255)
+  notes           String?   @db.LongText
+  created_at      DateTime  @default(now()) @db.DateTime(0)
+
+  @@index([job_id])
+  @@index([tenant_id])
+  @@map("job_approvals")
+}
+
+model LinkedInPublication {
+  id             Int       @id @default(autoincrement())
+  job_id         Int
+  tenant_id      String    @db.VarChar(191)
+  status         String    @default("pending") @db.VarChar(50)
+  linkedin_url   String?   @db.VarChar(500)
+  error_message  String?   @db.LongText
+  screenshot_b64 String?   @db.LongText
+  triggered_by   String?   @db.VarChar(191)
+  created_at     DateTime  @default(now()) @db.DateTime(0)
+  updated_at     DateTime  @default(now()) @updatedAt @db.DateTime(0)
+
+  @@index([job_id])
+  @@index([tenant_id])
+  @@map("linkedin_publications")
 }

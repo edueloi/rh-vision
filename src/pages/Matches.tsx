@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Target, ChevronDown, Download, Mail, Phone,
   Brain, FileText, CheckCircle2, Zap, Briefcase, Loader2, MapPin,
@@ -7,7 +7,18 @@ import {
   TrendingUp, UserX, ThumbsDown, PlayCircle, Trophy, UserCheck, Handshake
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import { Badge, Button, PanelCard, EmptyState, PageWrapper, SectionTitle } from "@/src/components/ui";
+import {
+  Badge,
+  Button,
+  EmptyState,
+  Input,
+  PanelCard,
+  PageWrapper,
+  SectionTitle,
+  Select,
+  StatCard,
+  Textarea,
+} from "@/src/components/ui";
 import { cn } from "@/src/lib/utils";
 import { Link } from "react-router-dom";
 import { useToast } from "@/src/components/ui";
@@ -243,6 +254,47 @@ function getFunnelStageOption(value: string): FunnelStageOption {
 
 // ── Componente do painel de etapa do funil ─────────────────────────────────────
 
+function getContactBadgeColor(value: string): "default" | "info" | "warning" | "danger" | "purple" | "orange" {
+  switch (value) {
+    case "em_andamento":
+      return "info";
+    case "aguardando":
+      return "warning";
+    case "sem_resposta":
+      return "orange";
+    case "pendente":
+      return "purple";
+    case "ja_trabalhando":
+    case "sem_interesse":
+      return "danger";
+    default:
+      return "default";
+  }
+}
+
+function getFunnelBadgeColor(value: string): "default" | "info" | "purple" | "warning" | "success" | "primary" | "orange" | "danger" {
+  switch (value) {
+    case "IA Match":
+      return "info";
+    case "Entrevista":
+      return "purple";
+    case "Entrevista Realizada":
+      return "info";
+    case "Finalista":
+      return "warning";
+    case "Aprovado":
+      return "success";
+    case "Contratado":
+      return "primary";
+    case "DesistÃªncia":
+      return "orange";
+    case "Sem Sucesso":
+      return "danger";
+    default:
+      return "default";
+  }
+}
+
 function FunnelStagePanel({
   match,
   jobId,
@@ -257,22 +309,10 @@ function FunnelStagePanel({
   const toast = useToast();
   const [stage, setStage] = useState(match.funnel_stage ?? "Triagem");
   const [saving, setSaving] = useState(false);
-  const [dropOpen, setDropOpen] = useState(false);
-  const dropRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setStage(match.funnel_stage ?? "Triagem");
   }, [match.funnel_stage]);
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (dropRef.current && !dropRef.current.contains(e.target as Node)) {
-        setDropOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
 
   const selected = getFunnelStageOption(stage);
 
@@ -296,65 +336,30 @@ function FunnelStagePanel({
 
   return (
     <div className="space-y-3">
-      <p className="text-[9px] font-black uppercase tracking-widest text-zinc-400 flex items-center gap-1.5">
-        <TrendingUp size={11} />
-        Etapa do Processo
-      </p>
-
-      <div className="relative" ref={dropRef}>
-        <button
-          type="button"
-          onClick={() => setDropOpen(!dropOpen)}
-          className={cn(
-            "w-full flex items-center gap-2 px-3 py-2.5 rounded-2xl border text-sm font-bold transition-all shadow-sm",
-            selected.bgLight, selected.borderLight, selected.textLight
-          )}
-        >
-          <span>{selected.icon}</span>
-          <span className="flex-1 text-left text-xs">{selected.label}</span>
-          <ChevronDown size={12} className={cn("shrink-0 transition-transform", dropOpen && "rotate-180")} />
-        </button>
-
-        <AnimatePresence>
-          {dropOpen && (
-            <motion.div
-              initial={{ opacity: 0, y: -4, scale: 0.97 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -4, scale: 0.97 }}
-              transition={{ duration: 0.12 }}
-              className="absolute z-50 top-full mt-1 left-0 right-0 bg-white rounded-2xl border border-zinc-200 shadow-xl overflow-hidden"
-            >
-              {FUNNEL_STAGES_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => { setStage(opt.value); setDropOpen(false); }}
-                  className={cn(
-                    "w-full flex items-center gap-2.5 px-3 py-2.5 text-left text-xs font-bold transition-colors hover:bg-zinc-50",
-                    stage === opt.value && "bg-zinc-50",
-                    opt.isNegative && "text-red-600"
-                  )}
-                >
-                  <span className={opt.isNegative ? "text-red-500" : opt.color}>{opt.icon}</span>
-                  <span className="flex-1 text-zinc-700">{opt.label}</span>
-                  {opt.isNegative && (
-                    <span className="text-[8px] font-black uppercase tracking-wide text-orange-400 bg-orange-50 border border-orange-100 rounded-full px-1.5 py-0.5">
-                      saída
-                    </span>
-                  )}
-                  {stage === opt.value && <CheckCircle2 size={11} className="shrink-0 text-develoi-navy" />}
-                </button>
-              ))}
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+      <Select
+        label="Etapa do processo"
+        icon={<TrendingUp size={14} />}
+        value={stage}
+        onChange={(event) => setStage(event.target.value)}
+        className={cn(
+          "h-11 rounded-2xl bg-white text-xs font-bold shadow-sm",
+          selected.bgLight,
+          selected.borderLight,
+          selected.textLight
+        )}
+      >
+        {FUNNEL_STAGES_OPTIONS.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </Select>
 
       {selected.isNegative && (
-        <div className="flex items-start gap-2 rounded-xl bg-orange-50 border border-orange-100 p-2.5">
-          <AlertCircle size={11} className="shrink-0 mt-0.5 text-orange-400" />
-          <p className="text-[10px] font-medium text-orange-700 leading-relaxed">
-            Candidato marcado como <strong>{selected.label}</strong> — será contabilizado nos indicadores de não-conversão.
+        <div className="flex items-start gap-2 rounded-xl border border-orange-100 bg-orange-50 p-2.5">
+          <AlertCircle size={11} className="mt-0.5 shrink-0 text-orange-400" />
+          <p className="text-[10px] font-medium leading-relaxed text-orange-700">
+            Candidato marcado como <strong>{selected.label}</strong> e contabilizado nos indicadores de não conversão.
           </p>
         </div>
       )}
@@ -372,9 +377,6 @@ function FunnelStagePanel({
     </div>
   );
 }
-
-// ── Componente do painel de contato ────────────────────────────────────────────
-
 function ContactStatusPanel({
   match,
   jobId,
@@ -390,23 +392,11 @@ function ContactStatusPanel({
   const [status, setStatus] = useState(match.contact_status ?? "");
   const [notes, setNotes] = useState(match.contact_notes ?? "");
   const [saving, setSaving] = useState(false);
-  const [dropOpen, setDropOpen] = useState(false);
-  const dropRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setStatus(match.contact_status ?? "");
     setNotes(match.contact_notes ?? "");
   }, [match.contact_status, match.contact_notes]);
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (dropRef.current && !dropRef.current.contains(e.target as Node)) {
-        setDropOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
 
   const selected = getContactStatusOption(status);
 
@@ -430,81 +420,42 @@ function ContactStatusPanel({
 
   return (
     <div className="space-y-3">
-      <p className="text-[9px] font-black uppercase tracking-widest text-zinc-400 flex items-center gap-1.5">
-        <PhoneCall size={11} />
-        Status do contato
-      </p>
+      <Select
+        label="Status do contato"
+        icon={<PhoneCall size={14} />}
+        value={status}
+        onChange={(event) => setStatus(event.target.value)}
+        className={cn(
+          "h-11 rounded-2xl bg-white text-xs font-bold shadow-sm",
+          selected.bgLight,
+          selected.borderLight,
+          selected.textLight
+        )}
+      >
+        {CONTACT_STATUSES.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </Select>
 
-      {/* Dropdown de status */}
-      <div className="relative" ref={dropRef}>
-        <button
-          type="button"
-          onClick={() => setDropOpen(!dropOpen)}
-          className={cn(
-            "w-full flex items-center gap-2 px-3 py-2.5 rounded-2xl border text-sm font-bold transition-all shadow-sm",
-            selected.bgLight, selected.borderLight, selected.textLight
-          )}
-        >
-          <span className={selected.color}>{selected.icon}</span>
-          <span className="flex-1 text-left text-xs">{selected.label}</span>
-          <ChevronDown size={12} className={cn("shrink-0 transition-transform", dropOpen && "rotate-180")} />
-        </button>
-
-        <AnimatePresence>
-          {dropOpen && (
-            <motion.div
-              initial={{ opacity: 0, y: -4, scale: 0.97 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -4, scale: 0.97 }}
-              transition={{ duration: 0.12 }}
-              className="absolute z-50 top-full mt-1 left-0 right-0 bg-white rounded-2xl border border-zinc-200 shadow-xl overflow-hidden"
-            >
-              {CONTACT_STATUSES.map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => { setStatus(opt.value); setDropOpen(false); }}
-                  className={cn(
-                    "w-full flex items-center gap-2.5 px-3 py-2.5 text-left text-xs font-bold transition-colors hover:bg-zinc-50",
-                    status === opt.value && "bg-zinc-50"
-                  )}
-                >
-                  <span className={opt.color}>{opt.icon}</span>
-                  <span className="flex-1 text-zinc-700">{opt.label}</span>
-                  {opt.blocks && (
-                    <span className="text-[8px] font-black uppercase tracking-wide text-red-400 bg-red-50 border border-red-100 rounded-full px-1.5 py-0.5">
-                      oculta
-                    </span>
-                  )}
-                  {status === opt.value && <CheckCircle2 size={11} className="shrink-0 text-develoi-navy" />}
-                </button>
-              ))}
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-
-      {/* Aviso de bloqueio */}
       {selected.blocks && (
-        <div className="flex items-start gap-2 rounded-xl bg-red-50 border border-red-100 p-2.5">
-          <Ban size={11} className="shrink-0 mt-0.5 text-red-400" />
-          <p className="text-[10px] font-medium text-red-600 leading-relaxed">
+        <div className="flex items-start gap-2 rounded-xl border border-red-100 bg-red-50 p-2.5">
+          <Ban size={11} className="mt-0.5 shrink-0 text-red-400" />
+          <p className="text-[10px] font-medium leading-relaxed text-red-600">
             Candidato ficará <strong>oculto</strong> nesta vaga na próxima consulta da IA.
           </p>
         </div>
       )}
 
-      {/* Observações */}
-      <div className="space-y-1">
-        <label className="text-[9px] font-black uppercase tracking-widest text-zinc-400">Observações</label>
-        <textarea
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          placeholder="Ex: Enviou email no dia 10/05, aguardando retorno..."
-          rows={3}
-          className="w-full resize-none rounded-2xl border border-zinc-200 bg-white px-3 py-2.5 text-xs font-medium text-zinc-800 outline-none placeholder:text-zinc-300 focus:border-develoi-gold/60 focus:ring-2 focus:ring-develoi-gold/20 transition-all"
-        />
-      </div>
+      <Textarea
+        label="Observações"
+        value={notes}
+        onChange={(event) => setNotes(event.target.value)}
+        placeholder="Ex: Enviou email no dia 10/05, aguardando retorno..."
+        rows={3}
+        className="rounded-2xl border-zinc-200 bg-white px-3 py-2.5 text-xs font-medium text-zinc-800 placeholder:text-zinc-300"
+      />
 
       <Button
         size="sm"
@@ -519,9 +470,6 @@ function ContactStatusPanel({
     </div>
   );
 }
-
-// ── Helpers de score ───────────────────────────────────────────────────────────
-
 function getScoreConfig(score: number) {
   if (score >= 90) return {
     color: "text-emerald-600",
@@ -672,121 +620,101 @@ export default function Matches() {
   return (
     <PageWrapper className="min-h-screen bg-zinc-50/60">
       <div className="space-y-8 px-3 py-5 sm:space-y-10 sm:px-5 sm:py-7 lg:space-y-12 lg:px-8 lg:py-10">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <SectionTitle
-            title="Aderência AI"
-            subtitle={`${currentUnit.name} · Análise de aderência gerada pela Aurora IA`}
-            icon={<Zap size={22} />}
-            className=""
-          />
-          <div className="flex flex-col sm:flex-row items-end gap-3 w-full sm:w-auto">
-            {/* Vaga */}
-            <div className="w-full sm:w-72 shrink-0">
-              <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest px-1 flex items-center gap-1.5 mb-1.5">
-                <Briefcase size={11} />
-                Filtrar por Vaga Ativa
-              </label>
-              <div className="relative">
-                <select
+        <SectionTitle
+          title="Aderência AI"
+          subtitle={`${currentUnit.name} · Análise de aderência gerada pela Aurora IA`}
+          icon={<Zap size={22} />}
+          actions={
+            <div className="flex w-full flex-col items-end gap-3 sm:w-auto sm:flex-row">
+              <div className="w-full shrink-0 sm:w-72">
+                <Select
+                  label="Filtrar por vaga ativa"
+                  icon={<Briefcase size={14} />}
                   value={selectedJobId}
-                  onChange={e => setSelectedJobId(e.target.value)}
-                  className="w-full h-11 pl-4 pr-10 bg-white border border-zinc-200 rounded-2xl text-xs font-bold text-zinc-900 outline-none focus:ring-2 focus:ring-develoi-gold/40 focus:border-develoi-gold transition-all shadow-sm appearance-none cursor-pointer"
+                  onChange={(event) => setSelectedJobId(event.target.value)}
+                  className="h-11 rounded-2xl border-zinc-200 bg-white text-xs font-bold text-zinc-900 shadow-sm"
                 >
                   <option value="">Selecione uma vaga...</option>
-                  {jobs.map(job => (
+                  {jobs.map((job) => (
                     <option key={job.id} value={job.id}>
                       {job.title} — {job.city}/{job.state}
                     </option>
                   ))}
-                </select>
-                <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
+                </Select>
               </div>
-            </div>
 
-            {/* Score mínimo */}
-            <div className="w-32 shrink-0">
-              <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest px-1 flex items-center gap-1.5 mb-1.5">
-                <Star size={11} />
-                Score Mínimo
-              </label>
-              <div className="relative">
-                <input
-                  type="text"
+              <div className="w-full shrink-0 sm:w-32">
+                <Input
+                  label="Score mínimo"
+                  icon={<Star size={14} />}
                   inputMode="numeric"
-                  value={minScore ? `${minScore}%` : ""}
-                  placeholder="0%"
-                  onChange={e => {
-                    const raw = e.target.value.replace(/[^0-9]/g, "");
-                    const clamped = Math.min(100, Math.max(0, Number(raw)));
+                  value={minScore}
+                  placeholder="0"
+                  addonRight="%"
+                  onChange={(event) => {
+                    const raw = event.target.value.replace(/[^0-9]/g, "");
+                    const clamped = Math.min(100, Math.max(0, Number(raw || 0)));
                     setMinScore(raw === "" ? "" : String(clamped));
                   }}
-                  onKeyDown={e => { if (e.key === "Enter" && selectedJobId) fetchMatches(); }}
-                  onBlur={() => { if (selectedJobId) fetchMatches(); }}
-                  className="w-full h-11 pl-4 pr-3 bg-white border border-zinc-200 rounded-2xl text-xs font-bold text-zinc-900 outline-none focus:ring-2 focus:ring-develoi-gold/40 focus:border-develoi-gold transition-all shadow-sm"
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && selectedJobId) fetchMatches();
+                  }}
+                  onBlur={() => {
+                    if (selectedJobId) fetchMatches();
+                  }}
+                  className="h-11 rounded-2xl border-zinc-200 bg-white pr-10 text-xs font-bold text-zinc-900 shadow-sm"
                 />
               </div>
-            </div>
 
-            {/* Raio km */}
-            <div className="w-32 shrink-0">
-              <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest px-1 flex items-center gap-1.5 mb-1.5">
-                <MapPin size={11} />
-                Raio (km)
-              </label>
-              <div className="relative">
-                <input
-                  type="text"
+              <div className="w-full shrink-0 sm:w-32">
+                <Input
+                  label="Raio (km)"
+                  icon={<MapPin size={14} />}
                   inputMode="numeric"
-                  value={maxRadius ? `${maxRadius} km` : ""}
+                  value={maxRadius}
                   placeholder="Qualquer"
-                  onChange={e => {
-                    const raw = e.target.value.replace(/[^0-9]/g, "");
+                  addonRight="km"
+                  onChange={(event) => {
+                    const raw = event.target.value.replace(/[^0-9]/g, "");
                     setMaxRadius(raw === "" ? "" : String(Math.max(0, Number(raw))));
                   }}
-                  onKeyDown={e => { if (e.key === "Enter" && selectedJobId) fetchMatches(); }}
-                  onBlur={() => { if (selectedJobId) fetchMatches(); }}
-                  className="w-full h-11 pl-4 pr-3 bg-white border border-zinc-200 rounded-2xl text-xs font-bold text-zinc-900 outline-none focus:ring-2 focus:ring-develoi-gold/40 focus:border-develoi-gold transition-all shadow-sm"
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && selectedJobId) fetchMatches();
+                  }}
+                  onBlur={() => {
+                    if (selectedJobId) fetchMatches();
+                  }}
+                  className="h-11 rounded-2xl border-zinc-200 bg-white pr-12 text-xs font-bold text-zinc-900 shadow-sm"
                 />
               </div>
             </div>
-          </div>
+          }
+        />
+      {matches.length > 0 && !loading && (
+        <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <StatCard
+            title="Candidatos"
+            value={matches.length}
+            icon={Users}
+            color="info"
+            description="aderências encontradas"
+          />
+          <StatCard
+            title="Maior Aderência"
+            value={`${topScore}%`}
+            icon={Star}
+            color="success"
+            description="melhor score atual"
+          />
+          <StatCard
+            title="Alta Aderência"
+            value={excellentCount}
+            icon={Award}
+            color="gold"
+            description="scores acima de 90%"
+          />
         </div>
-
-      {/* ── Stats Row ─────────────────────────────────────────────── */}
-      <AnimatePresence>
-        {matches.length > 0 && !loading && (
-          <motion.div
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            className="grid grid-cols-3 gap-3 mb-5"
-          >
-            {[
-              { icon: Users, label: "Candidatos", value: matches.length, color: "text-blue-600", bg: "bg-blue-50" },
-              { icon: Star, label: "Maior Aderência", value: `${topScore}%`, color: "text-emerald-600", bg: "bg-emerald-50" },
-              { icon: Award, label: "Alta Aderência", value: excellentCount, color: "text-amber-600", bg: "bg-amber-50" },
-            ].map((stat, i) => (
-              <motion.div
-                key={stat.label}
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: i * 0.06 }}
-                className="bg-white rounded-2xl border border-zinc-100 p-3 sm:p-4 shadow-sm flex items-center gap-3"
-              >
-                <div className={cn("w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center shrink-0", stat.bg)}>
-                  <stat.icon size={15} className={stat.color} />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest truncate">{stat.label}</p>
-                  <p className="text-base sm:text-lg font-black text-zinc-900 leading-none">{stat.value}</p>
-                </div>
-              </motion.div>
-            ))}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* ── Conteúdo Principal ─────────────────────────────────────── */}
+      )}
       <div className="space-y-3 pb-20">
 
         {!selectedJobId && (
@@ -842,72 +770,68 @@ export default function Matches() {
               )}>
 
                 {/* ── Card Header ─────────────────────────────────────── */}
-                <button
-                  className="w-full text-left p-4 sm:p-5 flex items-start sm:items-center gap-4 hover:bg-zinc-50/60 transition-colors cursor-pointer"
+                <Button
+                  variant="ghost"
+                  fullWidth
                   onClick={() => setExpanded(isExpanded ? null : match.candidate_id)}
+                  className="h-auto min-w-0 rounded-none border-0 px-4 py-4 hover:bg-zinc-50/60 sm:px-5 [&>span]:w-full [&>span]:justify-start [&>span]:whitespace-normal [&>span]:gap-0"
                 >
-                  <span className="hidden sm:flex w-5 text-[10px] font-black text-zinc-300 shrink-0 pt-0.5">
-                    #{idx + 1}
-                  </span>
+                  <div className="flex w-full items-start gap-4 text-left sm:items-center">
+                    <span className="hidden w-5 shrink-0 pt-0.5 text-[10px] font-black text-zinc-300 sm:flex">
+                      #{idx + 1}
+                    </span>
 
-                  <ScoreRing score={match.compatibility_score} />
+                    <ScoreRing score={match.compatibility_score} />
 
-                  <div className="flex-1 min-w-0">
-                    <div className="flex flex-wrap items-center gap-2 mb-1">
-                      <h3 className="text-sm font-black text-zinc-900">{match.full_name}</h3>
-                      <Badge size="sm" color={cfg.badge}>
-                        {classificationLabel[match.classification?.toUpperCase()] || cfg.label}
-                      </Badge>
-                      {match.has_disc && (
-                        <Badge size="sm" color="primary" icon={<Brain size={9} />}>
-                          {match.disc_profile}
+                    <div className="min-w-0 flex-1">
+                      <div className="mb-1 flex flex-wrap items-center gap-2">
+                        <h3 className="text-sm font-black text-zinc-900">{match.full_name}</h3>
+                        <Badge size="sm" color={cfg.badge}>
+                          {classificationLabel[match.classification?.toUpperCase()] || cfg.label}
                         </Badge>
-                      )}
-                      {/* Badge de etapa do funil */}
-                      <span className={cn(
-                        "inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wide px-2 py-0.5 rounded-full border",
-                        stageOpt.bgLight, stageOpt.borderLight, stageOpt.textLight
-                      )}>
-                        {stageOpt.icon}
-                        {stageOpt.label}
-                      </span>
-                      {/* Badge de status de contato */}
-                      {match.contact_status && (
-                        <span className={cn(
-                          "inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wide px-2 py-0.5 rounded-full border",
-                          contactOpt.bgLight, contactOpt.borderLight, contactOpt.textLight
-                        )}>
-                          {contactOpt.icon}
-                          {contactOpt.label}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs font-semibold text-zinc-500 truncate mb-1.5">
-                      {match.desired_position}
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1 h-1 bg-zinc-100 rounded-full overflow-hidden max-w-[120px]">
-                        <div
-                          className={cn("h-full rounded-full transition-all duration-700", cfg.bar)}
-                          style={{ width: `${match.compatibility_score}%` }}
-                        />
+                        {match.has_disc && (
+                          <Badge size="sm" color="primary" icon={<Brain size={9} />}>
+                            {match.disc_profile}
+                          </Badge>
+                        )}
+                        <Badge size="sm" color={getFunnelBadgeColor(stageOpt.value)} icon={stageOpt.icon} pill>
+                          {stageOpt.label}
+                        </Badge>
+                        {match.contact_status && (
+                          <Badge size="sm" color={getContactBadgeColor(match.contact_status)} icon={contactOpt.icon} pill>
+                            {contactOpt.label}
+                          </Badge>
+                        )}
                       </div>
-                      <div className="flex items-center gap-1 text-[10px] font-bold text-zinc-400">
-                        <MapPin size={10} />
-                        <span>{match.city}, {match.state}</span>
+                      <p className="mb-1.5 truncate text-xs font-semibold text-zinc-500">
+                        {match.desired_position}
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <div className="h-1 max-w-[120px] flex-1 overflow-hidden rounded-full bg-zinc-100">
+                          <div
+                            className={cn("h-full rounded-full transition-all duration-700", cfg.bar)}
+                            style={{ width: `${match.compatibility_score}%` }}
+                          />
+                        </div>
+                        <div className="flex items-center gap-1 text-[10px] font-bold text-zinc-400">
+                          <MapPin size={10} />
+                          <span>{match.city}, {match.state}</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div className={cn(
-                    "w-7 h-7 rounded-full flex items-center justify-center shrink-0 transition-all duration-200 border",
-                    isExpanded
-                      ? "bg-develoi-navy text-white border-develoi-navy rotate-180"
-                      : "bg-zinc-50 text-zinc-400 border-zinc-200"
-                  )}>
-                    <ChevronDown size={13} />
+                    <div
+                      className={cn(
+                        "flex h-7 w-7 shrink-0 items-center justify-center rounded-full border transition-all duration-200",
+                        isExpanded
+                          ? "rotate-180 border-develoi-navy bg-develoi-navy text-white"
+                          : "border-zinc-200 bg-zinc-50 text-zinc-400"
+                      )}
+                    >
+                      <ChevronDown size={13} />
+                    </div>
                   </div>
-                </button>
+                </Button>
 
                 {/* ── Painel Expandido ─────────────────────────────────── */}
                 <AnimatePresence initial={false}>
@@ -1007,14 +931,16 @@ export default function Matches() {
 
                             {match.strengths?.length > 0 && (
                               <div className="flex flex-wrap gap-1.5">
-                                {match.strengths.slice(0, 5).map((s, i) => (
-                                  <span
-                                    key={i}
-                                    className="flex items-center gap-1 text-[9px] bg-emerald-50 border border-emerald-100 text-emerald-700 px-2.5 py-1 rounded-lg font-bold uppercase tracking-wide"
+                                {match.strengths.slice(0, 5).map((strength, index) => (
+                                  <Badge
+                                    key={index}
+                                    color="success"
+                                    size="md"
+                                    icon={<CheckCircle2 size={9} />}
+                                    className="normal-case tracking-normal"
                                   >
-                                    <CheckCircle2 size={9} />
-                                    {s}
-                                  </span>
+                                    {strength}
+                                  </Badge>
                                 ))}
                               </div>
                             )}
@@ -1056,3 +982,4 @@ export default function Matches() {
     </PageWrapper>
   );
 }
+

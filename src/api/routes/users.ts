@@ -54,8 +54,8 @@ export function registerUserRoutes(app: Express) {
       safePermissions.super_admin = false;
 
       await db.prepare(`
-        INSERT INTO users (id, tenant_id, unit_id, full_name, email, password, role, status, access_profile, permissions_json)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO users (id, tenant_id, unit_id, full_name, email, password, role, status, access_profile, permissions_json, action_permissions_json)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         id,
         tenantId,
@@ -66,11 +66,22 @@ export function registerUserRoutes(app: Express) {
         user.role || 'user',
         user.status || 'Ativo',
         accessProfile,
-        stringifyAccessPermissions(safePermissions, accessProfile)
+        stringifyAccessPermissions(safePermissions, accessProfile),
+        user.action_permissions_json || null
       );
       res.json({ id, ...user });
-    } catch (error) {
-      console.error(error);
+    } catch (error: any) {
+      console.error('[POST /api/users]', error);
+      // MySQL duplicate entry (errno 1062) — e-mail já existe
+      const isDuplicate =
+        error?.code === 'ER_DUP_ENTRY' ||
+        error?.message?.includes('Duplicate entry') ||
+        error?.message?.includes('UNIQUE constraint failed');
+      if (isDuplicate) {
+        return res.status(409).json({
+          error: 'Este e-mail já está cadastrado no sistema. Use um e-mail diferente para este acesso.',
+        });
+      }
       res.status(500).json({ error: 'Failed to create user' });
     }
   });
@@ -104,7 +115,8 @@ export function registerUserRoutes(app: Express) {
           status = ?,
           unit_id = ?,
           access_profile = ?,
-          permissions_json = COALESCE(?, permissions_json)
+          permissions_json = COALESCE(?, permissions_json),
+          action_permissions_json = COALESCE(?, action_permissions_json)
         WHERE id = ?
       `).run(
         user.full_name,
@@ -114,6 +126,7 @@ export function registerUserRoutes(app: Express) {
         user.unit_id || existing.unit_id,
         accessProfile,
         safePermissions ? stringifyAccessPermissions(safePermissions, accessProfile) : null,
+        user.action_permissions_json || null,
         id
       );
       res.json({ success: true });
@@ -145,7 +158,7 @@ export function registerUserRoutes(app: Express) {
     }
   });
 
-  app.post('/api/users/:id/photo', photoUpload.single('file'), async (req, res) => {
+  app.post('/api/users/:id/photo', photoUpload.single('file') as any, async (req, res) => {
     const { id } = req.params;
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 

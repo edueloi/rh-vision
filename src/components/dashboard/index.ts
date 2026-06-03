@@ -9,3 +9,6 @@ export * from "../ui/RecommendedTalents";
 export * from "../ui/RecentImports";
 export * from "../ui/UpcomingActions";
 export * from "../ui/UnitSummaryTable";
+export * from "../ui/PendingApprovalsAlert";
+export * from "../ui/DashboardQuickLinks";
+export * from "../ui/DashboardChecklist";

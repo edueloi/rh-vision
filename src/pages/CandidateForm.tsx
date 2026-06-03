@@ -85,19 +85,19 @@ interface Language {
   level: string;
 }
 
-const Section = ({ title, icon: Icon, children, rightNode, className }: { title: string, icon: any, children: React.ReactNode, rightNode?: React.ReactNode, className?: string }) => (
-  <div className={cn("mb-6 last:mb-0", className)}>
-    <div className="bg-white border border-zinc-100 rounded-2xl shadow-sm hover:shadow-md transition-shadow overflow-hidden">
-      <div className="px-6 py-4 bg-gradient-to-r from-zinc-50 to-white border-b border-zinc-100 flex items-center justify-between">
+const Section = ({ title, icon: Icon, children, rightNode, className }: { title: string; icon: any; children: React.ReactNode; rightNode?: React.ReactNode; className?: string }) => (
+  <div className={cn("mb-4 last:mb-0", className)}>
+    <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+      <div className="flex items-center justify-between border-b border-zinc-100 px-5 py-3.5">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-develoi-navy/10 rounded-lg text-develoi-navy">
-            <Icon size={16} />
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-develoi-navy/8 text-develoi-navy">
+            <Icon size={15} />
           </div>
-          <h3 className="text-sm font-bold text-zinc-900 tracking-tight">{title}</h3>
+          <h3 className="text-[13px] font-bold tracking-tight text-zinc-900">{title}</h3>
         </div>
         {rightNode}
       </div>
-      <div className="px-6 py-5">
+      <div className="px-5 py-4">
         {children}
       </div>
     </div>
@@ -285,99 +285,98 @@ export default function CandidateForm({ candidate, onBack, onSuccess }: Candidat
   };
 
   return (
-    <div className="w-full">
-        {/* Enhanced Top Control Bar */}
-        <div className="sticky top-0 z-30 bg-white border-b border-zinc-100 shadow-sm">
-          <div className="w-full px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <IconButton onClick={onBack} variant="outline" className="h-8 w-8 border-zinc-200 hover:bg-zinc-50">
-                <ArrowLeft size={16} />
-              </IconButton>
-              <div className="h-5 w-px bg-zinc-200" />
-              <div>
-                <h1 className="text-base font-bold text-develoi-navy truncate">
-                  {candidate ? candidate.full_name : 'Novo Talento'}
-                </h1>
-                <p className="text-[10px] font-medium text-zinc-400 uppercase tracking-widest">
-                  Matriz - Fadel • Candidatos
-                </p>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-2">
-               <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 rounded-lg border border-emerald-100">
-                 <div className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />
-                 <span className="text-[8px] font-bold text-emerald-700 uppercase tracking-widest">Sincronizado</span>
-               </div>
-               <Button 
-                 form="candidate-form"
-                 type="submit"
-                 disabled={loading || isParsing}
-                 className="h-8 px-4 rounded-lg bg-develoi-navy hover:bg-develoi-navy/95 text-[9px] font-bold uppercase tracking-wider text-white"
-                 iconLeft={loading ? <Loader2 className="animate-spin" size={12} /> : <Save size={12} />}
-               >
-                 {candidate ? 'Salvar' : 'Finalizar'}
-               </Button>
+    <div className="w-full min-h-screen bg-[#f8fafc]">
+
+      {/* ── PAGE HEADER ── */}
+      <div className="relative overflow-hidden bg-develoi-navy px-5 py-5 sm:px-7">
+        <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-develoi-gold/10 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-12 left-1/4 h-36 w-36 rounded-full bg-sky-500/8 blur-3xl" />
+        <div className="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          {/* Left: back + title */}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={onBack}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/15 text-white/60 transition-colors hover:bg-white/10 hover:text-white"
+            >
+              <ArrowLeft size={16} />
+            </button>
+            <div>
+              <h1 className="text-[20px] font-black leading-none tracking-tight text-white sm:text-[24px]">
+                {candidate ? candidate.full_name : 'Novo Talento'}
+              </h1>
+              <p className="mt-1 text-[11px] font-medium text-white/40">
+                {candidate ? 'Editando perfil do candidato' : 'Cadastre um novo candidato no banco de talentos'}
+              </p>
             </div>
           </div>
 
-          {/* Quick Controls Bar */}
-          <div className="w-full px-4 sm:px-6 py-2.5 bg-zinc-50/50 border-t border-zinc-100 flex flex-wrap items-center gap-3">
-             <div className="flex items-center gap-2">
-               <span className="text-[8px] font-bold text-zinc-400 uppercase">Status:</span>
-               <Select 
-                 value={formData.status} 
-                 onChange={e => setFormData(f => ({ ...f, status: e.target.value as any }))}
-                 className="h-9 text-xs bg-white border-zinc-200 rounded-lg text-zinc-600 font-medium"
-               >
-                 {['Novo', 'Em análise', 'Compatível', 'Entrevista', 'Aprovado', 'Reprovado', 'Banco de talentos', 'Contratado'].map(s => (
-                   <option key={s} value={s}>{s}</option>
-                 ))}
-               </Select>
-             </div>
-             
-             <div className="flex items-center gap-2">
-               <span className="text-[8px] font-bold text-zinc-400 uppercase">Modelo:</span>
-               <Select 
-                 value={formData.desired_work_model} 
-                 onChange={e => setFormData(f => ({ ...f, desired_work_model: e.target.value as any }))}
-                 className="h-9 text-xs bg-white border-zinc-200 rounded-lg text-zinc-600 font-medium"
-               >
-                 <option>Presencial</option>
-                 <option>Híbrido</option>
-                 <option>Home Office</option>
-               </Select>
-             </div>
+          {/* Right: controls + save */}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Status */}
+            <div className="flex items-center gap-1.5">
+              <span className="text-[9px] font-semibold uppercase tracking-wider text-white/40">Status</span>
+              <select
+                value={formData.status}
+                onChange={e => setFormData(f => ({ ...f, status: e.target.value as any }))}
+                className="h-8 cursor-pointer appearance-none rounded-lg border border-white/15 bg-white/8 px-3 pr-7 text-[11px] font-medium text-white/80 outline-none transition-colors hover:bg-white/12"
+                style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath fill='%23ffffff60' d='M6 8L1 3h10z'/%3E%3C/svg%3E\")", backgroundRepeat: 'no-repeat', backgroundPosition: 'right 8px center', backgroundSize: '10px' }}
+              >
+                {['Novo', 'Em análise', 'Compatível', 'Entrevista', 'Aprovado', 'Reprovado', 'Banco de talentos', 'Contratado'].map(s => (
+                  <option key={s} value={s} style={{ background: '#1e293b', color: '#f1f5f9' }}>{s}</option>
+                ))}
+              </select>
+            </div>
 
-             <div className="flex items-center gap-2">
-               <span className="text-[8px] font-bold text-zinc-400 uppercase">Pretensão:</span>
-               <div className="relative">
-                 <DollarSign size={10} className="absolute left-2 top-1/2 -translate-y-1/2 text-zinc-400" />
-                 <Input 
-                   type="number"
-                   value={formData.desired_salary || ''}
-                   onChange={e => setFormData(f => ({ ...f, desired_salary: Number(e.target.value) || undefined }))}
-                   className="h-9 pl-6 w-24 text-xs bg-white border-zinc-200 rounded-lg"
-                   placeholder="0.00"
-                 />
-               </div>
-             </div>
+            {/* Work model */}
+            <select
+              value={formData.desired_work_model}
+              onChange={e => setFormData(f => ({ ...f, desired_work_model: e.target.value as any }))}
+              className="h-8 cursor-pointer appearance-none rounded-lg border border-white/15 bg-white/8 px-3 pr-7 text-[11px] font-medium text-white/80 outline-none transition-colors hover:bg-white/12"
+              style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath fill='%23ffffff60' d='M6 8L1 3h10z'/%3E%3C/svg%3E\")", backgroundRepeat: 'no-repeat', backgroundPosition: 'right 8px center', backgroundSize: '10px' }}
+            >
+              <option style={{ background: '#1e293b', color: '#f1f5f9' }}>Presencial</option>
+              <option style={{ background: '#1e293b', color: '#f1f5f9' }}>Híbrido</option>
+              <option style={{ background: '#1e293b', color: '#f1f5f9' }}>Home Office</option>
+            </select>
 
-             <div className="flex-1" />
+            {/* Pretensão */}
+            <div className="relative flex items-center">
+              <span className="pointer-events-none absolute left-2.5 text-[10px] text-white/40">R$</span>
+              <input
+                type="number"
+                value={formData.desired_salary || ''}
+                onChange={e => setFormData(f => ({ ...f, desired_salary: Number(e.target.value) || undefined }))}
+                placeholder="Pretensão"
+                className="h-8 rounded-lg border border-white/15 bg-white/8 pl-8 pr-3 text-[11px] font-medium text-white/80 outline-none transition-colors hover:bg-white/12 placeholder:text-white/30 w-28"
+              />
+            </div>
 
-             <button 
-               onClick={() => fileInputRef.current?.click()} 
-               type="button" 
-               className="flex items-center gap-1.5 px-3 py-1.5 bg-develoi-navy/10 border border-develoi-navy/20 rounded-lg cursor-pointer hover:bg-develoi-navy/15 transition-all text-develoi-navy text-[9px] font-bold uppercase"
-             >
-                <Sparkles size={11} />
-                Importar CV
-                <input type="file" ref={fileInputRef} onChange={(e) => { const file = e.target.files?.[0]; if (file) handleFileUpload(file); }} accept=".pdf" className="hidden" />
-             </button>
+            {/* Import CV */}
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              type="button"
+              className="flex h-8 items-center gap-1.5 rounded-lg border border-white/15 bg-white/8 px-3.5 text-[11px] font-medium text-white/70 transition-all hover:bg-white/12 hover:text-white"
+            >
+              <Sparkles size={13} className="text-develoi-gold" />
+              Importar CV
+              <input type="file" ref={fileInputRef} onChange={e => { const file = e.target.files?.[0]; if (file) handleFileUpload(file); }} accept=".pdf" className="hidden" />
+            </button>
+
+            {/* Save */}
+            <button
+              form="candidate-form"
+              type="submit"
+              disabled={loading || isParsing}
+              className="flex h-8 items-center gap-1.5 rounded-lg bg-develoi-gold px-4 text-[11px] font-bold text-develoi-navy shadow-lg shadow-develoi-gold/20 transition-all hover:bg-[#d4a83a] disabled:opacity-50"
+            >
+              {loading ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+              {candidate ? 'Salvar' : 'Finalizar'}
+            </button>
           </div>
         </div>
+      </div>
 
-        <form id="candidate-form" onSubmit={handleSubmit} className="w-full px-4 sm:px-6 py-4">
+      <form id="candidate-form" onSubmit={handleSubmit} className="w-full px-4 py-5 sm:px-6 sm:py-6">
           {/* Grid Layout - 2 Columns */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Column - Core Info */}

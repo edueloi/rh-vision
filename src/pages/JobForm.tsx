@@ -287,8 +287,8 @@ function FieldHeader({
 }) {
   return (
     <div className="flex items-center justify-between gap-3">
-      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">
-        {label} {required && <span className="text-red-500">*</span>}
+      <label className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">
+        {label}{required && <span className="ml-0.5 text-rose-500">*</span>}
       </label>
       {badge}
     </div>
@@ -759,13 +759,16 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
           </div>
 
           {formData.ai_summary && (
-            <ContentCard className="bg-zinc-900 text-white" padding="sm">
-              <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-develoi-gold">
-                <Sparkles size={12} />
-                Resumo da IA
+            <div className="relative overflow-hidden rounded-xl bg-develoi-navy p-4">
+              <div className="pointer-events-none absolute -right-6 -top-6 h-20 w-20 rounded-full bg-develoi-gold/10 blur-2xl" />
+              <div className="relative z-10 flex items-start gap-2.5">
+                <Sparkles size={14} className="mt-0.5 shrink-0 text-develoi-gold" />
+                <div>
+                  <p className="mb-1.5 text-[9px] font-bold uppercase tracking-[0.2em] text-develoi-gold/70">Resumo da IA</p>
+                  <p className="text-[12px] font-medium leading-relaxed text-white/80">{formData.ai_summary}</p>
+                </div>
               </div>
-              <p className="mt-3 text-sm leading-relaxed text-zinc-100">{formData.ai_summary}</p>
-            </ContentCard>
+            </div>
           )}
         </div>
       </PanelCard>
@@ -776,75 +779,65 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
     if (importedReviews.length === 0) return null;
 
     return (
-      <ContentCard className="space-y-4">
-        <div className="space-y-2">
+      <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+        {/* Header */}
+        <div className="border-b border-zinc-100 px-4 py-3.5">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-sm font-black tracking-tight text-zinc-900">Lote importado</p>
-              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-400">
-                {importedReviews.length} vagas aguardando revisão
-              </p>
+              <p className="text-[13px] font-bold text-zinc-900">Lote importado</p>
+              <p className="text-[11px] text-zinc-400">{importedReviews.length} vaga{importedReviews.length !== 1 ? "s" : ""} aguardando revisão</p>
             </div>
-            <Badge color="info" pill>
-              Limite {MAX_BATCH_IMPORT_FILES}
-            </Badge>
+            <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-semibold text-sky-700">
+              Lim. {MAX_BATCH_IMPORT_FILES}
+            </span>
           </div>
-
-          <p className="text-sm leading-relaxed text-zinc-500">
-            Cada vaga permanece em fila até você revisar e salvar. Os campos vazios continuam vazios quando o documento não traz a informação.
-          </p>
-
-          {importedReviews.length > 1 && (
-            <Button
-              variant="secondary"
-              size="sm"
-              fullWidth
-              disabled={isBatchSaving}
-              onClick={handleBatchAutoSave}
-              iconLeft={isBatchSaving ? <Loader2 size={14} className="animate-spin" /> : <Zap size={14} />}
-            >
-              {isBatchSaving && batchSaveProgress
-                ? `Salvando ${batchSaveProgress.current} de ${batchSaveProgress.total}…`
-                : `Salvar todas (${importedReviews.length}) automaticamente`}
-            </Button>
-          )}
         </div>
 
-        <div className="space-y-2">
+        <div className="p-3 space-y-2">
+          {importedReviews.length > 1 && (
+            <button
+              onClick={handleBatchAutoSave}
+              disabled={isBatchSaving}
+              className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-develoi-navy py-2 text-[12px] font-semibold text-white transition-colors hover:bg-[#0a1e3a] disabled:opacity-50"
+            >
+              {isBatchSaving
+                ? <><Loader2 size={13} className="animate-spin" /> Salvando {batchSaveProgress?.current}/{batchSaveProgress?.total}…</>
+                : <><Zap size={13} className="text-develoi-gold" /> Salvar todas ({importedReviews.length}) automaticamente</>}
+            </button>
+          )}
+
           {importedReviews.map((review, index) => {
             const isActive = review.importId === currentImportId;
             return (
-              <Button
+              <button
                 key={review.importId}
-                variant={isActive ? "secondary" : "ghost"}
-                size="sm"
-                fullWidth
-                className="h-auto min-w-0 justify-start px-3 py-3"
                 onClick={() => loadImportedReview(review)}
+                className={cn(
+                  "flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left transition-colors",
+                  isActive ? "bg-develoi-gold/8 ring-1 ring-develoi-gold/20" : "hover:bg-zinc-50"
+                )}
               >
-                <div className="flex min-w-0 flex-1 items-start justify-between gap-3 text-left">
-                  <div className="min-w-0">
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em] opacity-70">
-                      Vaga {index + 1}
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-zinc-100 text-[10px] font-black text-zinc-500">
+                  {index + 1}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[12px] font-semibold text-zinc-800">{review.fileName}</p>
+                  {review.data?.title && (
+                    <p className="truncate text-[10px] text-zinc-500">
+                      {review.data.title}{review.data.city ? ` · ${review.data.city}` : ""}
                     </p>
-                    <p className="truncate text-sm font-bold">{review.fileName}</p>
-                    {review.data?.title && (
-                      <p className="truncate text-[11px] text-zinc-500">
-                        {review.data.title} {review.data.city ? `• ${review.data.city}` : ""}
-                      </p>
-                    )}
-                  </div>
-                  {isActive && (
-                    <Badge color="gold" pill className="shrink-0">
-                      Editando
-                    </Badge>
                   )}
                 </div>
-              </Button>
+                {isActive && (
+                  <span className="shrink-0 rounded-full bg-develoi-gold/15 px-2 py-0.5 text-[9px] font-bold text-develoi-gold">
+                    Editando
+                  </span>
+                )}
+              </button>
             );
           })}
         </div>
-      </ContentCard>
+      </div>
     );
   };
 
@@ -854,33 +847,38 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
         {renderQueueCard()}
 
         {currentImportedReview && (
-          <ContentCard className="space-y-4">
-            <div className="space-y-2">
-              <p className="text-sm font-black tracking-tight text-zinc-900">Revisão pronta</p>
-              <p className="text-sm leading-relaxed text-zinc-500">
-                O lote já contém vaga em análise. Você pode importar mais arquivos agora ou voltar para a revisão manual.
-              </p>
+          <div className="overflow-hidden rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+            <div className="mb-3 flex items-center gap-2">
+              <CheckCircle2 size={14} className="text-emerald-600" />
+              <p className="text-[13px] font-semibold text-emerald-800">Revisão pronta</p>
             </div>
-
-            <Button
-              variant="secondary"
-              fullWidth
-              iconLeft={<ArrowLeft size={14} />}
+            <p className="mb-3 text-[12px] leading-relaxed text-emerald-700/80">
+              O lote já contém vaga em análise. Volte para a revisão manual ou importe mais arquivos.
+            </p>
+            <button
               onClick={() => setImportMode(false)}
+              className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-emerald-600 py-2 text-[12px] font-semibold text-white transition-colors hover:bg-emerald-700"
             >
-              Voltar para revisão
-            </Button>
-          </ContentCard>
+              <ArrowLeft size={13} /> Voltar para revisão
+            </button>
+          </div>
         )}
       </div>
 
-      <PanelCard
-        title="Importação assistida por IA"
-        description="Use arquivos reais da vaga. A plataforma vai estruturar apenas os campos com evidência textual."
-        icon={FileUp}
-      >
-        {units.length > 1 && (
-          <div className="mb-6 grid gap-4 sm:grid-cols-2">
+      <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+        {/* Panel header */}
+        <div className="flex items-center gap-3 border-b border-zinc-100 px-5 py-4">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-develoi-navy/8">
+            <FileUp size={15} className="text-develoi-navy" />
+          </div>
+          <div>
+            <h3 className="text-[13px] font-bold text-zinc-900">Importação assistida por IA</h3>
+            <p className="text-[11px] text-zinc-400">A plataforma estrutura apenas os campos com evidência textual no documento.</p>
+          </div>
+        </div>
+        <div className="p-5">
+        <div className="mb-6 grid gap-4 sm:grid-cols-2">
+          {units.length > 1 && (
             <div className="space-y-1.5">
               <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">
                 Unidade
@@ -900,121 +898,102 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
                 ))}
               </Select>
             </div>
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">
-                Cidade (padrão para vagas importadas)
-              </label>
-              <Input
-                value={importCity}
-                onChange={(e) => setImportCity(e.target.value)}
-                placeholder="Ex: São Paulo"
-              />
-            </div>
+          )}
+          <div className={cn("space-y-1.5", units.length <= 1 && "sm:col-span-2")}>
+            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 flex items-center gap-1.5">
+              Cidade padrão
+              <span className="normal-case font-medium text-zinc-400 tracking-normal">(opcional)</span>
+            </label>
+            <Input
+              value={importCity}
+              onChange={(e) => setImportCity(e.target.value)}
+              placeholder="Ex: São Paulo — deixe em branco para a IA detectar"
+            />
+            <p className="text-[10px] text-zinc-400 leading-relaxed flex items-start gap-1">
+              <Info size={10} className="mt-0.5 shrink-0 text-zinc-300" />
+              Usada como fallback quando a IA não encontrar a cidade no documento. Se deixar vazio, a IA tenta extrair do texto.
+            </p>
           </div>
-        )}
+        </div>
 
+        {/* ── DROP ZONE ── */}
         <div
-          onDragOver={(event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            setIsDropActive(true);
-          }}
-          onDragLeave={(event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            setIsDropActive(false);
-          }}
+          onDragOver={(event) => { event.preventDefault(); event.stopPropagation(); setIsDropActive(true); }}
+          onDragLeave={(event) => { event.preventDefault(); event.stopPropagation(); setIsDropActive(false); }}
           onDrop={handleDrop}
           className={cn(
-            "rounded-[28px] border-2 border-dashed px-6 py-10 text-center transition-all sm:px-10 sm:py-14",
+            "relative overflow-hidden rounded-2xl border-2 border-dashed px-6 py-14 text-center transition-all sm:px-10 sm:py-20",
             isDropActive
-              ? "border-develoi-navy bg-develoi-navy/5"
-              : "border-zinc-200 bg-zinc-50/70"
+              ? "border-develoi-navy bg-develoi-navy/[0.04]"
+              : "border-zinc-200 bg-zinc-50/60 hover:border-zinc-300 hover:bg-zinc-50"
           )}
         >
-          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-[26px] border border-zinc-200 bg-white text-zinc-300 shadow-sm">
-            {isAnalyzing ? (
-              <div className="h-10 w-10 animate-spin rounded-full border-4 border-develoi-gold border-t-transparent" />
-            ) : (
-              <Upload size={30} />
-            )}
+          {/* Subtle corner glows */}
+          <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-develoi-gold/8 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-10 -left-10 h-32 w-32 rounded-full bg-sky-400/8 blur-3xl" />
+
+          {/* Icon */}
+          <div className="relative mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl border border-zinc-200 bg-white text-zinc-400 shadow-sm">
+            {isAnalyzing
+              ? <div className="h-8 w-8 animate-spin rounded-full border-3 border-develoi-gold border-t-transparent" style={{ borderWidth: 3 }} />
+              : <Upload size={24} />}
           </div>
 
           <AnimatePresence mode="wait">
             {isAnalyzing ? (
-              <motion.div
-                key="analyzing"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                className="mx-auto mt-6 max-w-2xl space-y-4"
-              >
-                <div className="flex items-center justify-center gap-3 rounded-2xl bg-develoi-navy px-6 py-4 text-white shadow-lg">
-                  <Sparkles size={16} className="text-develoi-gold shrink-0" />
-                  <div className="text-left">
-                    <p className="text-sm font-black">Aurora IA está analisando seu documento</p>
+              <motion.div key="analyzing" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
+                <div className="mx-auto flex max-w-sm items-center gap-3 rounded-xl bg-develoi-navy px-5 py-3.5 text-white shadow-lg">
+                  <Sparkles size={15} className="shrink-0 text-develoi-gold" />
+                  <div className="min-w-0 flex-1 text-left">
+                    <p className="text-[12px] font-bold">Aurora IA analisando documento</p>
                     {analyzeProgress && (
-                      <p className="mt-0.5 text-[11px] text-white/60 truncate max-w-xs">
+                      <p className="mt-0.5 truncate text-[10px] text-white/50">
                         {analyzeProgress.total > 1
-                          ? `Arquivo ${analyzeProgress.current} de ${analyzeProgress.total}: ${analyzeProgress.fileName}`
+                          ? `${analyzeProgress.current}/${analyzeProgress.total}: ${analyzeProgress.fileName}`
                           : analyzeProgress.fileName}
                       </p>
                     )}
                   </div>
-                  <Loader2 size={16} className="animate-spin text-white/50 shrink-0" />
+                  <Loader2 size={14} className="shrink-0 animate-spin text-white/40" />
                 </div>
-                <p className="text-sm text-zinc-400">Estruturando campos da vaga a partir do documento…</p>
+                <p className="text-[12px] text-zinc-400">Estruturando campos da vaga a partir do documento…</p>
               </motion.div>
             ) : (
-              <motion.div
-                key="idle"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                className="mx-auto mt-6 max-w-2xl space-y-3"
-              >
-                <h3 className="text-2xl font-black tracking-tight text-zinc-900">Arraste a descrição da vaga</h3>
-                <p className="text-sm leading-relaxed text-zinc-500">
+              <motion.div key="idle" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-3">
+                <h3 className="text-[22px] font-black tracking-tight text-zinc-900">Arraste a descrição da vaga</h3>
+                <p className="mx-auto max-w-md text-[13px] leading-relaxed text-zinc-500">
                   Envie até {MAX_BATCH_IMPORT_FILES} arquivos por lote em PDF, Word, texto ou planilha.
-                  A IA organiza os campos e deixa vazio tudo o que não estiver claramente no documento.
+                  A IA preenche apenas os campos que encontrar no documento.
                 </p>
               </motion.div>
             )}
           </AnimatePresence>
 
-          <div className="mt-8 flex flex-col items-center gap-3">
-            <input
-              ref={fileInputRef}
-              type="file"
-              className="hidden"
-              multiple
-              accept=".pdf,.doc,.docx,.txt,.csv,.xls,.xlsx"
-              onChange={handleFileUpload}
-            />
-
-            <Button
-              size="lg"
-              loading={isAnalyzing}
-              iconLeft={<Upload size={16} />}
+          <div className="mt-7 flex flex-col items-center gap-3">
+            <input ref={fileInputRef} type="file" className="hidden" multiple accept=".pdf,.doc,.docx,.txt,.csv,.xls,.xlsx" onChange={handleFileUpload} />
+            <button
               onClick={() => fileInputRef.current?.click()}
+              disabled={isAnalyzing}
+              className="flex items-center gap-2 rounded-xl bg-develoi-navy px-6 py-2.5 text-[13px] font-semibold text-white shadow-lg shadow-develoi-navy/15 transition-all hover:bg-[#0a1e3a] disabled:opacity-50"
             >
+              <Upload size={14} />
               {isAnalyzing ? "Analisando arquivos…" : "Selecionar arquivos"}
-            </Button>
-
-            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-400">
+            </button>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-zinc-400">
               Limite de {MAX_BATCH_IMPORT_FILES} arquivos por lote
             </p>
           </div>
 
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-2">
-            {["PDF", "DOC", "DOCX", "TXT", "CSV", "XLS", "XLSX"].map((extension) => (
-              <Badge key={extension} color="default" pill>
-                .{extension}
-              </Badge>
+          <div className="mt-7 flex flex-wrap items-center justify-center gap-1.5">
+            {["PDF", "DOC", "DOCX", "TXT", "CSV", "XLS", "XLSX"].map((ext) => (
+              <span key={ext} className="rounded-lg border border-zinc-200 bg-white px-2 py-0.5 text-[10px] font-semibold text-zinc-500">
+                .{ext}
+              </span>
             ))}
           </div>
         </div>
-      </PanelCard>
+        </div>
+      </div>
     </div>
   );
 
@@ -1302,13 +1281,13 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
             onChange: (checked: boolean) => handleChange("requires_relocation", checked),
           },
         ].map((item) => (
-          <ContentCard key={item.label} padding="sm" className="flex items-start justify-between gap-4">
-            <div className="space-y-1">
-              <p className="text-sm font-black tracking-tight text-zinc-900">{item.label}</p>
-              <p className="text-xs leading-relaxed text-zinc-500">{item.description}</p>
+          <div key={item.label} className="flex items-start justify-between gap-4 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
+            <div>
+              <p className="text-[13px] font-semibold text-zinc-900">{item.label}</p>
+              <p className="mt-0.5 text-[11px] leading-relaxed text-zinc-500">{item.description}</p>
             </div>
             <Switch checked={item.checked} onCheckedChange={item.onChange} />
-          </ContentCard>
+          </div>
         ))}
       </div>
 
@@ -1327,42 +1306,38 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
 
   const renderIASection = () => (
     <div className="space-y-6">
-      <ContentCard className="border-develoi-navy/10 bg-develoi-navy/5">
-        <div className="flex items-start gap-3">
-          <div className="mt-0.5 text-develoi-navy">
-            <Info size={18} />
-          </div>
-          <div className="space-y-2">
-            <p className="text-sm font-black tracking-tight text-develoi-navy">Leitura estratégica da Aurora AI</p>
-            <p className="text-sm leading-relaxed text-zinc-600">
-              Os pesos abaixo não precisam somar 100. Eles definem prioridade relativa entre técnica, experiência, localização e aderência ao contexto da vaga.
-            </p>
-          </div>
+      <div className="flex items-start gap-3 rounded-xl border border-develoi-navy/10 bg-develoi-navy/[0.04] px-4 py-3.5">
+        <Info size={15} className="mt-0.5 shrink-0 text-develoi-navy" />
+        <div>
+          <p className="text-[13px] font-semibold text-develoi-navy">Leitura estratégica da Aurora AI</p>
+          <p className="mt-0.5 text-[12px] leading-relaxed text-zinc-600">
+            Os pesos não precisam somar 100. Eles definem a prioridade relativa entre técnica, experiência, localização e aderência ao contexto da vaga.
+          </p>
         </div>
-      </ContentCard>
+      </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {IA_WEIGHT_FIELDS.map((item) => (
-          <ContentCard key={String(item.field)} padding="sm" className="space-y-3">
+          <div key={String(item.field)} className="space-y-3 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
             <div className="flex items-start justify-between gap-3">
-              <div className="space-y-1">
-                <p className="text-sm font-black tracking-tight text-zinc-900">{item.label}</p>
-                <p className="text-xs leading-relaxed text-zinc-500">{item.description}</p>
+              <div>
+                <p className="text-[13px] font-semibold text-zinc-900">{item.label}</p>
+                <p className="mt-0.5 text-[11px] leading-relaxed text-zinc-500">{item.description}</p>
               </div>
               {confidence && (
-                <Badge color="primary" pill>
-                  IA
-                </Badge>
+                <span className="shrink-0 rounded-full bg-sky-50 px-2 py-0.5 text-[9px] font-bold text-sky-700">IA</span>
               )}
             </div>
-
-            <Input
-              type="number"
-              min={0}
-              value={(formData[item.field] as number | undefined) ?? 0}
-              onChange={(event) => handleChange(item.field, Number.parseInt(event.target.value || "0", 10))}
-            />
-          </ContentCard>
+            <div className="flex items-center gap-2">
+              <Input
+                type="number"
+                min={0}
+                value={(formData[item.field] as number | undefined) ?? 0}
+                onChange={(event) => handleChange(item.field, Number.parseInt(event.target.value || "0", 10))}
+              />
+              <span className="shrink-0 text-[13px] font-semibold text-zinc-400">pts</span>
+            </div>
+          </div>
         ))}
       </div>
 
@@ -1424,128 +1399,158 @@ export default function JobForm({ job, initialData, onBack, onSuccess }: JobForm
 
   const currentSectionMeta = SECTION_META.find((section) => section.id === activeSection)!;
 
-  const renderEditorMode = () => (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-6 xl:flex-row xl:items-start">
-        <div className="flex-1 space-y-6">
-          {renderImportSummary()}
-          
-          <div className="flex flex-wrap items-center gap-1.5 border-b border-zinc-200 pb-px">
-            {SECTION_META.map((section) => {
-              const Icon = section.icon;
-              const isActive = section.id === activeSection;
+  const renderEditorMode = () => {
+    const hasQueue = importedReviews.length > 0;
+    return (
+      <div className="space-y-5">
+        <div className={cn(
+          "flex flex-col gap-5",
+          hasQueue && "xl:flex-row xl:items-start"
+        )}>
+          {/* Main form area — full width when no queue */}
+          <div className="min-w-0 flex-1 space-y-5">
+            {renderImportSummary()}
 
-              return (
-                <button
-                  key={section.id}
-                  onClick={() => setActiveSection(section.id)}
-                  className={cn(
-                    "relative flex items-center gap-2 px-4 py-3 text-sm font-bold transition-all",
-                    isActive 
-                      ? "text-develoi-navy" 
-                      : "text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100/50 rounded-t-xl"
-                  )}
-                >
-                  <Icon size={16} className={cn(isActive ? "text-develoi-navy" : "text-zinc-400")} />
-                  {section.navLabel}
-                  
-                  {isActive && (
-                    <motion.div 
-                      layoutId="activeTab"
-                      className="absolute bottom-0 left-0 right-0 h-0.5 bg-develoi-navy"
-                    />
-                  )}
-                </button>
-              );
-            })}
+            {/* Section tabs */}
+            <div className="flex items-center gap-0.5 overflow-x-auto rounded-xl border border-zinc-200 bg-zinc-50 p-1">
+              {SECTION_META.map((section) => {
+                const Icon = section.icon;
+                const isActive = section.id === activeSection;
+                return (
+                  <button
+                    key={section.id}
+                    onClick={() => setActiveSection(section.id)}
+                    className={cn(
+                      "flex shrink-0 items-center gap-1.5 rounded-lg px-3.5 py-2 text-[12px] font-semibold transition-all whitespace-nowrap",
+                      isActive
+                        ? "bg-develoi-navy text-white shadow-sm"
+                        : "text-zinc-500 hover:bg-white hover:text-zinc-800"
+                    )}
+                  >
+                    <Icon size={13} className={isActive ? "text-white" : "text-zinc-400"} />
+                    {section.navLabel}
+                  </button>
+                );
+              })}
+            </div>
+
+            <PanelCard
+              title={currentSectionMeta.title}
+              description={currentSectionMeta.description}
+              icon={currentSectionMeta.icon}
+            >
+              {renderCurrentSection()}
+            </PanelCard>
           </div>
 
-          <PanelCard
-            title={currentSectionMeta.title}
-            description={currentSectionMeta.description}
-            icon={currentSectionMeta.icon}
-          >
-            {renderCurrentSection()}
-          </PanelCard>
-        </div>
-
-        <div className="xl:w-[320px] shrink-0 space-y-6">
-          {renderQueueCard()}
+          {/* Queue sidebar — only rendered when there are items */}
+          {hasQueue && (
+            <div className="w-full shrink-0 space-y-5 xl:w-[300px]">
+              {renderQueueCard()}
+            </div>
+          )}
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const rawImportText = currentImportId ? rawImportTexts[currentImportId] ?? "" : "";
 
   return (
-    <PageWrapper className="min-h-screen bg-zinc-50/60">
-      <div className="space-y-6 px-4 py-6 sm:px-6 lg:px-8">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-          <div className="flex items-start gap-3">
-            <IconButton variant="ghost" size="md" onClick={onBack} aria-label="Voltar">
-              <ArrowLeft size={18} />
-            </IconButton>
+    <PageWrapper className="min-h-screen bg-[#f8fafc]">
+      <div className="space-y-5 px-4 pb-24 pt-5 sm:px-6">
 
-            <SectionTitle
-              className="mb-0"
-              title={job ? "Editar Vaga" : "Cadastrar Nova Vaga"}
-              subtitle="Configure os detalhes da vaga, importe documentos reais e revise os parâmetros da IA."
-              icon={<Briefcase size={22} />}
-            />
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            {currentImportedReview && importMode && (
-              <Button
-                variant="outline"
-                iconLeft={<ArrowLeft size={14} />}
-                onClick={() => setImportMode(false)}
+        {/* ── PAGE HEADER ── */}
+        <div className="relative overflow-hidden rounded-2xl bg-develoi-navy px-5 py-5 sm:px-7">
+          <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-develoi-gold/10 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-10 left-1/4 h-32 w-32 rounded-full bg-sky-500/8 blur-3xl" />
+          <div className="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={onBack}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/15 text-white/60 transition-colors hover:bg-white/10 hover:text-white"
               >
-                Voltar para revisão
-              </Button>
-            )}
+                <ArrowLeft size={16} />
+              </button>
+              <div>
+                <h1 className="text-[20px] font-black leading-none tracking-tight text-white sm:text-[24px]">
+                  {job ? "Editar Vaga" : "Cadastrar Nova Vaga"}
+                </h1>
+                <p className="mt-1 text-[11px] font-medium text-white/40">
+                  Configure os detalhes, importe documentos e revise os parâmetros da IA
+                </p>
+              </div>
+            </div>
 
-            {currentImportedReview && !importMode && !job && (
-              <Button
-                variant="outline"
-                iconLeft={<RefreshCcw size={14} />}
-                onClick={() => setImportMode(true)}
-              >
-                Importar mais arquivos
-              </Button>
-            )}
-
-            {!importMode && (
-              <>
-                <Button variant="outline" loading={loading} onClick={() => handleSave(false)}>
-                  Salvar rascunho
-                </Button>
-                <Button variant="secondary" loading={loading} onClick={() => handleSave(true)}>
-                  Salvar e publicar
-                </Button>
-              </>
-            )}
+            <div className="flex flex-wrap items-center gap-2">
+              {currentImportedReview && importMode && (
+                <button
+                  onClick={() => setImportMode(false)}
+                  className="flex h-8 items-center gap-1.5 rounded-lg border border-white/15 bg-white/8 px-3.5 text-[11px] font-medium text-white/70 transition-all hover:bg-white/12 hover:text-white"
+                >
+                  <ArrowLeft size={12} /> Voltar para revisão
+                </button>
+              )}
+              {currentImportedReview && !importMode && !job && (
+                <button
+                  onClick={() => setImportMode(true)}
+                  className="flex h-8 items-center gap-1.5 rounded-lg border border-white/15 bg-white/8 px-3.5 text-[11px] font-medium text-white/70 transition-all hover:bg-white/12 hover:text-white"
+                >
+                  <RefreshCcw size={12} /> Importar mais arquivos
+                </button>
+              )}
+              {!importMode && (
+                <>
+                  <button
+                    onClick={() => handleSave(false)}
+                    disabled={loading}
+                    className="flex h-8 items-center gap-1.5 rounded-lg border border-white/15 bg-white/8 px-4 text-[11px] font-medium text-white/70 transition-all hover:bg-white/12 hover:text-white disabled:opacity-50"
+                  >
+                    {loading ? <Loader2 size={12} className="animate-spin" /> : null}
+                    Salvar rascunho
+                  </button>
+                  <button
+                    onClick={() => handleSave(true)}
+                    disabled={loading}
+                    className="flex h-8 items-center gap-1.5 rounded-lg bg-develoi-gold px-4 text-[11px] font-bold text-develoi-navy shadow-lg shadow-develoi-gold/20 transition-all hover:bg-[#d4a83a] disabled:opacity-50"
+                  >
+                    {loading ? <Loader2 size={12} className="animate-spin" /> : null}
+                    Salvar e publicar
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         </div>
 
+        {/* ── MODO TOGGLE (novo / importar) ── */}
         {!job && (
-          <ContentCard padding="sm" className="inline-flex w-full flex-wrap gap-2 sm:w-auto">
-            <Button
-              variant={!importMode ? "secondary" : "ghost"}
-              size="sm"
+          <div className="flex h-10 items-center gap-0.5 rounded-xl border border-zinc-200 bg-zinc-50 p-1 w-fit">
+            <button
               onClick={() => setImportMode(false)}
+              className={cn(
+                "flex h-8 items-center gap-1.5 rounded-lg px-4 text-[12px] font-semibold transition-all",
+                !importMode
+                  ? "bg-develoi-navy text-white shadow-sm"
+                  : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800"
+              )}
             >
+              <Building2 size={13} />
               Cadastrar manualmente
-            </Button>
-            <Button
-              variant={importMode ? "secondary" : "ghost"}
-              size="sm"
+            </button>
+            <button
               onClick={() => setImportMode(true)}
+              className={cn(
+                "flex h-8 items-center gap-1.5 rounded-lg px-4 text-[12px] font-semibold transition-all",
+                importMode
+                  ? "bg-develoi-navy text-white shadow-sm"
+                  : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800"
+              )}
             >
+              <FileUp size={13} />
               Importar por arquivo
-            </Button>
-          </ContentCard>
+            </button>
+          </div>
         )}
 
         {importMode ? renderImportMode() : renderEditorMode()}

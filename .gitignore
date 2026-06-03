@@ -15,3 +15,7 @@ storage/
 *.db
 *.db-shm
 *.db-wal
+
+# LinkedIn bot session e debug
+.linkedin-session/
+.linkedin-debug/

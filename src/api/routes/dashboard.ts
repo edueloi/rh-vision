@@ -9,7 +9,15 @@ export function registerDashboardRoutes(app: Express) {
   app.get('/api/dashboard/overview', async (req, res) => {
     const { unitId, tenantId, period = '30d' } = req.query;
     try {
-      const p = period === 'all' ? '10 year' : period === '90d' ? '90 days' : period === '30d' ? '30 days' : '7 days';
+      const periodMap: Record<string, string> = {
+        all: '10 year',
+        '7d': '7 days',
+        '30d': '30 days',
+        '90d': '90 days',
+        '180d': '180 days',
+        '365d': '365 days',
+      };
+      const p = periodMap[String(period)] || '30 days';
       const unitFilter = (alias?: string) => {
         const prefix = alias ? `${alias}.` : '';
         return unitId && unitId !== 'master' ? `AND ${prefix}unit_id = ?` : '';
@@ -169,7 +177,7 @@ export function registerDashboardRoutes(app: Express) {
     }
   });
 
-  app.post('/api/ai/parse-resume', upload.single('resume'), async (req, res) => {
+  app.post('/api/ai/parse-resume', upload.single('resume') as any, async (req, res) => {
     console.log('--- AI RESUME PARSE REQUEST RECEIVED ---');
     try {
       const file = req.file;

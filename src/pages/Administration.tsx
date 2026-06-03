@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  ArrowRight,
-  BadgeCheck,
   Building,
   Building2,
+  CheckCircle2,
+  ChevronRight,
   Edit,
   Globe,
   Mail,
@@ -12,11 +12,12 @@ import {
   Plus,
   RefreshCw,
   Search,
-  Shield,
   Trash2,
   UserPlus,
   Users,
+  XCircle,
 } from "lucide-react";
+import { cn } from "@/src/lib/utils";
 import { getAuthHeaders, getAuthUser, getTenantId } from "@/src/lib/auth";
 import { formatPhoneBr } from "@/src/lib/masks";
 import { useUnit, Unit } from "@/src/lib/useUnit";
@@ -24,7 +25,12 @@ import {
   ACCESS_PERMISSION_KEYS,
   ACCESS_PERMISSION_LABELS,
   ACCESS_PROFILE_LABELS,
+  ACCESS_PROFILE_DESCRIPTIONS,
+  ACTION_PERMISSION_KEYS,
+  ACTION_PERMISSION_LABELS,
+  ACTION_PROFILE_PRESETS,
   AccessProfile,
+  ActionPermissions,
   getDefaultAccessProfile,
   getPermissionPreset,
   stringifyAccessPermissions,
@@ -35,17 +41,11 @@ import {
   Combobox,
   ComboboxOption,
   ContentCard,
-  EmptyState,
   FormRow,
-  IconButton,
   Input,
   Modal,
   PageWrapper,
-  PanelCard,
-  SectionTitle,
   Select,
-  StatCard,
-  StatGrid,
   useToast,
 } from "@/src/components/ui";
 
@@ -82,6 +82,18 @@ const initialUserForm = {
   unit_id: "",
   status: "Ativo" as "Ativo" | "Inativo",
   access_profile: "rh-operacao" as AccessProfile,
+};
+
+const DEFAULT_CUSTOM_ACTIONS: ActionPermissions = {
+  can_create_jobs: false,
+  can_edit_jobs: false,
+  can_delete_jobs: false,
+  can_approve_jobs: false,
+  can_create_candidates: false,
+  can_edit_candidates: false,
+  can_delete_candidates: false,
+  can_manage_users: false,
+  can_manage_units: false,
 };
 
 const COUNTRY_OPTIONS: ComboboxOption[] = [
@@ -198,6 +210,7 @@ export default function Administration() {
   const [editingUnit, setEditingUnit] = useState<Unit | null>(null);
   const [unitForm, setUnitForm] = useState(initialUnitForm);
   const [userForm, setUserForm] = useState(initialUserForm);
+  const [customActions, setCustomActions] = useState<ActionPermissions>(DEFAULT_CUSTOM_ACTIONS);
 
   const fetchUsers = useCallback(async () => {
     setUsersLoading(true);
@@ -239,10 +252,8 @@ export default function Administration() {
   const resetUserModal = () => {
     setShowUserModal(false);
     setEditingUser(null);
-    setUserForm({
-      ...initialUserForm,
-      unit_id: isMaster ? "" : currentUnit.id,
-    });
+    setUserForm({ ...initialUserForm, unit_id: isMaster ? "" : currentUnit.id });
+    setCustomActions(DEFAULT_CUSTOM_ACTIONS);
   };
 
   const openCreateUnit = () => {
@@ -278,6 +289,7 @@ export default function Administration() {
 
   const openEditUser = (user: UserProfile) => {
     setEditingUser(user);
+    const profile = (user.access_profile || getDefaultAccessProfile(user.role)) as AccessProfile;
     setUserForm({
       full_name: user.full_name,
       email: user.email,
@@ -285,8 +297,10 @@ export default function Administration() {
       role: user.role,
       unit_id: user.unit_id,
       status: user.status,
-      access_profile: user.access_profile || getDefaultAccessProfile(user.role),
+      access_profile: profile,
     });
+    // Pre-load action permissions from the profile preset
+    setCustomActions({ ...(ACTION_PROFILE_PRESETS[profile] ?? DEFAULT_CUSTOM_ACTIONS) });
     setShowUserModal(true);
   };
 
@@ -322,6 +336,10 @@ export default function Administration() {
       userForm.role === "admin" ? "admin-mestre" : userForm.access_profile;
     const permissions = getPermissionPreset(accessProfile);
     permissions.super_admin = false;
+    // For custom profile, use the UI-defined action permissions; otherwise use the preset
+    const actionPerms = accessProfile === "custom"
+      ? customActions
+      : ACTION_PROFILE_PRESETS[accessProfile];
 
     try {
       const response = await fetch(url, {
@@ -332,6 +350,7 @@ export default function Administration() {
           tenant_id: tenantId,
           access_profile: accessProfile,
           permissions_json: JSON.parse(stringifyAccessPermissions(permissions, accessProfile)),
+          action_permissions_json: JSON.stringify(actionPerms),
         }),
       });
 
@@ -435,6 +454,9 @@ export default function Administration() {
   const enabledPermissions = ACCESS_PERMISSION_KEYS.filter(
     (permission) => permission !== "super_admin" && selectedPermissions[permission]
   );
+  const previewActions = selectedUserProfile === "custom"
+    ? customActions
+    : ACTION_PROFILE_PRESETS[selectedUserProfile];
 
   const subtitle =
     activeTab === "units"
@@ -442,429 +464,347 @@ export default function Administration() {
       : `${currentUnit.name} · ${filteredUsers.length} acessos visíveis`;
 
   return (
-    <PageWrapper className="min-h-screen bg-zinc-50/60">
-      <div className="space-y-10 px-4 py-10 sm:px-6 lg:px-8">
-        <SectionTitle
-          title="Administração"
-          subtitle={subtitle}
-          icon={<Building2 size={22} />}
-          actions={
-            <div className="flex items-center gap-3">
-              <IconButton
-                variant="outline"
-                className="bg-white"
-                onClick={refreshEverything}
-                aria-label="Atualizar administração"
-              >
-                <RefreshCw size={16} />
-              </IconButton>
+    <PageWrapper className="min-h-screen bg-[#f8fafc]">
+      <div className="space-y-5 px-4 pb-24 pt-5 sm:px-6">
 
+        {/* ── PAGE HEADER ── */}
+        <div className="relative overflow-hidden rounded-2xl bg-develoi-navy px-5 py-5 sm:px-7">
+          <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-develoi-gold/10 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-12 left-1/3 h-36 w-36 rounded-full bg-sky-500/8 blur-3xl" />
+          <div className="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="mb-1 flex items-center gap-2">
+                <Building2 size={11} className="text-develoi-gold/70" />
+                <span className="text-[10px] font-medium uppercase tracking-[0.15em] text-white/40">{currentUnit.name}</span>
+              </div>
+              <h1 className="text-[22px] font-black leading-none tracking-tight text-white sm:text-[26px]">
+                Administração
+              </h1>
+              <p className="mt-1.5 text-[11px] font-medium text-white/40">{subtitle}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button onClick={refreshEverything} title="Atualizar"
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/15 bg-white/8 text-white/50 transition-all hover:bg-white/12 hover:text-white">
+                <RefreshCw size={13} />
+              </button>
               {activeTab === "units" ? (
-                <Button
-                  onClick={openCreateUnit}
-                  disabled={!isMaster}
-                  variant="secondary"
-                  iconLeft={<Plus size={16} />}
-                >
-                  Nova unidade
-                </Button>
+                <button onClick={openCreateUnit} disabled={!isMaster}
+                  className="flex h-8 items-center gap-1.5 rounded-lg bg-develoi-gold px-4 text-[11px] font-bold text-develoi-navy shadow-lg shadow-develoi-gold/20 transition-all hover:bg-[#d4a83a] disabled:opacity-40 disabled:cursor-not-allowed">
+                  <Plus size={13} /> Nova unidade
+                </button>
               ) : (
-                <Button
-                  onClick={openCreateUser}
-                  variant="secondary"
-                  iconLeft={<UserPlus size={16} />}
-                >
-                  Novo acesso
-                </Button>
+                <button onClick={openCreateUser}
+                  className="flex h-8 items-center gap-1.5 rounded-lg bg-develoi-gold px-4 text-[11px] font-bold text-develoi-navy shadow-lg shadow-develoi-gold/20 transition-all hover:bg-[#d4a83a]">
+                  <UserPlus size={13} /> Novo acesso
+                </button>
               )}
             </div>
-          }
-        />
+          </div>
 
-        <StatGrid cols={4}>
-          <StatCard title="Unidades totais" value={totalUnits} icon={Building2} color="default" />
-          <StatCard title="Matrizes" value={masterUnits} icon={Globe} color="gold" />
-          <StatCard title="Filiais" value={branchUnits} icon={Building} color="info" />
-          <StatCard title="Usuários ativos" value={activeUsers} icon={Users} color="success" />
-        </StatGrid>
-
-        <div className="grid gap-6 xl:grid-cols-[1.15fr,0.85fr]">
-          <ContentCard className="space-y-4">
-            <div className="flex flex-col gap-4 xl:flex-row xl:items-end">
-              <Input
-                label={activeTab === "units" ? "Pesquisar unidade" : "Pesquisar acesso"}
-                type="text"
-                placeholder={
-                  activeTab === "units" ? "Nome da unidade..." : "Nome, e-mail ou unidade..."
-                }
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                icon={<Search size={16} />}
-              />
-
-              <div className="flex gap-2 xl:ml-auto">
-                <Button
-                  variant={activeTab === "units" ? "secondary" : "ghost"}
-                  size="sm"
-                  onClick={() => setActiveTab("units")}
-                >
-                  Unidades
-                </Button>
-                <Button
-                  variant={activeTab === "users" ? "secondary" : "ghost"}
-                  size="sm"
-                  onClick={() => setActiveTab("users")}
-                >
-                  Acessos
-                </Button>
+          {/* Stats strip */}
+          <div className="relative z-10 mt-4 flex flex-wrap items-center gap-4 border-t border-white/[0.06] pt-4">
+            {[
+              { label: "Unidades",       value: totalUnits,  color: "text-white" },
+              { label: "Matrizes",       value: masterUnits, color: "text-develoi-gold" },
+              { label: "Filiais",        value: branchUnits, color: "text-sky-300" },
+              { label: "Usuários ativos",value: activeUsers, color: "text-emerald-400" },
+            ].map((s, i) => (
+              <div key={i} className="flex items-center gap-2.5">
+                {i > 0 && <span className="h-3 w-px bg-white/10" />}
+                <span className={cn("text-[20px] font-black tabular-nums", s.color)}>{s.value}</span>
+                <span className="text-[10px] font-medium text-white/35">{s.label}</span>
               </div>
-            </div>
-          </ContentCard>
-
-          <PanelCard
-            title="Leitura rápida"
-            description="Visão operacional da estrutura atual do tenant."
-            icon={Shield}
-          >
-            <div className="grid gap-3 sm:grid-cols-2">
-              <ContentCard padding="sm" className="border-zinc-100 bg-zinc-50/80">
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-400">
-                  Escopo atual
-                </p>
-                <p className="mt-2 text-sm font-black tracking-tight text-zinc-900">
-                  {isMaster ? "Visão da matriz" : currentUnit.name}
-                </p>
-              </ContentCard>
-
-              <ContentCard padding="sm" className="border-zinc-100 bg-zinc-50/80">
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-400">
-                  Admins
-                </p>
-                <p className="mt-2 text-sm font-black tracking-tight text-zinc-900">
-                  {adminUsers} acessos administrativos
-                </p>
-              </ContentCard>
-
-              <ContentCard padding="sm" className="border-zinc-100 bg-zinc-50/80 sm:col-span-2">
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-400">
-                  Observação
-                </p>
-                <p className="mt-2 text-sm leading-relaxed text-zinc-500">
-                  {isMaster
-                    ? "A matriz pode criar unidades, ajustar hierarquia e operar acessos em todo o tenant."
-                    : "Você está operando fora da matriz. A criação de novas unidades fica restrita ao nível master."}
-                </p>
-              </ContentCard>
-            </div>
-          </PanelCard>
+            ))}
+          </div>
         </div>
 
-        {activeTab === "units" ? (
-          <PanelCard
-            title="Estrutura de unidades"
-            description="Gerencie matriz, filiais e o ponto de entrada operacional de cada hub."
-            icon={Building2}
-          >
-            {filteredUnits.length === 0 ? (
-              <EmptyState
-                title="Nenhuma unidade cadastrada"
-                description="Cadastre a primeira unidade para iniciar a estrutura organizacional."
-                icon={<Building size={42} />}
-                action={
-                  isMaster ? (
-                    <Button onClick={openCreateUnit} variant="secondary">
-                      Criar unidade
-                    </Button>
-                  ) : undefined
-                }
-              />
+        {/* ── KPI CARDS ── */}
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {[
+            { label: "Unidades",        value: totalUnits,  icon: Building2, color: "text-develoi-navy",  bg: "bg-develoi-navy/8",   bar: "bg-develoi-navy" },
+            { label: "Matrizes",        value: masterUnits, icon: Globe,     color: "text-develoi-gold",  bg: "bg-develoi-gold/10",  bar: "bg-develoi-gold" },
+            { label: "Filiais",         value: branchUnits, icon: Building,  color: "text-sky-600",        bg: "bg-sky-50",           bar: "bg-sky-500" },
+            { label: "Usuários ativos", value: activeUsers, icon: Users,     color: "text-emerald-600",   bg: "bg-emerald-50",       bar: "bg-emerald-500" },
+          ].map((s, i) => {
+            const Icon = s.icon;
+            return (
+              <div key={i} className="relative overflow-hidden rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
+                <div className={cn("absolute -right-4 -top-4 h-14 w-14 rounded-full blur-xl opacity-40", s.bg)} />
+                <div className="relative z-10">
+                  <div className={cn("mb-2.5 flex h-8 w-8 items-center justify-center rounded-lg", s.bg)}>
+                    <Icon size={15} className={s.color} />
+                  </div>
+                  <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-400">{s.label}</p>
+                  <p className={cn("text-[26px] font-black leading-none tabular-nums", s.color)}>{s.value}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* ── TABS + FILTER BAR ── */}
+        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-3 py-2.5 shadow-sm sm:gap-3 sm:px-4">
+          {/* Tab pills */}
+          <div className="flex items-center gap-0.5 rounded-lg border border-zinc-200 bg-zinc-50 p-0.5">
+            {(["units", "users"] as const).map((tab) => (
+              <button
+                key={tab}
+                onClick={() => { setActiveTab(tab); setSearchQuery(""); }}
+                className={cn(
+                  "flex items-center gap-1.5 rounded-md px-3.5 py-1.5 text-[12px] font-semibold transition-all",
+                  activeTab === tab ? "bg-develoi-navy text-white shadow-sm" : "text-zinc-500 hover:bg-white hover:text-zinc-800"
+                )}
+              >
+                {tab === "units" ? <Building2 size={12} /> : <Users size={12} />}
+                {tab === "units" ? `Unidades (${filteredUnits.length})` : `Acessos (${filteredUsers.length})`}
+              </button>
+            ))}
+          </div>
+
+          {/* Search */}
+          <div className="relative flex min-w-[180px] flex-1 items-center">
+            <Search size={13} className="pointer-events-none absolute left-3 text-zinc-400" />
+            <input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={activeTab === "units" ? "Buscar unidade…" : "Buscar por nome ou e-mail…"}
+              className="h-8 w-full rounded-lg border border-zinc-200 bg-zinc-50 pl-8 pr-3 text-[12px] font-medium text-zinc-800 outline-none transition-all placeholder:text-zinc-400 focus:border-develoi-gold/50 focus:bg-white focus:ring-2 focus:ring-develoi-gold/15"
+            />
+          </div>
+        </div>
+
+        {/* ── CONTENT ── */}
+        <div>
+
+          {/* ── UNITS TAB ── */}
+          {activeTab === "units" && (
+            filteredUnits.length === 0 ? (
+              <div className="flex flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-zinc-200 bg-white py-20 shadow-sm">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-100 text-zinc-400">
+                  <Building size={24} />
+                </div>
+                <div className="text-center">
+                  <p className="text-[14px] font-semibold text-zinc-700">Nenhuma unidade cadastrada</p>
+                  <p className="mt-1 text-[12px] text-zinc-400">Cadastre a primeira unidade para iniciar a estrutura organizacional.</p>
+                </div>
+                {isMaster && (
+                  <button onClick={openCreateUnit}
+                    className="flex items-center gap-1.5 rounded-xl bg-develoi-navy px-4 py-2 text-[12px] font-semibold text-white transition-colors hover:bg-[#0a1e3a]">
+                    <Plus size={13} /> Criar unidade
+                  </button>
+                )}
+              </div>
             ) : (
-              <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {filteredUnits.map((unit) => {
                   const isMasterUnit = isProtectedUnit(unit);
                   const isCurrentUnit = currentUnit.id === unit.id;
-                  const parentUnit = units.find((current) => current.id === unit.parent_id);
-
+                  const parentUnit = units.find((u) => u.id === unit.parent_id);
                   return (
-                    <ContentCard
+                    <div
                       key={unit.id}
-                      className="flex h-full flex-col gap-5 border-zinc-200/80 transition-all hover:border-develoi-navy/20 hover:shadow-md"
+                      className={cn(
+                        "group relative flex flex-col gap-4 overflow-hidden rounded-2xl border bg-white p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md",
+                        isCurrentUnit ? "border-develoi-navy/30 ring-2 ring-develoi-navy/10" : "border-zinc-200 hover:border-develoi-navy/20"
+                      )}
                     >
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex items-start gap-3">
-                          <div
-                            className={
-                              isMasterUnit
-                                ? "flex h-12 w-12 items-center justify-center rounded-2xl border border-develoi-gold/20 bg-develoi-gold/10 text-develoi-gold"
-                                : "flex h-12 w-12 items-center justify-center rounded-2xl border border-develoi-navy/10 bg-develoi-navy/5 text-develoi-navy"
-                            }
-                          >
-                            {isMasterUnit ? <Globe size={20} /> : <Building2 size={20} />}
-                          </div>
+                      {/* Top color band */}
+                      <div className={cn("absolute left-0 right-0 top-0 h-0.5", isMasterUnit ? "bg-develoi-gold" : "bg-develoi-navy/20")} />
 
-                          <div className="space-y-2">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <h3 className="text-base font-black tracking-tight text-zinc-900">
-                                {unit.name}
-                              </h3>
+                      {/* Header row */}
+                      <div className="flex items-start justify-between gap-3 pt-1">
+                        <div className="flex items-start gap-3">
+                          <div className={cn(
+                            "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
+                            isMasterUnit ? "bg-develoi-gold/12 text-develoi-gold ring-1 ring-develoi-gold/25" : "bg-develoi-navy/8 text-develoi-navy"
+                          )}>
+                            {isMasterUnit ? <Globe size={17} /> : <Building2 size={17} />}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <p className="text-[14px] font-bold leading-tight text-zinc-900">{unit.name}</p>
                               {isMasterUnit && (
-                                <Badge color="gold" pill icon={<BadgeCheck size={12} />}>
-                                  Matriz
-                                </Badge>
+                                <span className="rounded-full bg-develoi-gold/12 px-2 py-0.5 text-[9px] font-bold text-develoi-gold ring-1 ring-develoi-gold/20">Matriz</span>
                               )}
                               {isCurrentUnit && (
-                                <Badge color="primary" pill>
-                                  Em uso
-                                </Badge>
+                                <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[9px] font-bold text-emerald-700 ring-1 ring-emerald-200">Em uso</span>
                               )}
                             </div>
-
-                            <div className="flex items-center gap-2 text-xs font-semibold text-zinc-500">
-                              <MapPin size={12} />
-                              <span>{getUnitLocation(unit)}</span>
+                            <div className="mt-0.5 flex items-center gap-1 text-[10px] font-medium text-zinc-400">
+                              <MapPin size={9} /> {getUnitLocation(unit)}
                             </div>
                           </div>
                         </div>
-
-                        <div className="flex items-center gap-2">
-                          <IconButton
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openEditUnit(unit)}
-                            aria-label="Editar unidade"
-                          >
-                            <Edit size={14} />
-                          </IconButton>
-
-                          {!isProtectedUnit(unit) && (
-                            <IconButton
-                              variant="outline"
-                              size="sm"
-                              className="text-red-600 hover:bg-red-50 hover:text-red-700"
-                              onClick={() =>
-                                setDeleteConfirm({ id: unit.id, type: "unit", name: unit.name })
-                              }
-                              aria-label="Excluir unidade"
-                            >
-                              <Trash2 size={14} />
-                            </IconButton>
-                          )}
-                        </div>
+                        {!isProtectedUnit(unit) && (
+                          <div className="flex shrink-0 items-center gap-1">
+                            <button onClick={() => openEditUnit(unit)}
+                              className="flex h-7 w-7 items-center justify-center rounded-lg border border-zinc-200 text-zinc-400 transition-colors hover:border-develoi-navy/30 hover:text-develoi-navy"
+                              title="Editar">
+                              <Edit size={12} />
+                            </button>
+                            <button onClick={() => setDeleteConfirm({ id: unit.id, type: "unit", name: unit.name })}
+                              className="flex h-7 w-7 items-center justify-center rounded-lg border border-zinc-200 text-zinc-400 transition-colors hover:border-rose-200 hover:text-rose-500"
+                              title="Excluir">
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                        )}
                       </div>
 
-                      <div className="grid gap-3">
-                        <ContentCard padding="sm" className="border-zinc-100 bg-zinc-50/80">
-                          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-400">
-                            Empresa
-                          </p>
-                          <p className="mt-2 text-sm font-semibold text-zinc-700">
-                            {unit.company_name || "Razão social não informada"}
-                          </p>
-                        </ContentCard>
-
-                        <ContentCard padding="sm" className="border-zinc-100 bg-zinc-50/80">
-                          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-400">
-                            Responsável
-                          </p>
-                          <p className="mt-2 text-sm font-semibold text-zinc-700">
-                            {unit.responsible_name || "Responsável não informado"}
-                          </p>
-                        </ContentCard>
-
-                        <div className="grid gap-3 sm:grid-cols-2">
-                          <ContentCard padding="sm" className="border-zinc-100 bg-zinc-50/80">
-                            <div className="flex items-center gap-2 text-xs font-semibold text-zinc-500">
-                              <Phone size={12} />
-                              <span>{unit.phone || "Telefone não informado"}</span>
-                            </div>
-                          </ContentCard>
-
-                          <ContentCard padding="sm" className="border-zinc-100 bg-zinc-50/80">
-                            <div className="flex items-center gap-2 text-xs font-semibold text-zinc-500">
-                              <Mail size={12} />
-                              <span className="truncate">{unit.email || "E-mail não informado"}</span>
-                            </div>
-                          </ContentCard>
-                        </div>
+                      {/* Info grid */}
+                      <div className="grid grid-cols-2 gap-2">
+                        {[
+                          { label: "Empresa",     value: unit.company_name,    icon: <Building2 size={9} /> },
+                          { label: "Responsável", value: unit.responsible_name, icon: <Users size={9} /> },
+                          { label: "Telefone",    value: unit.phone,            icon: <Phone size={9} /> },
+                          { label: "E-mail",      value: unit.email,            icon: <Mail size={9} />, truncate: true },
+                        ].map((row) => (
+                          <div key={row.label} className="rounded-xl border border-zinc-100 bg-zinc-50 px-3 py-2.5">
+                            <p className="mb-0.5 flex items-center gap-1 text-[8px] font-bold uppercase tracking-wider text-zinc-400">
+                              {row.icon} {row.label}
+                            </p>
+                            <p className={cn("text-[11px] font-medium text-zinc-700", row.truncate && "truncate")}>
+                              {row.value || <span className="italic text-zinc-300">—</span>}
+                            </p>
+                          </div>
+                        ))}
                       </div>
 
-                      <div className="mt-auto flex items-center justify-between gap-3 border-t border-zinc-100 pt-5">
-                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-400">
+                      {/* Footer */}
+                      <div className="mt-auto flex items-center justify-between border-t border-zinc-100 pt-3">
+                        <p className="text-[10px] font-medium text-zinc-400">
                           {parentUnit ? `Filial de ${parentUnit.name}` : "Unidade raiz"}
                         </p>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          iconRight={<ArrowRight size={12} />}
-                          onClick={() => changeUnit(unit)}
-                        >
-                          Acessar hub
-                        </Button>
+                        <button onClick={() => changeUnit(unit)}
+                          className="flex items-center gap-1 text-[11px] font-semibold text-develoi-navy transition-colors hover:text-develoi-navy/70">
+                          Acessar hub <ChevronRight size={12} />
+                        </button>
                       </div>
-                    </ContentCard>
+                    </div>
                   );
                 })}
               </div>
-            )}
-          </PanelCard>
-        ) : (
-          <PanelCard
-            title="Gestão de acessos"
-            description="Cadastre administradores e recrutadores por unidade com perfil previsível e leitura rápida."
-            icon={Users}
-          >
-            {usersLoading ? (
-              <div className="flex items-center justify-center py-20">
-                <div className="flex items-center gap-3 rounded-full border border-zinc-200 bg-zinc-50 px-5 py-4 text-sm font-semibold text-zinc-600">
-                  <RefreshCw size={16} className="animate-spin text-develoi-navy" />
-                  Carregando acessos...
+            )
+          )}
+
+          {/* ── USERS TAB ── */}
+          {activeTab === "users" && (
+            usersLoading ? (
+              <div className="flex flex-col items-center justify-center gap-3 py-20">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-develoi-navy/5">
+                  <RefreshCw size={18} className="animate-spin text-develoi-navy" />
                 </div>
+                <p className="text-[11px] font-medium text-zinc-400">Carregando acessos…</p>
               </div>
             ) : filteredUsers.length === 0 ? (
-              <EmptyState
-                title="Nenhum acesso encontrado"
-                description="Crie usuários administrativos ou recrutadores para esta operação."
-                icon={<Users size={42} />}
-                action={
-                  <Button onClick={openCreateUser} variant="secondary">
-                    Novo acesso
-                  </Button>
-                }
-              />
-            ) : (
-              <div className="grid gap-4 lg:grid-cols-2">
-                {filteredUsers.map((user) => {
-                  const accessProfile = user.access_profile || getDefaultAccessProfile(user.role);
-                  const isSelfUser = user.id === authUser?.id;
-                  const isSeedAdmin = user.id === `admin-${tenantId}`;
-                  const isProtectedAccess = isProtectedUser(user);
-                  const enabledModules = ACCESS_PERMISSION_KEYS.filter((permission) => {
-                    if (permission === "super_admin") {
-                      return false;
-                    }
-                    return getPermissionPreset(accessProfile)[permission];
-                  });
-
-                  return (
-                    <ContentCard
-                      key={user.id}
-                      className="flex h-full flex-col gap-5 border-zinc-200/80 transition-all hover:border-develoi-navy/20 hover:shadow-md"
-                    >
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex items-start gap-3">
-                          <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-zinc-100 bg-zinc-50 text-sm font-black uppercase text-zinc-700">
-                            {user.full_name
-                              .split(" ")
-                              .map((part) => part[0])
-                              .slice(0, 2)
-                              .join("")}
-                          </div>
-
-                          <div className="space-y-2">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <h3 className="text-base font-black tracking-tight text-zinc-900">
-                                {user.full_name}
-                              </h3>
-                              <Badge color={user.status === "Ativo" ? "success" : "danger"} pill dot>
-                                {user.status}
-                              </Badge>
-                              {isSelfUser && (
-                                <Badge color="primary" pill>
-                                  Seu usuário
-                                </Badge>
-                              )}
-                              {isSeedAdmin && (
-                                <Badge color="gold" pill>
-                                  Admin inicial
-                                </Badge>
-                              )}
-                            </div>
-
-                            <p className="text-sm text-zinc-500">{user.email}</p>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <IconButton
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openEditUser(user)}
-                            aria-label="Editar acesso"
-                          >
-                            <Edit size={14} />
-                          </IconButton>
-
-                          {!isProtectedAccess && (
-                            <IconButton
-                              variant="outline"
-                              size="sm"
-                              className="text-red-600 hover:bg-red-50 hover:text-red-700"
-                              onClick={() =>
-                                setDeleteConfirm({ id: user.id, type: "user", name: user.full_name })
-                              }
-                              aria-label="Excluir acesso"
-                            >
-                              <Trash2 size={14} />
-                            </IconButton>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <ContentCard padding="sm" className="border-zinc-100 bg-zinc-50/80">
-                          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-400">
-                            Papel
-                          </p>
-                          <p className="mt-2 text-sm font-semibold text-zinc-700">
-                            {user.role === "admin" ? "Administrador" : "Recrutador"}
-                          </p>
-                        </ContentCard>
-
-                        <ContentCard padding="sm" className="border-zinc-100 bg-zinc-50/80">
-                          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-400">
-                            Unidade
-                          </p>
-                          <p className="mt-2 text-sm font-semibold text-zinc-700">
-                            {user.unit_name || "Admin master"}
-                          </p>
-                        </ContentCard>
-                      </div>
-
-                      <ContentCard padding="sm" className="space-y-3 border-zinc-100 bg-zinc-50/80">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <Badge color={user.role === "admin" ? "primary" : "default"} pill>
-                            {ACCESS_PROFILE_LABELS[accessProfile]}
-                          </Badge>
-                          {isProtectedAccess && (
-                            <Badge color="default" pill>
-                              Exclusão bloqueada
-                            </Badge>
-                          )}
-                          <Badge color="default" pill>
-                            Último acesso: {formatLastLogin(user.last_login)}
-                          </Badge>
-                        </div>
-
-                        <div className="flex flex-wrap gap-2">
-                          {enabledModules.slice(0, 5).map((permission) => (
-                            <Badge key={permission} color="default" size="sm" pill>
-                              {ACCESS_PERMISSION_LABELS[permission]}
-                            </Badge>
-                          ))}
-                          {enabledModules.length > 5 && (
-                            <Badge color="default" size="sm" pill>
-                              +{enabledModules.length - 5} módulos
-                            </Badge>
-                          )}
-                        </div>
-                      </ContentCard>
-                    </ContentCard>
-                  );
-                })}
+              <div className="flex flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-zinc-200 bg-white py-20 shadow-sm">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-100 text-zinc-400">
+                  <Users size={24} />
+                </div>
+                <div className="text-center">
+                  <p className="text-[14px] font-semibold text-zinc-700">Nenhum acesso encontrado</p>
+                  <p className="mt-1 text-[12px] text-zinc-400">Crie usuários para esta operação.</p>
+                </div>
+                <button onClick={openCreateUser}
+                  className="flex items-center gap-1.5 rounded-xl bg-develoi-navy px-4 py-2 text-[12px] font-semibold text-white transition-colors hover:bg-[#0a1e3a]">
+                  <UserPlus size={13} /> Novo acesso
+                </button>
               </div>
-            )}
-          </PanelCard>
-        )}
+            ) : (
+              <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+                {/* Table header */}
+                <div className="grid grid-cols-[2.5rem_1fr_9rem_9rem_7rem_5.5rem] items-center border-b border-zinc-100 bg-zinc-50/80 px-4 py-2.5">
+                  {["", "Usuário", "Perfil", "Unidade", "Status", ""].map((h, i) => (
+                    <p key={i} className="text-[9px] font-bold uppercase tracking-[0.14em] text-zinc-400">{h}</p>
+                  ))}
+                </div>
+
+                <div className="divide-y divide-zinc-50">
+                  {filteredUsers.map((user) => {
+                    const accessProfile = (user.access_profile || getDefaultAccessProfile(user.role)) as AccessProfile;
+                    const isSelfUser = user.id === authUser?.id;
+                    const isSeedAdmin = user.id === `admin-${tenantId}`;
+                    const isProtectedAccess = isProtectedUser(user);
+                    const isActive = user.status === "Ativo";
+
+                    const profileClass: Record<AccessProfile, string> = {
+                      "admin-mestre":      "bg-develoi-navy/8 text-develoi-navy ring-1 ring-develoi-navy/15",
+                      "rh-operacao":       "bg-develoi-gold/10 text-amber-700 ring-1 ring-develoi-gold/20",
+                      "executivo-leitura": "bg-zinc-100 text-zinc-600 ring-1 ring-zinc-200",
+                      "custom":            "bg-violet-50 text-violet-700 ring-1 ring-violet-200",
+                    };
+
+                    return (
+                      <div key={user.id} className="grid grid-cols-[2.5rem_1fr_9rem_9rem_7rem_5.5rem] items-center px-4 py-3 transition-colors hover:bg-zinc-50/60">
+                        {/* Avatar */}
+                        <div className={cn(
+                          "flex h-8 w-8 items-center justify-center rounded-xl text-[10px] font-black",
+                          user.role === "admin" ? "bg-develoi-navy text-develoi-gold" : "bg-zinc-100 text-zinc-600"
+                        )}>
+                          {user.full_name.split(" ").map((p: string) => p[0]).slice(0, 2).join("").toUpperCase()}
+                        </div>
+
+                        {/* Name + email */}
+                        <div className="min-w-0 pr-3">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <p className="truncate text-[12px] font-semibold text-zinc-900">{user.full_name}</p>
+                            {isSelfUser && (
+                              <span className="rounded-full bg-sky-50 px-1.5 py-0.5 text-[8px] font-bold text-sky-600 ring-1 ring-sky-200">Você</span>
+                            )}
+                            {isSeedAdmin && (
+                              <span className="rounded-full bg-develoi-gold/10 px-1.5 py-0.5 text-[8px] font-bold text-amber-700 ring-1 ring-develoi-gold/20">Root</span>
+                            )}
+                          </div>
+                          <p className="truncate text-[10px] font-medium text-zinc-400">{user.email}</p>
+                          <p className="mt-0.5 text-[9px] font-medium text-zinc-300">{formatLastLogin(user.last_login)}</p>
+                        </div>
+
+                        {/* Profile badge */}
+                        <div>
+                          <span className={cn("inline-flex rounded-md px-2 py-0.5 text-[10px] font-semibold", profileClass[accessProfile])}>
+                            {ACCESS_PROFILE_LABELS[accessProfile]}
+                          </span>
+                        </div>
+
+                        {/* Unit */}
+                        <p className="truncate pr-2 text-[11px] font-medium text-zinc-500">{user.unit_name || "—"}</p>
+
+                        {/* Status */}
+                        <div className="flex items-center gap-1.5">
+                          <span className={cn(
+                            "h-1.5 w-1.5 shrink-0 rounded-full",
+                            isActive ? "bg-emerald-500" : "bg-rose-400"
+                          )} />
+                          <span className={cn("text-[11px] font-medium", isActive ? "text-emerald-700" : "text-rose-600")}>
+                            {user.status}
+                          </span>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex items-center justify-end gap-1">
+                          {!isProtectedAccess && (
+                            <>
+                              <button onClick={() => openEditUser(user)}
+                                className="flex h-7 w-7 items-center justify-center rounded-lg border border-zinc-200 text-zinc-400 transition-colors hover:border-develoi-navy/30 hover:text-develoi-navy"
+                                title="Editar">
+                                <Edit size={12} />
+                              </button>
+                              <button onClick={() => setDeleteConfirm({ id: user.id, type: "user", name: user.full_name })}
+                                className="flex h-7 w-7 items-center justify-center rounded-lg border border-zinc-200 text-zinc-400 transition-colors hover:border-rose-200 hover:text-rose-500"
+                                title="Excluir">
+                                <Trash2 size={12} />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )
+          )}
+        </div>
       </div>
 
       <Modal
@@ -1035,6 +975,7 @@ export default function Administration() {
               <Input
                 label="Senha inicial"
                 type="password"
+                showPasswordToggle
                 value={userForm.password}
                 onChange={(event) => setUserForm({ ...userForm, password: event.target.value })}
                 placeholder="admin"
@@ -1087,17 +1028,16 @@ export default function Administration() {
               <Select
                 label="Perfil de acesso"
                 value={userForm.access_profile}
-                onChange={(event) =>
-                  setUserForm({
-                    ...userForm,
-                    access_profile: event.target.value as AccessProfile,
-                  })
-                }
+                onChange={(event) => {
+                  const profile = event.target.value as AccessProfile;
+                  setUserForm({ ...userForm, access_profile: profile });
+                  // Pre-load action checkboxes with the chosen preset
+                  setCustomActions({ ...(ACTION_PROFILE_PRESETS[profile] ?? DEFAULT_CUSTOM_ACTIONS) });
+                }}
               >
                 <option value="rh-operacao">{ACCESS_PROFILE_LABELS["rh-operacao"]}</option>
-                <option value="executivo-leitura">
-                  {ACCESS_PROFILE_LABELS["executivo-leitura"]}
-                </option>
+                <option value="executivo-leitura">{ACCESS_PROFILE_LABELS["executivo-leitura"]}</option>
+                <option value="custom">{ACCESS_PROFILE_LABELS["custom"]}</option>
               </Select>
             )}
 
@@ -1116,19 +1056,66 @@ export default function Administration() {
             </Select>
           </FormRow>
 
-          <PanelCard
-            title="Preview de permissões"
-            description="Resumo do que este perfil libera na navegação."
-            icon={Shield}
-          >
-            <div className="flex flex-wrap gap-2">
-              {enabledPermissions.map((permission) => (
-                <Badge key={permission} color="default" pill>
-                  {ACCESS_PERMISSION_LABELS[permission]}
-                </Badge>
-              ))}
+          {/* ── Preview de permissões ── */}
+          <div className="rounded-2xl border border-zinc-200 bg-zinc-50/60 overflow-hidden">
+            <div className="px-4 py-3 border-b border-zinc-200 bg-white flex items-center justify-between">
+              <div>
+                <p className="text-[11px] font-black text-zinc-800 uppercase tracking-widest">Preview de permissões</p>
+                <p className="text-[10px] text-zinc-400 mt-0.5">{ACCESS_PROFILE_DESCRIPTIONS[selectedUserProfile]}</p>
+              </div>
+              <Badge color={selectedUserProfile === "admin-mestre" ? "primary" : selectedUserProfile === "executivo-leitura" ? "default" : "gold"} pill>
+                {ACCESS_PROFILE_LABELS[selectedUserProfile]}
+              </Badge>
             </div>
-          </PanelCard>
+
+            <div className="p-4 space-y-4">
+              {/* Módulos acessíveis */}
+              <div>
+                <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-2">Módulos visíveis</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {enabledPermissions.length === 0 ? (
+                    <span className="text-[10px] text-zinc-400 italic">Nenhum módulo liberado</span>
+                  ) : enabledPermissions.map((p) => (
+                    <span key={p} className="text-[10px] font-bold px-2 py-1 bg-develoi-navy/8 text-develoi-navy rounded-lg border border-develoi-navy/15">
+                      {ACCESS_PERMISSION_LABELS[p]}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Ações permitidas */}
+              <div>
+                <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-2">O que pode fazer</p>
+                {selectedUserProfile === "custom" ? (
+                  <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                    {ACTION_PERMISSION_KEYS.map((key) => (
+                      <label key={key} className="flex items-center gap-2.5 px-3 py-2 rounded-xl border border-zinc-200 bg-white cursor-pointer hover:border-develoi-navy/30 transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={customActions[key]}
+                          onChange={(e) => setCustomActions(prev => ({ ...prev, [key]: e.target.checked }))}
+                          className="w-4 h-4 rounded accent-develoi-navy"
+                        />
+                        <span className="text-[11px] font-semibold text-zinc-700">{ACTION_PERMISSION_LABELS[key]}</span>
+                      </label>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
+                    {ACTION_PERMISSION_KEYS.map((key) => {
+                      const allowed = previewActions[key];
+                      return (
+                        <div key={key} className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-[11px] font-semibold ${allowed ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-zinc-50 border-zinc-100 text-zinc-400"}`}>
+                          <span className="text-[13px]">{allowed ? "✓" : "✗"}</span>
+                          {ACTION_PERMISSION_LABELS[key]}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         </form>
       </Modal>
 

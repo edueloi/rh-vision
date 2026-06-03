@@ -12,7 +12,7 @@ import { parseJsonFromAiResponseSafe } from '../helpers/resume';
 
 export function registerCandidateRoutes(app: Express) {
   // Candidate File Import (single-file quick import)
-  app.post('/api/candidates/import-file', upload.single('resume'), async (req, res) => {
+  app.post('/api/candidates/import-file', upload.single('resume') as any, async (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
     const { unitId, tenantId } = req.body;
 

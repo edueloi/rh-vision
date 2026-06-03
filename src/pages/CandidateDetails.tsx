@@ -329,161 +329,196 @@ export default function CandidateDetailsPage() {
 
   if (pageLoading) {
     return (
-      <div className="flex flex-col items-center justify-center gap-4 py-24 text-center">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-develoi-navy border-t-transparent" />
-        <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Carregando candidato...</p>
+      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-develoi-navy/5">
+          <Loader2 size={20} className="animate-spin text-develoi-navy" />
+        </div>
+        <p className="text-[11px] font-medium text-zinc-400">Carregando candidato…</p>
       </div>
     );
   }
 
   if (!candidate) return null;
 
-  const statusBadgeColor = () => {
-    if (candidate.status === 'Novo') return 'primary';
-    if (candidate.status === 'Compatível') return 'success';
-    if (candidate.status === 'Entrevista') return 'warning';
-    if (candidate.status === 'Reprovado') return 'danger';
-    return 'info';
+  const STATUS_COLOR: Record<string, string> = {
+    Novo:              "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
+    Compatível:        "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
+    Entrevista:        "bg-blue-50 text-blue-700 ring-1 ring-blue-200",
+    Aprovado:          "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
+    Reprovado:         "bg-rose-50 text-rose-700 ring-1 ring-rose-200",
+    Contratado:        "bg-develoi-navy/8 text-develoi-navy ring-1 ring-develoi-navy/15",
+    "Em análise":      "bg-violet-50 text-violet-700 ring-1 ring-violet-200",
+    "Banco de talentos":"bg-zinc-100 text-zinc-600 ring-1 ring-zinc-200",
   };
+  const statusCls = STATUS_COLOR[candidate.status] ?? "bg-zinc-100 text-zinc-600";
+
+  const initials = candidate.full_name.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase();
 
   return (
-    <div className="w-full px-4 sm:px-6 py-4">
-      <div className="w-full">
+    <div className="min-h-screen bg-[#f8fafc]">
+      <div className="space-y-5 px-4 pb-24 pt-5 sm:px-6">
 
-        {/* Back navigation */}
-        <div className="flex items-center justify-between mb-6">
-          <button
-            onClick={() => navigate("/candidatos")}
-            className="flex items-center gap-2 text-sm font-semibold text-zinc-500 hover:text-zinc-900 transition-colors"
-          >
-            <ArrowLeft size={16} />
-            Gestão de Talentos
-          </button>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              iconLeft={<Edit size={14} />}
-              onClick={() => navigate(`/candidatos/${encodeId(Number(candidateId))}/editar`)}
-            >
-              Editar
-            </Button>
-            <IconButton
-              onClick={() => setShowDeleteConfirm(true)}
-              variant="outline"
-              className="text-zinc-400 hover:text-red-500 hover:border-red-200 hover:bg-red-50"
-              aria-label="Excluir candidato"
-            >
-              <Trash2 size={16} />
-            </IconButton>
+        {/* ── PAGE HEADER navy ── */}
+        <div className="relative overflow-hidden rounded-2xl bg-develoi-navy px-5 py-5 sm:px-7">
+          <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-develoi-gold/10 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-12 left-1/4 h-36 w-36 rounded-full bg-sky-500/8 blur-3xl" />
+
+          <div className="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            {/* Back + identity */}
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => navigate("/candidatos")}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/15 text-white/60 transition-colors hover:bg-white/10 hover:text-white"
+              >
+                <ArrowLeft size={16} />
+              </button>
+
+              {/* Avatar */}
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-develoi-gold/20 text-[16px] font-black text-develoi-gold ring-2 ring-develoi-gold/30">
+                {initials}
+              </div>
+
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h1 className="text-[18px] font-black leading-none text-white sm:text-[22px]">
+                    {candidate.full_name}
+                  </h1>
+                  <span className={cn("rounded-full px-2.5 py-0.5 text-[10px] font-semibold", statusCls)}>
+                    {candidate.status}
+                  </span>
+                </div>
+                <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-white/40">
+                  {candidate.desired_position && (
+                    <span className="flex items-center gap-1">
+                      <Briefcase size={10} /> {candidate.desired_position}
+                    </span>
+                  )}
+                  {candidate.city && (
+                    <>
+                      <span>·</span>
+                      <span className="flex items-center gap-1">
+                        <MapPin size={10} /> {candidate.city}{candidate.state ? `, ${candidate.state}` : ''}
+                      </span>
+                    </>
+                  )}
+                  {candidate.experience_years && (
+                    <>
+                      <span>·</span>
+                      <span>{candidate.experience_years} anos exp.</span>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex shrink-0 items-center gap-2">
+              <button
+                onClick={() => handleCandidateFileAction('download')}
+                title="Baixar CV"
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/15 bg-white/8 text-white/50 transition-all hover:bg-white/12 hover:text-white"
+              >
+                <Download size={13} />
+              </button>
+              <button
+                onClick={() => navigate(`/candidatos/${encodeId(Number(candidateId))}/editar`)}
+                className="flex h-8 items-center gap-1.5 rounded-lg border border-white/15 bg-white/8 px-3.5 text-[11px] font-medium text-white/70 transition-all hover:bg-white/12 hover:text-white"
+              >
+                <Edit size={13} /> Editar
+              </button>
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white/30 transition-colors hover:border-rose-400/30 hover:bg-rose-500/15 hover:text-rose-300"
+                title="Excluir candidato"
+              >
+                <Trash2 size={13} />
+              </button>
+            </div>
+          </div>
+
+          {/* Contact strip */}
+          <div className="relative z-10 mt-4 flex flex-wrap items-center gap-4 border-t border-white/[0.06] pt-4">
+            {[
+              { icon: Mail,  value: candidate.email },
+              { icon: Phone, value: candidate.phone },
+              { icon: Calendar, value: new Date(candidate.created_at).toLocaleDateString('pt-BR') },
+            ].filter(r => r.value).map((row, i) => (
+              <div key={i} className="flex items-center gap-1.5">
+                {i > 0 && <span className="h-3 w-px bg-white/10" />}
+                <row.icon size={10} className="text-white/30" />
+                <span className="text-[11px] font-medium text-white/45">{row.value}</span>
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* Two-column layout */}
-        <div className="flex gap-4 items-start">
+        {/* ── TABS + CONTENT ── */}
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
 
-          {/* LEFT — Perfil fixo */}
-          <div className="w-64 shrink-0 hidden lg:flex flex-col gap-3">
-            {/* Avatar + nome */}
-            <div className="bg-white border border-zinc-100 rounded-2xl shadow-sm p-5 flex flex-col items-center text-center gap-3">
-              <div className="w-16 h-16 bg-develoi-navy text-white rounded-2xl flex items-center justify-center font-black text-2xl shadow-xl shadow-develoi-navy/20">
-                {candidate.full_name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
-              </div>
-              <div>
-                <h1 className="text-sm font-black text-zinc-900 leading-tight">{candidate.full_name}</h1>
-                {candidate.desired_position && (
-                  <p className="text-[11px] text-zinc-400 font-medium mt-0.5">{candidate.desired_position}</p>
-                )}
-                <div className="mt-2">
-                  <Badge color={statusBadgeColor()} size="sm">{candidate.status}</Badge>
-                </div>
-              </div>
-            </div>
-
-            {/* Contato */}
-            <div className="bg-white border border-zinc-100 rounded-2xl shadow-sm p-4 space-y-2.5">
-              {candidate.city && (
-                <div className="flex items-center gap-2 text-[11px] text-zinc-500">
-                  <MapPin size={13} className="text-zinc-300 shrink-0" />
-                  <span>{candidate.city}{candidate.state ? `, ${candidate.state}` : ''}</span>
-                </div>
-              )}
-              <div className="flex items-center gap-2 text-[11px] text-zinc-500">
-                <Mail size={13} className="text-zinc-300 shrink-0" />
-                <span className="truncate">{candidate.email}</span>
-              </div>
-              {candidate.phone && (
-                <div className="flex items-center gap-2 text-[11px] text-zinc-500">
-                  <Phone size={13} className="text-zinc-300 shrink-0" />
-                  <span>{candidate.phone}</span>
-                </div>
-              )}
-              <div className="flex items-center gap-2 text-[11px] text-zinc-400 pt-1 border-t border-zinc-50">
-                <Calendar size={13} className="text-zinc-300 shrink-0" />
-                <span>{new Date(candidate.created_at).toLocaleDateString('pt-BR')}</span>
-              </div>
-            </div>
-
-            {/* Nav abas vertical */}
-            <div className="bg-white border border-zinc-100 rounded-2xl shadow-sm overflow-hidden">
+          {/* LEFT sidebar — tabs vertical desktop */}
+          <div className="hidden w-52 shrink-0 flex-col gap-3 lg:flex">
+            <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
               {TABS.map(tab => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as any)}
                   className={cn(
-                    "w-full px-4 py-3 flex items-center gap-3 text-[11px] font-bold transition-all relative border-b border-zinc-50 last:border-0",
+                    "group relative flex w-full items-center gap-3 border-b border-zinc-50 px-4 py-3 text-left text-[12px] font-semibold transition-all last:border-0",
                     activeTab === tab.id
-                      ? "text-develoi-navy bg-develoi-navy/5"
-                      : "text-zinc-400 hover:text-zinc-700 hover:bg-zinc-50"
+                      ? "bg-develoi-navy/5 text-develoi-navy"
+                      : "text-zinc-500 hover:bg-zinc-50 hover:text-zinc-800"
                   )}
                 >
                   {activeTab === tab.id && (
-                    <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-develoi-navy rounded-r" />
+                    <div className="absolute bottom-0 left-0 top-0 w-0.5 rounded-r-full bg-develoi-navy" />
                   )}
-                  <tab.icon size={14} className={activeTab === tab.id ? "text-develoi-navy" : "text-zinc-300"} />
+                  <tab.icon size={14} className={activeTab === tab.id ? "text-develoi-navy" : "text-zinc-400"} />
                   {tab.label}
                 </button>
               ))}
             </div>
-          </div>
 
-          {/* RIGHT — Conteúdo */}
-          <div className="flex-1 min-w-0">
-
-            {/* Mobile: header compacto */}
-            <div className="lg:hidden bg-white border border-zinc-100 rounded-2xl shadow-sm p-4 mb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-develoi-navy text-white rounded-xl flex items-center justify-center font-black text-base shrink-0">
-                  {candidate.full_name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h1 className="text-sm font-black text-zinc-900">{candidate.full_name}</h1>
-                    <Badge color={statusBadgeColor()} size="sm">{candidate.status}</Badge>
+            {/* Sidebar contact card */}
+            <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+              <div className="border-b border-zinc-100 px-4 py-3">
+                <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">Contato</span>
+              </div>
+              <div className="space-y-0 divide-y divide-zinc-50 p-1">
+                {[
+                  { icon: Mail,    value: candidate.email,  label: "E-mail" },
+                  { icon: Phone,   value: candidate.phone,  label: "Telefone" },
+                  { icon: MapPin,  value: candidate.city ? `${candidate.city}${candidate.state ? `, ${candidate.state}` : ''}` : null, label: "Localidade" },
+                ].filter(r => r.value).map(row => (
+                  <div key={row.label} className="flex items-start gap-2.5 rounded-xl px-3 py-2.5">
+                    <row.icon size={13} className="mt-0.5 shrink-0 text-zinc-400" />
+                    <div className="min-w-0">
+                      <p className="text-[9px] font-semibold uppercase tracking-wider text-zinc-400">{row.label}</p>
+                      <p className="truncate text-[11px] font-medium text-zinc-700">{row.value}</p>
+                    </div>
                   </div>
-                  {candidate.desired_position && (
-                    <p className="text-[11px] text-zinc-400 mt-0.5">{candidate.desired_position}</p>
-                  )}
-                </div>
+                ))}
               </div>
             </div>
+          </div>
 
-            {/* Mobile: tabs horizontais */}
-            <div className="lg:hidden bg-white border border-zinc-100 rounded-2xl shadow-sm mb-4 overflow-x-auto no-scrollbar">
+          {/* RIGHT — main content */}
+          <div className="min-w-0 flex-1">
+            {/* Mobile tabs */}
+            <div className="mb-4 overflow-x-auto rounded-2xl border border-zinc-200 bg-white shadow-sm lg:hidden">
               <div className="flex">
                 {TABS.map(tab => (
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id as any)}
                     className={cn(
-                      "px-3 py-3 text-[10px] font-black uppercase tracking-widest transition-all relative flex items-center gap-1.5 shrink-0",
-                      activeTab === tab.id ? "text-develoi-navy" : "text-zinc-400"
+                      "relative flex shrink-0 items-center gap-1.5 px-3 py-3 text-[11px] font-semibold transition-all",
+                      activeTab === tab.id ? "text-develoi-navy" : "text-zinc-400 hover:text-zinc-700"
                     )}
                   >
                     <tab.icon size={12} />
                     {tab.label}
                     {activeTab === tab.id && (
-                      <motion.div layoutId="candidate-tab-mobile" className="absolute bottom-0 left-0 right-0 h-0.5 bg-develoi-navy" />
+                      <motion.div layoutId="cand-tab-m" className="absolute bottom-0 left-0 right-0 h-0.5 bg-develoi-navy" />
                     )}
                   </button>
                 ))}
@@ -494,96 +529,116 @@ export default function CandidateDetailsPage() {
             <div className="space-y-6">
 
             {activeTab === 'summary' && (
-              <div className="space-y-8">
-                <section className="bg-white p-8 rounded-[32px] border border-zinc-100 shadow-sm space-y-4">
-                  <div className="flex items-center gap-2 text-develoi-navy">
-                    <FileText size={16} />
-                    <h4 className="text-[10px] font-black uppercase tracking-widest">Resumo Profissional</h4>
-                  </div>
-                  <p className="text-sm font-semibold text-zinc-600 leading-relaxed">
-                    {candidate.professional_summary || "Candidato sem resumo profissional cadastrado."}
-                  </p>
-                </section>
+              <div className="space-y-4">
 
-                <div className="grid grid-cols-2 gap-6">
-                  <ContentCard className="flex flex-col gap-1.5" padding="md">
-                    <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Pretensão Salarial</p>
-                    <p className="text-base font-black text-zinc-900">{candidate.desired_salary ? `R$ ${candidate.desired_salary}` : "Não informada"}</p>
-                  </ContentCard>
-                  <ContentCard className="flex flex-col gap-1.5" padding="md">
-                    <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Anos de Experiência</p>
-                    <p className="text-base font-black text-zinc-900">{candidate.experience_years ? `${candidate.experience_years} anos` : "Não informado"}</p>
-                  </ContentCard>
-                  <ContentCard className="flex flex-col gap-1.5" padding="md">
-                    <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Escolaridade</p>
-                    <p className="text-base font-black text-zinc-900 truncate">{candidate.education_level || "Não informado"}</p>
-                  </ContentCard>
-                  <ContentCard className="flex flex-col gap-1.5" padding="md">
-                    <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Modelo Desejado</p>
-                    <p className="text-base font-black text-zinc-900">{candidate.desired_work_model || "Indiferente"}</p>
-                  </ContentCard>
+                {/* Resumo */}
+                <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+                  <div className="flex items-center gap-2.5 border-b border-zinc-100 px-5 py-3.5">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-develoi-navy/8">
+                      <FileText size={13} className="text-develoi-navy" />
+                    </div>
+                    <span className="text-[13px] font-bold text-zinc-900">Resumo Profissional</span>
+                  </div>
+                  <div className="px-5 py-4">
+                    <p className="text-[13px] font-medium leading-relaxed text-zinc-600">
+                      {candidate.professional_summary || <span className="italic text-zinc-400">Candidato sem resumo profissional cadastrado.</span>}
+                    </p>
+                  </div>
                 </div>
 
-                <section className="bg-white p-8 rounded-[32px] border border-zinc-100 shadow-sm space-y-6">
-                  <div className="flex items-center gap-2 text-develoi-navy">
-                    <Sparkles size={16} />
-                    <h4 className="text-[10px] font-black uppercase tracking-widest">Principais Competências</h4>
-                  </div>
-                  <div className="flex flex-wrap gap-2.5">
-                    {candidate.hard_skills_json ? (
-                      JSON.parse(candidate.hard_skills_json).map((skill: string, i: number) => (
-                        <span key={i} className="px-4 py-2 bg-develoi-navy/5 border border-develoi-navy/10 text-develoi-navy text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-develoi-navy hover:text-white transition-all cursor-default">
+                {/* KPI grid */}
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  {[
+                    { label: "Pretensão Salarial",  value: candidate.desired_salary ? `R$ ${Number(candidate.desired_salary).toLocaleString('pt-BR')}` : "Não informada" },
+                    { label: "Anos de Experiência", value: candidate.experience_years ? `${candidate.experience_years} anos` : "Não informado" },
+                    { label: "Escolaridade",        value: candidate.education_level || "Não informado" },
+                    { label: "Modelo Desejado",     value: candidate.desired_work_model || "Indiferente" },
+                  ].map(f => (
+                    <div key={f.label} className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
+                      <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-400">{f.label}</p>
+                      <p className="text-[15px] font-bold text-zinc-900 leading-tight">{f.value}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Skills */}
+                {(candidate.hard_skills_json || candidate.hard_skills) && (
+                  <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+                    <div className="flex items-center gap-2.5 border-b border-zinc-100 px-5 py-3.5">
+                      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-develoi-gold/10">
+                        <Sparkles size={13} className="text-develoi-gold" />
+                      </div>
+                      <span className="text-[13px] font-bold text-zinc-900">Principais Competências</span>
+                    </div>
+                    <div className="flex flex-wrap gap-2 px-5 py-4">
+                      {(candidate.hard_skills_json
+                        ? JSON.parse(candidate.hard_skills_json)
+                        : candidate.hard_skills?.split(',').map((s: string) => s.trim())
+                      )?.filter(Boolean).map((skill: string, i: number) => (
+                        <span key={i} className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-[11px] font-semibold text-zinc-700 transition-colors hover:border-develoi-navy/30 hover:bg-develoi-navy/5 hover:text-develoi-navy">
                           {skill}
                         </span>
-                      ))
-                    ) : candidate.hard_skills?.split(',').map((skill, i) => (
-                      <span key={i} className="px-4 py-2 bg-zinc-50 border border-zinc-100 text-zinc-600 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-develoi-navy hover:text-white hover:border-develoi-navy transition-all cursor-default">
-                        {skill.trim()}
-                      </span>
-                    )) || <p className="text-[10px] font-bold text-zinc-400 italic">Nenhuma skill listada.</p>}
-                  </div>
-                </section>
-
-                {candidate.experiences_json && JSON.parse(candidate.experiences_json).length > 0 && (
-                  <section className="space-y-6">
-                    <h4 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest flex items-center gap-2">
-                      <Briefcase size={14} /> Histórico Profissional
-                    </h4>
-                    <div className="grid gap-4">
-                      {JSON.parse(candidate.experiences_json).map((exp: any, i: number) => (
-                        <div key={i} className="bg-white p-6 rounded-[32px] border border-zinc-100 shadow-sm hover:border-develoi-navy/30 transition-all">
-                          <div className="flex justify-between items-start mb-2">
-                            <p className="text-sm font-black text-zinc-900">{exp.role}</p>
-                            <Badge color="default" size="sm">{exp.period}</Badge>
-                          </div>
-                          <p className="text-xs font-bold text-develoi-navy mb-3">{exp.company}</p>
-                          <p className="text-[11px] font-semibold text-zinc-500 leading-relaxed">{exp.description}</p>
-                        </div>
                       ))}
                     </div>
-                  </section>
+                  </div>
                 )}
 
-                {candidate.education_json && JSON.parse(candidate.education_json).length > 0 && (
-                  <section className="space-y-6">
-                    <h4 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest flex items-center gap-2">
-                      <GraduationCap size={14} /> Formação Acadêmica
-                    </h4>
-                    <div className="grid gap-4">
-                      {JSON.parse(candidate.education_json).map((edu: any, i: number) => (
-                        <div key={i} className="bg-white p-6 rounded-[32px] border border-zinc-100 shadow-sm flex justify-between items-center">
-                          <div>
-                            <p className="text-sm font-black text-zinc-900">{edu.course}</p>
-                            <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest mt-1">{edu.institution}</p>
+                {/* Experiências */}
+                {candidate.experiences_json && JSON.parse(candidate.experiences_json).length > 0 && (
+                  <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+                    <div className="flex items-center gap-2.5 border-b border-zinc-100 px-5 py-3.5">
+                      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-develoi-navy/8">
+                        <Briefcase size={13} className="text-develoi-navy" />
+                      </div>
+                      <span className="text-[13px] font-bold text-zinc-900">Histórico Profissional</span>
+                    </div>
+                    <div className="divide-y divide-zinc-50">
+                      {JSON.parse(candidate.experiences_json).map((exp: any, i: number) => (
+                        <div key={i} className="px-5 py-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-[13px] font-bold text-zinc-900">{exp.role}</p>
+                              <p className="mt-0.5 text-[12px] font-semibold text-develoi-navy">{exp.company}</p>
+                            </div>
+                            <span className="shrink-0 rounded-lg bg-zinc-100 px-2.5 py-1 text-[10px] font-semibold text-zinc-500">
+                              {exp.period}
+                            </span>
                           </div>
-                          <div className="text-right">
-                            <p className="text-[10px] font-black text-develoi-navy uppercase tracking-widest">{edu.status}</p>
-                            <p className="text-[10px] font-bold text-zinc-400 mt-0.5">{edu.period}</p>
+                          {exp.description && (
+                            <p className="mt-2 text-[12px] font-medium leading-relaxed text-zinc-500">{exp.description}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Formação */}
+                {candidate.education_json && JSON.parse(candidate.education_json).length > 0 && (
+                  <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+                    <div className="flex items-center gap-2.5 border-b border-zinc-100 px-5 py-3.5">
+                      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-sky-50">
+                        <GraduationCap size={13} className="text-sky-600" />
+                      </div>
+                      <span className="text-[13px] font-bold text-zinc-900">Formação Acadêmica</span>
+                    </div>
+                    <div className="divide-y divide-zinc-50">
+                      {JSON.parse(candidate.education_json).map((edu: any, i: number) => (
+                        <div key={i} className="flex items-start justify-between gap-3 px-5 py-4">
+                          <div className="min-w-0">
+                            <p className="text-[13px] font-bold text-zinc-900">{edu.course}</p>
+                            <p className="mt-0.5 text-[11px] font-medium text-zinc-500">{edu.institution}</p>
+                          </div>
+                          <div className="shrink-0 text-right">
+                            <span className="rounded-lg bg-develoi-navy/8 px-2 py-0.5 text-[10px] font-semibold text-develoi-navy">
+                              {edu.status}
+                            </span>
+                            {edu.period && <p className="mt-1 text-[10px] text-zinc-400">{edu.period}</p>}
                           </div>
                         </div>
                       ))}
                     </div>
-                  </section>
+                  </div>
                 )}
               </div>
             )}
@@ -974,26 +1029,24 @@ export default function CandidateDetailsPage() {
           </div>
           </div>
         </div>
-      </div>
 
-      <AnimatePresence>
-        {loading && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-white/60 backdrop-blur-md z-[100] flex items-center justify-center flex-col gap-6"
-          >
-            <div className="w-16 h-16 border-4 border-develoi-navy border-t-transparent rounded-full animate-spin shadow-xl" />
-            <div className="text-center space-y-1">
-              <p className="text-xs font-black text-develoi-navy uppercase tracking-[0.3em]">Aurora AI</p>
-              <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">Processando...</p>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+        <AnimatePresence>
+          {loading && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[100] flex flex-col items-center justify-center gap-4 bg-white/70 backdrop-blur-sm"
+            >
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-develoi-navy/8">
+                <Loader2 size={22} className="animate-spin text-develoi-navy" />
+              </div>
+              <p className="text-[11px] font-medium text-zinc-500">Processando análise…</p>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-      <Modal
+        <Modal
         open={showDeleteConfirm}
         onClose={() => setShowDeleteConfirm(false)}
         size="sm"
@@ -1015,6 +1068,7 @@ export default function CandidateDetailsPage() {
           Deseja realmente remover <span className="font-black text-zinc-900">{candidate.full_name}</span> permanentemente?
         </p>
       </Modal>
+      </div>
     </div>
   );
 }

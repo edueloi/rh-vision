@@ -282,7 +282,7 @@ export function JobCard({
 
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <JobStatusBadge status={job.status} />
+                    <JobStatusBadge status={job.status} approvalStatus={(job as any).approval_status} />
                     <p className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-400">
                       {(job.department || "Geral").toUpperCase()} · {location.toUpperCase()}
                     </p>
@@ -396,7 +396,7 @@ export function JobCard({
 
                 <div className="min-w-0 space-y-2">
                   <div className="flex flex-wrap items-center gap-2">
-                    <JobStatusBadge status={job.status} />
+                    <JobStatusBadge status={job.status} approvalStatus={(job as any).approval_status} />
                     {job.is_public && (
                       <span className="text-[10px] font-black uppercase tracking-[0.18em] text-develoi-gold">
                         Portal ativo

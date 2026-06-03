@@ -5,6 +5,7 @@ import { createGeminiClient, GEMINI_MODEL } from '../helpers/ai';
 import { upload } from '../helpers/files';
 import { saveImportedJobFile, extractJobTextFromBuffer, extractJobTextFromStoredFile } from '../helpers/files';
 import { normalizeImportedJobParsedData, parseJsonFromAiResponseSafe } from '../helpers/jobs-normalize';
+import { pushJobToShiguenoPortal } from '../services/shigueno-portal-sync';
 
 export function registerJobRoutes(app: Express) {
   app.get('/api/jobs', async (req, res) => {
@@ -14,7 +15,11 @@ export function registerJobRoutes(app: Express) {
 
     if (tenantId) { query += ' AND tenant_id = ?'; params.push(tenantId); }
     if (unitId && unitId !== 'master') { query += ' AND unit_id = ?'; params.push(unitId); }
-    if (status) { query += ' AND status = ?'; params.push(status); }
+    if (status === 'Em Aprovação') {
+      query += ' AND approval_status = ?'; params.push('pending');
+    } else if (status) {
+      query += ' AND status = ?'; params.push(status);
+    }
     if (workModel) { query += ' AND work_model = ?'; params.push(workModel); }
     if (search) {
       query += ' AND (title LIKE ? OR city LIKE ? OR department LIKE ?)';
@@ -47,7 +52,11 @@ export function registerJobRoutes(app: Express) {
     const values = keys.map(k => job[k]);
     try {
       const result = await db.prepare(`INSERT INTO jobs (${keys.join(',')}, created_at, updated_at) VALUES (${placeholders}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`).run(...values);
-      res.status(201).json({ id: result.lastInsertRowid, ...job });
+      const newId = Number(result.lastInsertRowid);
+      if (job.status === 'Aberta') {
+        pushJobToShiguenoPortal('upsert', { id: newId, ...job });
+      }
+      res.status(201).json({ id: newId, ...job });
     } catch (error) {
       console.error(error);
       res.status(500).json({ error: 'Failed to create job' });
@@ -62,6 +71,10 @@ export function registerJobRoutes(app: Express) {
     const values = keys.map(k => job[k]);
     try {
       await db.prepare(`UPDATE jobs SET ${setClause}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`).run(...values, id);
+      const updated = await db.prepare('SELECT * FROM jobs WHERE id = ?').get(id) as any;
+      if (updated && (updated.status === 'Aberta' || updated.status === 'Pausada')) {
+        pushJobToShiguenoPortal('upsert', updated);
+      }
       res.json({ id, ...job });
     } catch (error) {
       console.error(error);
@@ -73,11 +86,128 @@ export function registerJobRoutes(app: Express) {
     const { status } = req.body;
     try {
       await db.prepare('UPDATE jobs SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(status, req.params.id);
+      const job = await db.prepare('SELECT * FROM jobs WHERE id = ?').get(req.params.id) as any;
+      if (job) {
+        const action = status === 'Aberta' || status === 'Pausada' ? 'upsert' : 'delete';
+        pushJobToShiguenoPortal(action, job);
+      }
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ error: 'Failed to update status' });
     }
   });
+
+  // ── Workflow de aprovação ─────────────────────────────────────────────────────
+
+  // GET histórico de aprovações
+  app.get('/api/jobs/:id/approvals', async (req, res) => {
+    try {
+      const history = await db.prepare(
+        `SELECT id, action, actor_id, actor_name, notes, created_at
+         FROM job_approvals WHERE job_id = ? ORDER BY created_at DESC`
+      ).all(req.params.id);
+      res.json(history);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch approvals' });
+    }
+  });
+
+  // POST solicitar aprovação  (action = 'requested')
+  app.post('/api/jobs/:id/approvals/request', async (req, res) => {
+    const { actor_id, actor_name, notes } = req.body;
+    const jobId = req.params.id;
+    try {
+      const job = await db.prepare('SELECT tenant_id, status FROM jobs WHERE id = ? AND deleted_at IS NULL').get(jobId) as any;
+      if (!job) return res.status(404).json({ error: 'Vaga não encontrada' });
+      if (job.status === 'Aberta') return res.status(400).json({ error: 'Vaga já está Aberta' });
+
+      await db.prepare(
+        `UPDATE jobs SET approval_status = 'pending', approval_requested_by = ?, approval_requested_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+      ).run(actor_id, jobId);
+
+      await db.prepare(
+        `INSERT INTO job_approvals (job_id, tenant_id, action, actor_id, actor_name, notes) VALUES (?, ?, 'requested', ?, ?, ?)`
+      ).run(jobId, job.tenant_id, actor_id, actor_name || actor_id, notes || null);
+
+      res.json({ success: true, approval_status: 'pending' });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: 'Failed to request approval' });
+    }
+  });
+
+  // POST aprovar (action = 'approved')
+  app.post('/api/jobs/:id/approvals/approve', async (req, res) => {
+    const { actor_id, actor_name, notes } = req.body;
+    const jobId = req.params.id;
+    try {
+      const job = await db.prepare('SELECT tenant_id, approval_status FROM jobs WHERE id = ? AND deleted_at IS NULL').get(jobId) as any;
+      if (!job) return res.status(404).json({ error: 'Vaga não encontrada' });
+
+      await db.prepare(
+        `UPDATE jobs SET approval_status = 'approved', approval_resolved_at = CURRENT_TIMESTAMP, status = 'Aberta', updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+      ).run(jobId);
+
+      await db.prepare(
+        `INSERT INTO job_approvals (job_id, tenant_id, action, actor_id, actor_name, notes) VALUES (?, ?, 'approved', ?, ?, ?)`
+      ).run(jobId, job.tenant_id, actor_id, actor_name || actor_id, notes || null);
+
+      const updatedJob = await db.prepare('SELECT * FROM jobs WHERE id = ?').get(jobId) as any;
+      if (updatedJob) pushJobToShiguenoPortal('upsert', updatedJob);
+
+      res.json({ success: true, approval_status: 'approved' });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: 'Failed to approve job' });
+    }
+  });
+
+  // POST rejeitar (action = 'rejected')
+  app.post('/api/jobs/:id/approvals/reject', async (req, res) => {
+    const { actor_id, actor_name, notes } = req.body;
+    const jobId = req.params.id;
+    try {
+      const job = await db.prepare('SELECT tenant_id FROM jobs WHERE id = ? AND deleted_at IS NULL').get(jobId) as any;
+      if (!job) return res.status(404).json({ error: 'Vaga não encontrada' });
+
+      await db.prepare(
+        `UPDATE jobs SET approval_status = 'rejected', approval_resolved_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+      ).run(jobId);
+
+      await db.prepare(
+        `INSERT INTO job_approvals (job_id, tenant_id, action, actor_id, actor_name, notes) VALUES (?, ?, 'rejected', ?, ?, ?)`
+      ).run(jobId, job.tenant_id, actor_id, actor_name || actor_id, notes || null);
+
+      res.json({ success: true, approval_status: 'rejected' });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: 'Failed to reject job' });
+    }
+  });
+
+  // DELETE cancelar solicitação de aprovação (volta para Rascunho)
+  app.delete('/api/jobs/:id/approvals/request', async (req, res) => {
+    const { actor_id, actor_name } = req.body;
+    const jobId = req.params.id;
+    try {
+      const job = await db.prepare('SELECT tenant_id FROM jobs WHERE id = ? AND deleted_at IS NULL').get(jobId) as any;
+      if (!job) return res.status(404).json({ error: 'Vaga não encontrada' });
+
+      await db.prepare(
+        `UPDATE jobs SET approval_status = NULL, approval_requested_at = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+      ).run(jobId);
+
+      await db.prepare(
+        `INSERT INTO job_approvals (job_id, tenant_id, action, actor_id, actor_name, notes) VALUES (?, ?, 'cancelled', ?, ?, ?)`
+      ).run(jobId, job.tenant_id, actor_id || 'system', actor_name || 'Sistema', 'Solicitação cancelada');
+
+      res.json({ success: true, approval_status: null });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to cancel approval' });
+    }
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────────
 
   app.patch('/api/jobs/:id/publication', async (req, res) => {
     const { is_public } = req.body;
@@ -98,7 +228,9 @@ export function registerJobRoutes(app: Express) {
           await fs.promises.unlink(imp.file_path).catch(err => console.error(`Failed to delete job file: ${imp.file_path}`, err));
         }
       }
+      const jobToDelete = await db.prepare('SELECT * FROM jobs WHERE id = ?').get(jobId) as any;
       await db.prepare('UPDATE jobs SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?').run(jobId);
+      if (jobToDelete) pushJobToShiguenoPortal('delete', jobToDelete);
       res.json({ success: true });
     } catch (error) {
       console.error('Failed to delete job:', error);
@@ -131,7 +263,7 @@ export function registerJobRoutes(app: Express) {
   });
 
   // Job Imports
-  app.post('/api/jobs/import', upload.single('file'), async (req, res) => {
+  app.post('/api/jobs/import', upload.single('file') as any, async (req, res) => {
     const { tenant_id, unit_id } = req.body;
     if (!tenant_id || !unit_id) return res.status(400).json({ error: 'tenant_id and unit_id are required' });
     if (!req.file) return res.status(400).json({ error: 'Job file is required' });
@@ -208,7 +340,7 @@ export function registerJobRoutes(app: Express) {
     }
   });
 
-  app.post('/api/jobs/import/batch-auto', upload.array('files', 20), async (req, res) => {
+  app.post('/api/jobs/import/batch-auto', upload.array('files', 20) as any, async (req, res) => {
     const { tenant_id, unit_id, city: defaultCity } = req.body;
     const files = req.files as Express.Multer.File[];
     if (!tenant_id || !unit_id) return res.status(400).json({ error: 'tenant_id and unit_id are required' });

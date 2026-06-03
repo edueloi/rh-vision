@@ -1,10 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   AlertTriangle,
   BadgeCheck,
   Building2,
   CalendarClock,
+  ChevronRight,
   Globe,
   KeyRound,
   Plus,
@@ -27,6 +29,7 @@ import {
   useToast,
 } from "../components/ui";
 import { getAuthHeaders } from "../lib/auth";
+import { cn } from "../lib/utils";
 import { formatCpfOrCnpj, formatPhoneBr } from "../lib/masks";
 import {
   ACCESS_PERMISSION_KEYS,
@@ -192,6 +195,16 @@ function normalizePermissions(value: unknown, fallbackProfile: string) {
 }
 
 export default function SuperAdmin() {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Derive active view from pathname
+  type RootView = "overview" | "clientes" | "contratos" | "acessos";
+  const activeView: RootView =
+    location.pathname === "/super-admin/clientes"  ? "clientes"  :
+    location.pathname === "/super-admin/contratos" ? "contratos" :
+    location.pathname === "/super-admin/acessos"   ? "acessos"   : "overview";
+
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [selectedTenantId, setSelectedTenantId] = useState<string | null>(null);
   const [tenantAccesses, setTenantAccesses] = useState<TenantAccess[]>([]);
@@ -464,518 +477,426 @@ export default function SuperAdmin() {
   };
 
   return (
-    <div className="w-full animate-in fade-in duration-500">
-      <div className="space-y-8">
-        <PanelCard
-          className="overflow-hidden rounded-[40px] border-zinc-900 bg-zinc-900 text-white shadow-2xl"
-          contentClassName="p-8 md:p-10 xl:p-12"
-        >
-          <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
-            <div className="space-y-6">
-              <div className="flex items-center gap-4">
-                <div className="rounded-3xl bg-develoi-gold p-4 text-white shadow-xl shadow-develoi-gold/20">
-                  <ShieldCheck size={34} />
+    <>
+    <div className="min-h-screen bg-[#f8fafc]">
+      <div className="space-y-5 px-4 pb-24 pt-5 sm:px-6">
+
+        {/* ── PAGE HEADER ── */}
+        <div id="superadmin-overview" className="relative overflow-hidden rounded-2xl bg-[#030d1c] px-5 py-6 sm:px-7">
+          <div className="pointer-events-none absolute -right-20 -top-20 h-56 w-56 rounded-full bg-develoi-gold/8 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-16 left-1/3 h-40 w-40 rounded-full bg-violet-500/6 blur-3xl" />
+
+          <div className="relative z-10 flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="mb-2 flex items-center gap-2">
+                <ShieldCheck size={12} className="text-develoi-gold/70" />
+                <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-white/30">Root Command</span>
+              </div>
+              <h1 className="text-[22px] font-black leading-none tracking-tight text-white sm:text-[28px]">
+                Governança de Clientes
+              </h1>
+              <p className="mt-1.5 text-[11px] font-medium text-white/40">
+                Provisione clientes, controle contratos, acessos e validade da operação
+              </p>
+            </div>
+            <button
+              onClick={() => setShowTenantModal(true)}
+              className="flex h-9 items-center gap-2 rounded-xl bg-develoi-gold px-5 text-[12px] font-bold text-develoi-navy shadow-lg shadow-develoi-gold/20 transition-all hover:bg-[#d4a83a]"
+            >
+              <Plus size={14} /> Novo Cliente
+            </button>
+          </div>
+
+          {/* KPI strip */}
+          <div className="relative z-10 mt-5 grid grid-cols-2 gap-3 border-t border-white/[0.06] pt-5 sm:grid-cols-4">
+            {[
+              { label: "Clientes ativos",      value: totals.activeTenants,       color: "text-white",        icon: Building2 },
+              { label: "Vencendo em 30 dias",  value: totals.expiringTenants,     color: "text-amber-300",    icon: AlertTriangle },
+              { label: "Acessos provisionados",value: totals.totalAccesses,       color: "text-sky-300",      icon: Users },
+              { label: "Capacidade contratada",value: totals.contractedCapacity,  color: "text-emerald-400",  icon: BadgeCheck },
+            ].map((s, i) => (
+              <div key={i} className="flex items-center gap-3 rounded-xl bg-white/[0.04] px-4 py-3 ring-1 ring-white/[0.06]">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/[0.06]">
+                  <s.icon size={14} className={s.color} />
                 </div>
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.35em] text-develoi-gold/80">
-                    Root Command
-                  </p>
-                  <h1 className="text-4xl font-black tracking-tight text-white md:text-5xl">
-                    Governança de Clientes
-                  </h1>
+                  <p className={`text-[20px] font-black tabular-nums leading-none ${s.color}`}>{s.value}</p>
+                  <p className="mt-0.5 text-[9px] font-medium text-white/30">{s.label}</p>
                 </div>
               </div>
-
-              <div className="max-w-4xl space-y-4">
-                <p className="text-lg font-semibold leading-relaxed text-white/70">
-                  Painel central para criar novos clientes, provisionar acessos, controlar validade
-                  contratual, acompanhar ocupação de usuários e definir o perfil de acesso padrão
-                  de cada operação.
-                </p>
-                <div className="flex flex-wrap gap-3">
-                  <Badge color="warning" pill>
-                    Contratos
-                  </Badge>
-                  <Badge color="info" pill>
-                    Acessos
-                  </Badge>
-                  <Badge color="success" pill>
-                    Governança
-                  </Badge>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-3 xl:min-w-[280px]">
-              <Button
-                onClick={() => setShowTenantModal(true)}
-                iconLeft={<Plus size={16} />}
-                className="h-12 rounded-2xl border-[#d3a843] bg-[#d3a843] px-6 text-[11px] font-black uppercase tracking-[0.18em] text-white hover:border-[#e0ba65] hover:bg-[#e0ba65]"
-              >
-                Novo Cliente
-              </Button>
-            </div>
+            ))}
           </div>
-        </PanelCard>
-
-        <section id="superadmin-overview" className="scroll-mt-28 space-y-4">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.24em] text-zinc-400">
-                Visão Geral
-              </p>
-              <h2 className="mt-1 text-2xl font-black tracking-tight text-zinc-900">
-                Indicadores da operação root
-              </h2>
-            </div>
-            <p className="text-sm font-semibold text-zinc-500">
-              Leitura rápida de clientes, contratos e capacidade.
-            </p>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <StatCard
-            title="Clientes ativos"
-            value={totals.activeTenants}
-            icon={Building2}
-            color="navy"
-            description="Operações habilitadas"
-          />
-          <StatCard
-            title="Vencendo em 30 dias"
-            value={totals.expiringTenants}
-            icon={AlertTriangle}
-            color="warning"
-            description="Renovar antes do bloqueio"
-          />
-          <StatCard
-            title="Acessos provisionados"
-            value={totals.totalAccesses}
-            icon={Users}
-            color="info"
-            description="Usuários distribuídos"
-          />
-          <StatCard
-            title="Capacidade contratada"
-            value={totals.contractedCapacity}
-            icon={BadgeCheck}
-            color="success"
-            description="Limite total de acessos"
-          />
         </div>
-        </section>
 
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.95fr)]">
-          <section id="superadmin-clientes" className="scroll-mt-28 space-y-6">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.24em] text-zinc-400">
-                  Clientes
-                </p>
-                <h2 className="mt-1 text-2xl font-black tracking-tight text-zinc-900">
-                  Pipeline de contratos e tenants
-                </h2>
+        {/* ── VIEWS ── */}
+        {/* ─── OVERVIEW ─────────────────────────────────── */}
+        {activeView === "overview" && (
+          <div className="space-y-5">
+            <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+              <div className="flex items-center gap-2.5 border-b border-zinc-100 px-5 py-4">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-develoi-navy/8">
+                  <Building2 size={13} className="text-develoi-navy" />
+                </div>
+                <span className="text-[13px] font-bold text-zinc-900">Resumo da operação root</span>
               </div>
-              <p className="text-sm font-semibold text-zinc-500">
-                Filtre, selecione e abra a governança detalhada de cada cliente.
-              </p>
+              <div className="grid gap-0 divide-y divide-zinc-50 p-1">
+                {[
+                  { label: "Clientes ativos",       value: totals.activeTenants,      color: "text-develoi-navy" },
+                  { label: "Vencendo em 30 dias",   value: totals.expiringTenants,    color: "text-amber-600" },
+                  { label: "Acessos provisionados", value: totals.totalAccesses,      color: "text-sky-600" },
+                  { label: "Capacidade contratada", value: totals.contractedCapacity, color: "text-emerald-600" },
+                ].map(row => (
+                  <div key={row.label} className="flex items-center justify-between rounded-xl px-4 py-3">
+                    <span className="text-[12px] font-medium text-zinc-500">{row.label}</span>
+                    <span className={cn("text-[20px] font-black tabular-nums", row.color)}>{row.value}</span>
+                  </div>
+                ))}
+              </div>
             </div>
-            <PanelCard
-              title="Pipeline de Clientes"
-              description="Filtre contratos, selecione um cliente e acompanhe o consumo de acessos."
-              icon={Search}
-              className="rounded-[36px]"
-              contentClassName="space-y-4 p-6"
-            >
-              <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_220px]">
-                <Input
+
+            {/* Quick access cards */}
+            <div className="grid gap-3 sm:grid-cols-3">
+              {[
+                { href: "/super-admin/clientes",  title: "Clientes",  desc: "Gerencie tenants e contratos", icon: Building2, color: "text-develoi-navy bg-develoi-navy/8" },
+                { href: "/super-admin/contratos", title: "Contratos", desc: "Validade, planos e capacidade", icon: ShieldCheck, color: "text-develoi-gold bg-develoi-gold/10" },
+                { href: "/super-admin/acessos",   title: "Acessos",   desc: "Usuários e permissões",         icon: Users,      color: "text-emerald-600 bg-emerald-50" },
+              ].map(c => (
+                <button key={c.href} onClick={() => navigate(c.href)}
+                  className="group flex items-start gap-3 rounded-2xl border border-zinc-200 bg-white p-5 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-develoi-navy/20 hover:shadow-md">
+                  <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl", c.color)}>
+                    <c.icon size={18} />
+                  </div>
+                  <div>
+                    <p className="text-[14px] font-bold text-zinc-900">{c.title}</p>
+                    <p className="mt-0.5 text-[11px] text-zinc-400">{c.desc}</p>
+                  </div>
+                  <ChevronRight size={14} className="ml-auto mt-1 shrink-0 text-zinc-300 transition-transform group-hover:translate-x-0.5 group-hover:text-zinc-500" />
+                </button>
+              ))}
+            </div>
+
+            {/* Tenants list preview */}
+            <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+              <div className="flex items-center justify-between gap-3 border-b border-zinc-100 px-5 py-4">
+                <span className="text-[13px] font-bold text-zinc-900">Clientes recentes</span>
+                <button onClick={() => navigate("/super-admin/clientes")}
+                  className="text-[11px] font-semibold text-develoi-navy transition-colors hover:text-develoi-navy/70">
+                  Ver todos →
+                </button>
+              </div>
+              <div className="divide-y divide-zinc-50">
+                {tenants.slice(0, 5).map(t => {
+                  const badge = getContractBadge(t);
+                  return (
+                    <div key={t.id} className="flex items-center gap-3 px-5 py-3">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-develoi-navy/8 text-develoi-navy">
+                        <Building2 size={14} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[12px] font-semibold text-zinc-900">{t.name}</p>
+                        <p className="text-[10px] text-zinc-400">{t.plan_label || "Sem plano"} · {t.total_users || 0}/{t.max_users || 0} acessos</p>
+                      </div>
+                      <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                        badge.color === "success" ? "bg-emerald-50 text-emerald-700" :
+                        badge.color === "warning" ? "bg-amber-50 text-amber-700" : "bg-rose-50 text-rose-700"
+                      )}>{badge.label}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ─── CLIENTES + CONTRATOS ─────────────────────── */}
+        {(activeView === "clientes" || activeView === "contratos") && (
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1.3fr)_minmax(340px,0.9fr)]">
+
+          {/* LEFT — tenant list */}
+          <div className="space-y-4">
+            {/* Filter bar */}
+            <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-3 py-2.5 shadow-sm sm:gap-3 sm:px-4">
+              <div className="relative flex min-w-[180px] flex-1 items-center">
+                <Search size={13} className="pointer-events-none absolute left-3 text-zinc-400" />
+                <input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Buscar por nome ou ID do cliente..."
-                  icon={<Search size={16} />}
-                  className="h-12 rounded-2xl bg-zinc-50 pl-10 text-sm font-bold"
+                  placeholder="Buscar por nome ou ID…"
+                  className="h-8 w-full rounded-lg border border-zinc-200 bg-zinc-50 pl-8 pr-3 text-[12px] font-medium text-zinc-800 outline-none transition-all placeholder:text-zinc-400 focus:border-develoi-gold/50 focus:bg-white focus:ring-2 focus:ring-develoi-gold/15"
                 />
-                <Select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="h-12 rounded-2xl bg-zinc-50 text-sm font-bold"
-                >
-                  <option value="all">Todos os contratos</option>
-                  <option value="ativo">Ativos</option>
-                  <option value="suspenso">Suspensos</option>
-                  <option value="expiring">Vencendo em 30 dias</option>
-                  <option value="expired">Expirados</option>
-                </Select>
               </div>
-            </PanelCard>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="h-8 w-full cursor-pointer appearance-none rounded-lg border border-zinc-200 bg-zinc-50 px-3 text-[12px] font-medium text-zinc-700 outline-none transition-all sm:w-44"
+                style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M6 8L1 3h10z'/%3E%3C/svg%3E\")", backgroundRepeat: "no-repeat", backgroundPosition: "right 8px center", backgroundSize: "10px", paddingRight: "2rem" }}
+              >
+                <option value="all">Todos os contratos</option>
+                <option value="ativo">Ativos</option>
+                <option value="suspenso">Suspensos</option>
+                <option value="expiring">Vencendo em 30d</option>
+                <option value="expired">Expirados</option>
+              </select>
+            </div>
 
+            {/* List */}
             {isLoading ? (
-              <PanelCard className="rounded-[36px]" padding={false}>
-                <div className="flex items-center justify-center py-24">
-                  <div className="h-12 w-12 animate-spin rounded-full border-4 border-develoi-navy/10 border-t-develoi-navy" />
+              <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-zinc-200 bg-white py-20 shadow-sm">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-develoi-navy/5">
+                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-develoi-navy/20 border-t-develoi-navy" />
                 </div>
-              </PanelCard>
+                <p className="text-[11px] font-medium text-zinc-400">Carregando clientes…</p>
+              </div>
             ) : filteredTenants.length === 0 ? (
-              <PanelCard className="rounded-[36px] border-dashed" padding={false}>
-                <EmptyState
-                  title="Nenhum cliente encontrado"
-                  description="Crie um novo contrato ou ajuste o filtro para localizar um cliente."
-                  icon={<Globe size={56} />}
-                  action={
-                    <Button
-                      onClick={() => setShowTenantModal(true)}
-                      iconLeft={<Plus size={14} />}
-                      className="rounded-2xl"
-                    >
-                      Provisionar Cliente
-                    </Button>
-                  }
-                />
-              </PanelCard>
+              <div className="flex flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-zinc-200 bg-white py-16 shadow-sm">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-100 text-zinc-400">
+                  <Globe size={24} />
+                </div>
+                <div className="text-center">
+                  <p className="text-[14px] font-semibold text-zinc-700">Nenhum cliente encontrado</p>
+                  <p className="mt-1 text-[12px] text-zinc-400">Crie um novo contrato ou ajuste o filtro.</p>
+                </div>
+                <button onClick={() => setShowTenantModal(true)}
+                  className="flex items-center gap-1.5 rounded-xl bg-develoi-navy px-4 py-2 text-[12px] font-semibold text-white transition-colors hover:bg-[#0a1e3a]">
+                  <Plus size={13} /> Provisionar Cliente
+                </button>
+              </div>
             ) : (
-              <div className="grid gap-5 md:grid-cols-2">
+              <div className="grid gap-3 md:grid-cols-2">
                 {filteredTenants.map((tenant, index) => {
                   const contractBadge = getContractBadge(tenant);
                   const selected = tenant.id === selectedTenantId;
-                  const daysUntilExpiration = getDaysUntil(tenant.expires_at);
+                  const days = getDaysUntil(tenant.expires_at);
+                  const usagePct = tenant.max_users ? Math.min(100, Math.round(((tenant.total_users || 0) / tenant.max_users) * 100)) : 0;
 
                   return (
                     <motion.div
                       key={tenant.id}
                       layout
-                      initial={{ opacity: 0, y: 16 }}
+                      initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.03, duration: 0.24 }}
+                      transition={{ delay: index * 0.03, duration: 0.2 }}
                       onClick={() => setSelectedTenantId(tenant.id)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter" || event.key === " ") {
-                          event.preventDefault();
-                          setSelectedTenantId(tenant.id);
-                        }
-                      }}
-                      role="button"
-                      tabIndex={0}
-                      aria-pressed={selected}
-                      className={`text-left transition-all ${
-                        selected ? "scale-[1.01]" : "hover:-translate-y-1"
-                      }`}
+                      role="button" tabIndex={0}
+                      onKeyDown={(e) => { if (e.key === "Enter") setSelectedTenantId(tenant.id); }}
+                      className={cn(
+                        "group cursor-pointer overflow-hidden rounded-2xl border bg-white shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md",
+                        selected ? "border-develoi-gold/50 ring-2 ring-develoi-gold/20" : "border-zinc-200 hover:border-zinc-300"
+                      )}
                     >
-                      <PanelCard
-                        title={tenant.name}
-                        description={`ID: ${tenant.id}`}
-                        icon={Building2}
-                        action={
-                          <IconButton
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              setDeleteTarget(tenant);
-                            }}
-                            className="text-zinc-300 hover:text-red-500"
-                          >
-                            <Trash2 size={18} />
-                          </IconButton>
-                        }
-                        className={`rounded-[32px] border transition-all ${
-                          selected
-                            ? "border-develoi-gold shadow-xl shadow-develoi-gold/10"
-                            : "shadow-sm"
-                        }`}
-                        contentClassName="space-y-5 p-6"
-                        color={selected ? "#c59b4d" : undefined}
-                      >
-                        <div className="flex flex-wrap items-center gap-2">
-                          <Badge color={contractBadge.color} pill dot>
-                            {contractBadge.label}
-                          </Badge>
-                          <Badge color="default" pill>
-                            {tenant.plan_label || "Sem plano"}
-                          </Badge>
-                        </div>
+                      {/* Top band */}
+                      <div className={cn("h-0.5",
+                        contractBadge.color === "success" ? "bg-emerald-500" :
+                        contractBadge.color === "warning" ? "bg-amber-400" : "bg-rose-500"
+                      )} />
 
-                        <div className="grid gap-3 sm:grid-cols-2">
-                          <div className="rounded-2xl bg-zinc-50 px-4 py-3">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
-                              Validade
-                            </p>
-                            <p className="mt-1 text-sm font-bold text-zinc-900">
-                              {formatDate(tenant.expires_at)}
-                            </p>
-                            <p className="mt-1 text-[10px] font-semibold text-zinc-500">
-                              {daysUntilExpiration === null
-                                ? "Sem prazo definido"
-                                : daysUntilExpiration >= 0
-                                  ? `${daysUntilExpiration} dias restantes`
-                                  : `${Math.abs(daysUntilExpiration)} dias vencido`}
-                            </p>
+                      <div className="p-4">
+                        {/* Header */}
+                        <div className="mb-3 flex items-start justify-between gap-2">
+                          <div className="flex items-start gap-2.5 min-w-0">
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-develoi-navy/8 text-develoi-navy">
+                              <Building2 size={16} />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="truncate text-[13px] font-bold text-zinc-900">{tenant.name}</p>
+                              <p className="text-[10px] font-medium text-zinc-400">ID: {tenant.id}</p>
+                            </div>
                           </div>
-                          <div className="rounded-2xl bg-zinc-50 px-4 py-3">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
-                              Ocupação
-                            </p>
-                            <p className="mt-1 text-sm font-bold text-zinc-900">
-                              {tenant.total_users || 0}/{tenant.max_users || 0} acessos
-                            </p>
-                            <p className="mt-1 text-[10px] font-semibold text-zinc-500">
-                              {tenant.admin_users || 0} com perfil administrativo
-                            </p>
+                          <div className="flex shrink-0 items-center gap-1.5">
+                            <span className={cn(
+                              "rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                              contractBadge.color === "success" ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200" :
+                              contractBadge.color === "warning" ? "bg-amber-50 text-amber-700 ring-1 ring-amber-200" :
+                              "bg-rose-50 text-rose-700 ring-1 ring-rose-200"
+                            )}>
+                              {contractBadge.label}
+                            </span>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setDeleteTarget(tenant); }}
+                              className="flex h-6 w-6 items-center justify-center rounded-lg text-zinc-300 transition-colors hover:bg-rose-50 hover:text-rose-500"
+                            >
+                              <Trash2 size={12} />
+                            </button>
                           </div>
                         </div>
 
-                        <div className="flex items-center justify-between gap-4 border-t border-zinc-100 pt-4">
-                          <div>
-                            <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
-                              Perfil padrão
-                            </p>
-                            <p className="mt-1 text-sm font-bold text-zinc-700">
-                              {ACCESS_PROFILE_LABELS[
-                                isAccessProfile(tenant.access_profile)
-                                  ? tenant.access_profile
-                                  : "rh-operacao"
-                              ]}
+                        {/* Plan badge */}
+                        <span className="mb-3 inline-block rounded-md bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold text-zinc-500">
+                          {tenant.plan_label || "Sem plano"}
+                        </span>
+
+                        {/* Stats row */}
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="rounded-xl bg-zinc-50 px-3 py-2.5">
+                            <p className="text-[9px] font-semibold uppercase tracking-wider text-zinc-400">Validade</p>
+                            <p className="mt-0.5 text-[13px] font-bold text-zinc-900">{formatDate(tenant.expires_at)}</p>
+                            <p className="text-[9px] text-zinc-400">
+                              {days === null ? "Sem prazo" : days >= 0 ? `${days}d restantes` : `${Math.abs(days)}d vencido`}
                             </p>
                           </div>
-                          <div className="text-right">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
-                              Último acesso
-                            </p>
-                            <p className="mt-1 text-sm font-bold text-zinc-700">
-                              {tenant.last_login ? formatDate(tenant.last_login) : "Sem login"}
-                            </p>
+                          <div className="rounded-xl bg-zinc-50 px-3 py-2.5">
+                            <p className="text-[9px] font-semibold uppercase tracking-wider text-zinc-400">Ocupação</p>
+                            <p className="mt-0.5 text-[13px] font-bold text-zinc-900">{tenant.total_users || 0}/{tenant.max_users || 0}</p>
+                            <div className="mt-1 h-1 overflow-hidden rounded-full bg-zinc-200">
+                              <div className={cn("h-full rounded-full", usagePct > 80 ? "bg-amber-400" : "bg-emerald-500")} style={{ width: `${usagePct}%` }} />
+                            </div>
                           </div>
                         </div>
-                      </PanelCard>
+
+                        {/* Footer */}
+                        <div className="mt-3 flex items-center justify-between border-t border-zinc-100 pt-2.5 text-[10px] text-zinc-400">
+                          <span>{ACCESS_PROFILE_LABELS[isAccessProfile(tenant.access_profile) ? tenant.access_profile : "rh-operacao"]}</span>
+                          <span>{tenant.last_login ? formatDate(tenant.last_login) : "Sem login"}</span>
+                        </div>
+                      </div>
                     </motion.div>
                   );
                 })}
               </div>
             )}
-          </section>
+          </div>
 
-          <div className="space-y-6 self-start xl:sticky xl:top-6">
+          {/* RIGHT — tenant detail */}
+          <div id="superadmin-contratos" className="space-y-4 self-start xl:sticky xl:top-6">
             {!selectedTenant ? (
-              <PanelCard className="rounded-[36px] border-dashed" padding={false}>
-                <EmptyState
-                  title="Selecione um cliente"
-                  description="Ao selecionar um tenant, você verá contrato, perfil padrão, acessos ativos e validade."
-                  icon={<ShieldCheck size={52} />}
-                />
-              </PanelCard>
+              <div className="flex flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-zinc-200 bg-white py-20 shadow-sm">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-100 text-zinc-400">
+                  <ShieldCheck size={24} />
+                </div>
+                <div className="text-center">
+                  <p className="text-[14px] font-semibold text-zinc-700">Selecione um cliente</p>
+                  <p className="mt-1 text-[12px] text-zinc-400">Clique em um card ao lado para ver detalhes.</p>
+                </div>
+              </div>
             ) : (
               <>
-                <section id="superadmin-contratos" className="scroll-mt-28">
-                  <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.24em] text-zinc-400">
-                        Contratos
+                {/* Contract card */}
+                <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+                  <div className="flex items-start justify-between gap-3 border-b border-zinc-100 px-5 py-4">
+                    <div className="min-w-0">
+                      <h2 className="truncate text-[14px] font-bold text-zinc-900">{selectedTenant.name}</h2>
+                      <p className="text-[11px] text-zinc-400">
+                        {selectedTenant.plan_label || "Sem plano"} · {selectedTenant.id}
                       </p>
-                      <h2 className="mt-1 text-2xl font-black tracking-tight text-zinc-900">
-                        Painel do cliente selecionado
-                      </h2>
                     </div>
-                    <p className="text-sm font-semibold text-zinc-500">
-                      Validade, capacidade, perfil padrão e status contratual.
-                    </p>
-                  </div>
-                  <PanelCard
-                  title={selectedTenant.name}
-                  description={`Contrato ${selectedTenant.plan_label || "sem definição"} • ${selectedTenant.id}`}
-                  icon={ShieldCheck}
-                  className="rounded-[36px] shadow-sm"
-                  action={
-                    <Button
+                    <button
                       onClick={openContractModal}
-                      variant="outline"
-                      iconLeft={<Settings2 size={14} />}
-                      className="rounded-2xl"
+                      className="flex shrink-0 items-center gap-1.5 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-[11px] font-semibold text-zinc-700 transition-colors hover:border-develoi-navy/30 hover:text-develoi-navy"
                     >
-                      Ajustar Contrato
-                    </Button>
-                  }
-                  contentClassName="space-y-6 p-6"
-                >
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    <div className="rounded-2xl bg-zinc-50 px-4 py-4">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
-                        Validade final
-                      </p>
-                      <p className="mt-2 text-lg font-black text-zinc-900">
-                        {formatDate(selectedTenant.expires_at)}
-                      </p>
-                      <p className="mt-1 text-[10px] font-semibold text-zinc-500">
-                        Início em {formatDate(selectedTenant.starts_at || selectedTenant.created_at)}
-                      </p>
-                    </div>
-                    <div className="rounded-2xl bg-zinc-50 px-4 py-4">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
-                        Acessos contratados
-                      </p>
-                      <p className="mt-2 text-lg font-black text-zinc-900">
-                        {selectedTenant.total_users || 0}/{selectedTenant.max_users || 0}
-                      </p>
-                      <p className="mt-1 text-[10px] font-semibold text-zinc-500">
-                        {selectedTenant.active_users || 0} ativos agora
-                      </p>
-                    </div>
-                    <div className="rounded-2xl bg-zinc-50 px-4 py-4">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
-                        Status do contrato
-                      </p>
-                      <div className="mt-2">
-                        <Badge color={getContractBadge(selectedTenant).color} pill dot>
-                          {getContractBadge(selectedTenant).label}
-                        </Badge>
-                      </div>
-                      <p className="mt-2 text-[10px] font-semibold text-zinc-500">
-                        Documento {selectedTenant.document || "não informado"}
-                      </p>
-                    </div>
+                      <Settings2 size={12} /> Ajustar
+                    </button>
                   </div>
 
-                  <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)]">
-                    <div className="rounded-[28px] border border-zinc-200 bg-zinc-50/70 p-5">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
-                        Perfil padrão para novos acessos
-                      </p>
-                      <p className="mt-2 text-lg font-black text-zinc-900">
-                        {ACCESS_PROFILE_LABELS[
-                          isAccessProfile(selectedTenant.access_profile)
-                            ? selectedTenant.access_profile
-                            : "rh-operacao"
-                        ]}
-                      </p>
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        {ACCESS_PERMISSION_KEYS.filter((key) =>
-                          key !== "super_admin" &&
-                          getPermissionPreset(
-                            isAccessProfile(selectedTenant.access_profile)
-                              ? selectedTenant.access_profile
-                              : "rh-operacao"
-                          )[key]
-                        ).map((key) => (
-                          <React.Fragment key={key}>
-                            <Badge color="info" pill>
-                              {ACCESS_PERMISSION_LABELS[key]}
-                            </Badge>
-                          </React.Fragment>
-                        ))}
+                  <div className="grid grid-cols-3 divide-x divide-zinc-100 p-0">
+                    {[
+                      { label: "Validade",          value: formatDate(selectedTenant.expires_at),    sub: `Início ${formatDate(selectedTenant.starts_at || selectedTenant.created_at)}` },
+                      { label: "Acessos",           value: `${selectedTenant.total_users||0}/${selectedTenant.max_users||0}`, sub: `${selectedTenant.active_users||0} ativos` },
+                      { label: "Status",            value: null,                                      sub: selectedTenant.document || "—", badge: getContractBadge(selectedTenant) },
+                    ].map((s, i) => (
+                      <div key={i} className="px-4 py-3.5">
+                        <p className="mb-1 text-[9px] font-bold uppercase tracking-wider text-zinc-400">{s.label}</p>
+                        {s.badge ? (
+                          <span className={cn(
+                            "rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                            s.badge.color === "success" ? "bg-emerald-50 text-emerald-700" :
+                            s.badge.color === "warning" ? "bg-amber-50 text-amber-700" : "bg-rose-50 text-rose-700"
+                          )}>{s.badge.label}</span>
+                        ) : (
+                          <p className="text-[13px] font-bold text-zinc-900">{s.value}</p>
+                        )}
+                        <p className="mt-0.5 text-[9px] text-zinc-400">{s.sub}</p>
                       </div>
-                    </div>
-
-                    <div className="rounded-[28px] border border-zinc-200 bg-zinc-50/70 p-5">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
-                        Uso e governança
-                      </p>
-                      <div className="mt-4 space-y-3 text-sm font-semibold text-zinc-700">
-                        <div className="flex items-center justify-between gap-4">
-                          <span>Admins provisionados</span>
-                          <span className="font-black text-zinc-900">{selectedTenant.admin_users || 0}</span>
-                        </div>
-                        <div className="flex items-center justify-between gap-4">
-                          <span>Último login</span>
-                          <span className="font-black text-zinc-900">
-                            {selectedTenant.last_login
-                              ? formatDate(selectedTenant.last_login)
-                              : "Sem acesso"}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between gap-4">
-                          <span>Validade contratada</span>
-                          <span className="font-black text-zinc-900">
-                            {selectedTenant.validity_days || 30} dias
-                          </span>
-                        </div>
-                      </div>
-                    </div>
+                    ))}
                   </div>
-                </PanelCard>
-                </section>
 
-                <section id="superadmin-acessos" className="scroll-mt-28">
-                  <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.24em] text-zinc-400">
-                        Acessos
-                      </p>
-                      <h2 className="mt-1 text-2xl font-black tracking-tight text-zinc-900">
-                        Usuários e permissões do cliente
-                      </h2>
-                    </div>
-                    <p className="text-sm font-semibold text-zinc-500">
-                      Controle de quem entra, perfil aplicado e módulos liberados.
+                  {/* Perfil padrão + permissões */}
+                  <div className="border-t border-zinc-100 px-5 py-4">
+                    <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Perfil padrão novos acessos</p>
+                    <p className="mb-2.5 text-[13px] font-bold text-zinc-900">
+                      {ACCESS_PROFILE_LABELS[isAccessProfile(selectedTenant.access_profile) ? selectedTenant.access_profile : "rh-operacao"]}
                     </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {ACCESS_PERMISSION_KEYS.filter(key =>
+                        key !== "super_admin" &&
+                        getPermissionPreset(isAccessProfile(selectedTenant.access_profile) ? selectedTenant.access_profile : "rh-operacao")[key]
+                      ).map(key => (
+                        <span key={key} className="rounded-md bg-develoi-navy/8 px-2 py-0.5 text-[10px] font-semibold text-develoi-navy">
+                          {ACCESS_PERMISSION_LABELS[key]}
+                        </span>
+                      ))}
+                    </div>
                   </div>
-                <PanelCard
-                  title="Acessos do Cliente"
-                  description="Controle de usuários, perfil aplicado e último uso do sistema."
-                  icon={Users}
-                  className="rounded-[36px]"
-                  contentClassName="space-y-4 p-6"
-                >
+
+                  {/* Governança metrics */}
+                  <div className="border-t border-zinc-100 px-5 py-4">
+                    <p className="mb-3 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Uso e governança</p>
+                    <div className="space-y-2">
+                      {[
+                        { label: "Admins provisionados", value: selectedTenant.admin_users || 0 },
+                        { label: "Último login",         value: selectedTenant.last_login ? formatDate(selectedTenant.last_login) : "Sem acesso" },
+                        { label: "Validade contratada",  value: `${selectedTenant.validity_days || 30} dias` },
+                      ].map(row => (
+                        <div key={row.label} className="flex items-center justify-between">
+                          <span className="text-[11px] font-medium text-zinc-500">{row.label}</span>
+                          <span className="text-[12px] font-bold text-zinc-800">{row.value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Acessos card */}
+                <div id="superadmin-acessos" className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+                  <div className="flex items-center gap-2.5 border-b border-zinc-100 px-5 py-4">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-develoi-navy/8">
+                      <Users size={13} className="text-develoi-navy" />
+                    </div>
+                    <div>
+                      <span className="text-[13px] font-bold text-zinc-900">Acessos do cliente</span>
+                      <p className="text-[10px] text-zinc-400">Perfis e módulos liberados</p>
+                    </div>
+                  </div>
+
                   {isAccessLoading ? (
-                    <div className="flex items-center justify-center py-16">
-                      <div className="h-10 w-10 animate-spin rounded-full border-4 border-develoi-navy/10 border-t-develoi-navy" />
+                    <div className="flex items-center justify-center py-12">
+                      <div className="h-6 w-6 animate-spin rounded-full border-2 border-develoi-navy/20 border-t-develoi-navy" />
                     </div>
                   ) : tenantAccesses.length === 0 ? (
-                    <EmptyState
-                      title="Nenhum acesso provisionado"
-                      description="O admin do cliente pode criar usuários e unidades na página Administração."
-                      icon={<KeyRound size={46} />}
-                    />
+                    <div className="flex flex-col items-center gap-2.5 py-12 text-center">
+                      <KeyRound size={22} className="text-zinc-300" />
+                      <p className="text-[12px] font-medium text-zinc-500">Nenhum acesso provisionado</p>
+                      <p className="text-[11px] text-zinc-400">O admin pode criar usuários em Administração.</p>
+                    </div>
                   ) : (
-                    <div className="space-y-3">
+                    <div className="divide-y divide-zinc-50">
                       {tenantAccesses.map((access) => {
-                        const permissions = normalizePermissions(
-                          access.permissions_json,
-                          access.access_profile || access.role
-                        );
-
+                        const permissions = normalizePermissions(access.permissions_json, access.access_profile || access.role);
+                        const isActive = access.status === "Ativo";
                         return (
-                          <div
-                            key={access.id}
-                            className="rounded-[28px] border border-zinc-200 bg-zinc-50/70 px-4 py-4"
-                          >
-                            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                              <div className="space-y-2">
-                                <div>
-                                  <h3 className="text-base font-black text-zinc-900">
-                                    {access.full_name}
-                                  </h3>
-                                  <p className="text-sm font-semibold text-zinc-500">{access.email}</p>
-                                </div>
-                                <div className="flex flex-wrap gap-2">
-                                  <Badge color={access.status === "Ativo" ? "success" : "danger"} pill>
+                          <div key={access.id} className="px-5 py-4">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0 flex-1">
+                                <div className="flex flex-wrap items-center gap-1.5 mb-0.5">
+                                  <p className="truncate text-[13px] font-semibold text-zinc-900">{access.full_name}</p>
+                                  <span className={cn("rounded-full px-1.5 py-0.5 text-[9px] font-bold", isActive ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-600")}>
                                     {access.status}
-                                  </Badge>
-                                  <Badge color="default" pill>
-                                    {access.role}
-                                  </Badge>
-                                  <Badge color="info" pill>
-                                    {ACCESS_PROFILE_LABELS[
-                                      isAccessProfile(access.access_profile)
-                                        ? access.access_profile
-                                        : "custom"
-                                    ]}
-                                  </Badge>
+                                  </span>
+                                  <span className="rounded-md bg-develoi-navy/8 px-1.5 py-0.5 text-[9px] font-semibold text-develoi-navy">
+                                    {ACCESS_PROFILE_LABELS[isAccessProfile(access.access_profile) ? access.access_profile : "custom"]}
+                                  </span>
                                 </div>
+                                <p className="truncate text-[11px] text-zinc-400">{access.email}</p>
                               </div>
-
-                              <div className="text-left sm:text-right">
-                                <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
-                                  Último uso
-                                </p>
-                                <p className="mt-1 text-sm font-bold text-zinc-800">
-                                  {formatDateTime(access.last_login)}
-                                </p>
+                              <div className="shrink-0 text-right">
+                                <p className="text-[9px] text-zinc-400">Último uso</p>
+                                <p className="text-[11px] font-semibold text-zinc-600">{formatDateTime(access.last_login)}</p>
                               </div>
                             </div>
-
-                            <div className="mt-4 flex flex-wrap gap-2">
-                              {ACCESS_PERMISSION_KEYS.filter((key) => key !== "super_admin" && permissions[key]).map((key) => (
-                                <React.Fragment key={key}>
-                                  <Badge color="info" pill>
-                                    {ACCESS_PERMISSION_LABELS[key]}
-                                  </Badge>
-                                </React.Fragment>
+                            <div className="mt-2.5 flex flex-wrap gap-1">
+                              {ACCESS_PERMISSION_KEYS.filter(key => key !== "super_admin" && permissions[key]).map(key => (
+                                <span key={key} className="rounded bg-zinc-100 px-1.5 py-0.5 text-[9px] font-semibold text-zinc-600">
+                                  {ACCESS_PERMISSION_LABELS[key]}
+                                </span>
                               ))}
                             </div>
                           </div>
@@ -983,147 +904,178 @@ export default function SuperAdmin() {
                       })}
                     </div>
                   )}
-                  </PanelCard>
-                </section>
+                </div>
               </>
             )}
           </div>
         </div>
+        )} {/* end clientes/contratos */}
+
+        {/* ─── ACESSOS ─────────────────────────────────── */}
+        {activeView === "acessos" && (
+          <div className="space-y-4">
+            {/* Tenant selector */}
+            <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-3 py-2.5 shadow-sm sm:gap-3 sm:px-4">
+              <div className="relative flex min-w-[180px] flex-1 items-center">
+                <Search size={13} className="pointer-events-none absolute left-3 text-zinc-400" />
+                <input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Buscar cliente…"
+                  className="h-8 w-full rounded-lg border border-zinc-200 bg-zinc-50 pl-8 pr-3 text-[12px] font-medium text-zinc-800 outline-none transition-all placeholder:text-zinc-400 focus:border-develoi-gold/50 focus:bg-white focus:ring-2 focus:ring-develoi-gold/15" />
+              </div>
+              {/* Tenant quick-select pills */}
+              <div className="flex flex-wrap gap-1.5">
+                {filteredTenants.slice(0, 6).map(t => (
+                  <button key={t.id} onClick={() => setSelectedTenantId(t.id)}
+                    className={cn("rounded-lg px-3 py-1.5 text-[11px] font-semibold transition-all",
+                      selectedTenantId === t.id ? "bg-develoi-navy text-white shadow-sm" : "border border-zinc-200 bg-zinc-50 text-zinc-600 hover:bg-zinc-100"
+                    )}>
+                    {t.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {!selectedTenant ? (
+              <div className="flex flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-zinc-200 bg-white py-20 shadow-sm">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-100 text-zinc-400">
+                  <Users size={24} />
+                </div>
+                <div className="text-center">
+                  <p className="text-[14px] font-semibold text-zinc-700">Selecione um cliente</p>
+                  <p className="mt-1 text-[12px] text-zinc-400">Escolha um cliente acima para ver seus usuários e permissões.</p>
+                </div>
+              </div>
+            ) : (
+              <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+                <div className="flex items-center justify-between gap-3 border-b border-zinc-100 px-5 py-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-develoi-navy/8">
+                      <Users size={14} className="text-develoi-navy" />
+                    </div>
+                    <div>
+                      <span className="text-[14px] font-bold text-zinc-900">{selectedTenant.name}</span>
+                      <p className="text-[11px] text-zinc-400">{tenantAccesses.length} acesso{tenantAccesses.length !== 1 ? "s" : ""} provisionado{tenantAccesses.length !== 1 ? "s" : ""}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {isAccessLoading ? (
+                  <div className="flex items-center justify-center py-16">
+                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-develoi-navy/20 border-t-develoi-navy" />
+                  </div>
+                ) : tenantAccesses.length === 0 ? (
+                  <div className="flex flex-col items-center gap-2.5 py-14 text-center">
+                    <KeyRound size={22} className="text-zinc-300" />
+                    <p className="text-[12px] font-medium text-zinc-500">Nenhum acesso provisionado</p>
+                    <p className="text-[11px] text-zinc-400">O admin pode criar usuários em Administração.</p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-zinc-50">
+                    {tenantAccesses.map((access) => {
+                      const permissions = normalizePermissions(access.permissions_json, access.access_profile || access.role);
+                      const isActive = access.status === "Ativo";
+                      return (
+                        <div key={access.id} className="px-5 py-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-1.5 mb-0.5">
+                                <p className="truncate text-[13px] font-semibold text-zinc-900">{access.full_name}</p>
+                                <span className={cn("rounded-full px-1.5 py-0.5 text-[9px] font-bold", isActive ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-600")}>
+                                  {access.status}
+                                </span>
+                                <span className="rounded-md bg-develoi-navy/8 px-1.5 py-0.5 text-[9px] font-semibold text-develoi-navy">
+                                  {ACCESS_PROFILE_LABELS[isAccessProfile(access.access_profile) ? access.access_profile : "custom"]}
+                                </span>
+                              </div>
+                              <p className="truncate text-[11px] text-zinc-400">{access.email}</p>
+                            </div>
+                            <div className="shrink-0 text-right">
+                              <p className="text-[9px] text-zinc-400">Último uso</p>
+                              <p className="text-[11px] font-semibold text-zinc-600">{formatDateTime(access.last_login)}</p>
+                            </div>
+                          </div>
+                          <div className="mt-2 flex flex-wrap gap-1">
+                            {ACCESS_PERMISSION_KEYS.filter(key => key !== "super_admin" && permissions[key]).map(key => (
+                              <span key={key} className="rounded bg-zinc-100 px-1.5 py-0.5 text-[9px] font-semibold text-zinc-600">
+                                {ACCESS_PERMISSION_LABELS[key]}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )} {/* end acessos */}
+
       </div>
+    </div>
 
-      <AnimatePresence>
+    <AnimatePresence>
         {showTenantModal && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-8">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={closeTenantModal} className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={closeTenantModal}
-              className="absolute inset-0 bg-zinc-950/60 backdrop-blur-md"
-            />
-
-            <motion.div
-              initial={{ opacity: 0, y: 40, scale: 0.96 }}
+              initial={{ opacity: 0, y: 20, scale: 0.97 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 40, scale: 0.96 }}
-              className="relative w-full max-w-4xl"
+              exit={{ opacity: 0, y: 20, scale: 0.97 }}
+              transition={{ duration: 0.2 }}
+              className="relative w-full max-w-2xl overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-2xl"
             >
-              <PanelCard
-                title="Provisionar Novo Cliente"
-                description="Crie contrato, limite de acessos e o admin principal da nova operação."
-                icon={UserPlus}
-                className="rounded-[40px] shadow-2xl"
-                contentClassName="p-8 pt-0 md:p-10 md:pt-0"
-              >
-                <form onSubmit={handleTenantSubmit} className="space-y-6">
-                  <div className="grid gap-5 md:grid-cols-2">
-                    <Input
-                      label="Nome da Empresa"
-                      value={tenantForm.name}
-                      onChange={(e) => updateTenantField("name", e.target.value)}
-                      placeholder="Ex: Corporação Acme"
-                      required
-                      className="h-11 rounded-2xl bg-zinc-50 text-sm font-bold"
-                    />
-                    <Input
-                      label="CNPJ / Documento"
-                      value={tenantForm.document}
-                      onChange={(e) => updateTenantField("document", formatCpfOrCnpj(e.target.value))}
-                      placeholder="00.000.000/0000-00"
-                      inputMode="numeric"
-                      maxLength={18}
-                      className="h-11 rounded-2xl bg-zinc-50 text-sm font-bold"
-                    />
-                    <Input
-                      label="Responsável Mestre"
-                      value={tenantForm.responsible_name}
-                      onChange={(e) => updateTenantField("responsible_name", e.target.value)}
-                      placeholder="Nome do administrador"
-                      required
-                      className="h-11 rounded-2xl bg-zinc-50 text-sm font-bold"
-                    />
-                    <Input
-                      label="E-mail do Acesso Principal"
-                      type="email"
-                      value={tenantForm.email}
-                      onChange={(e) => updateTenantField("email", e.target.value)}
-                      placeholder="admin@empresa.com"
-                      required
-                      className="h-11 rounded-2xl bg-zinc-50 text-sm font-bold"
-                    />
-                    <Input
-                      label="Senha Inicial"
-                      type="password"
-                      value={tenantForm.password}
-                      onChange={(e) => updateTenantField("password", e.target.value)}
-                      showPasswordToggle
-                      placeholder="••••••••"
-                      required
-                      className="h-11 rounded-2xl bg-zinc-50 text-sm font-bold"
-                    />
-                    <Input
-                      label="Telefone de Contato"
-                      value={tenantForm.phone}
-                      onChange={(e) => updateTenantField("phone", formatPhoneBr(e.target.value))}
-                      placeholder="(00) 00000-0000"
-                      inputMode="tel"
-                      maxLength={15}
-                      className="h-11 rounded-2xl bg-zinc-50 text-sm font-bold"
-                    />
-                    <Select
-                      label="Validade Inicial"
-                      value={tenantForm.validity_days}
-                      onChange={(e) => handleTenantValidityChange(e.target.value)}
-                      className="h-11 rounded-2xl bg-zinc-50 text-sm font-bold"
-                    >
-                      {VALIDITY_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </Select>
-                    <Input
-                      label="Nome do Plano"
-                      value={tenantForm.plan_label}
-                      onChange={(e) => updateTenantField("plan_label", e.target.value)}
-                      placeholder="Plano Anual"
-                      className="h-11 rounded-2xl bg-zinc-50 text-sm font-bold"
-                    />
-                    <Input
-                      label="Limite de Acessos"
-                      type="number"
-                      min={1}
-                      value={tenantForm.max_users}
-                      onChange={(e) => updateTenantField("max_users", e.target.value)}
-                      className="h-11 rounded-2xl bg-zinc-50 text-sm font-bold"
-                    />
-                    <Select
-                      label="Perfil Padrão de Novos Acessos"
-                      value={tenantForm.access_profile}
-                      onChange={(e) => updateTenantField("access_profile", e.target.value)}
-                      className="h-11 rounded-2xl bg-zinc-50 text-sm font-bold"
-                    >
-                      <option value="rh-operacao">RH Operação</option>
-                      <option value="executivo-leitura">Executivo Leitura</option>
-                      <option value="admin-mestre">Admin Mestre</option>
-                    </Select>
+              {/* Modal header navy */}
+              <div className="relative overflow-hidden bg-develoi-navy px-6 py-5">
+                <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-develoi-gold/10 blur-3xl" />
+                <div className="relative z-10 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-develoi-gold/15 ring-1 ring-develoi-gold/25">
+                      <UserPlus size={16} className="text-develoi-gold" />
+                    </div>
+                    <div>
+                      <p className="text-[14px] font-bold text-white">Provisionar Novo Cliente</p>
+                      <p className="text-[11px] text-white/40">Crie contrato, acessos e o admin principal</p>
+                    </div>
                   </div>
+                  <button onClick={closeTenantModal} className="flex h-7 w-7 items-center justify-center rounded-lg text-white/40 transition-colors hover:bg-white/10 hover:text-white">
+                    ✕
+                  </button>
+                </div>
+              </div>
 
-                  <div className="flex gap-3 pt-2">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      onClick={closeTenantModal}
-                      className="flex-1 rounded-2xl"
-                    >
-                      Cancelar
-                    </Button>
-                    <Button type="submit" className="flex-1 rounded-2xl">
-                      Finalizar Provisionamento
-                    </Button>
-                  </div>
-                </form>
-              </PanelCard>
+              <form onSubmit={handleTenantSubmit} className="p-6">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Input label="Nome da Empresa" value={tenantForm.name} onChange={(e) => updateTenantField("name", e.target.value)} placeholder="Ex: Corporação Acme" required />
+                  <Input label="CNPJ / Documento" value={tenantForm.document} onChange={(e) => updateTenantField("document", formatCpfOrCnpj(e.target.value))} placeholder="00.000.000/0000-00" inputMode="numeric" maxLength={18} />
+                  <Input label="Responsável Mestre" value={tenantForm.responsible_name} onChange={(e) => updateTenantField("responsible_name", e.target.value)} placeholder="Nome do administrador" required />
+                  <Input label="E-mail do Acesso Principal" type="email" value={tenantForm.email} onChange={(e) => updateTenantField("email", e.target.value)} placeholder="admin@empresa.com" required />
+                  <Input label="Senha Inicial" type="password" value={tenantForm.password} onChange={(e) => updateTenantField("password", e.target.value)} showPasswordToggle placeholder="••••••••" required />
+                  <Input label="Telefone de Contato" value={tenantForm.phone} onChange={(e) => updateTenantField("phone", formatPhoneBr(e.target.value))} placeholder="(00) 00000-0000" inputMode="tel" maxLength={15} />
+                  <Select label="Validade Inicial" value={tenantForm.validity_days} onChange={(e) => handleTenantValidityChange(e.target.value)}>
+                    {VALIDITY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </Select>
+                  <Input label="Nome do Plano" value={tenantForm.plan_label} onChange={(e) => updateTenantField("plan_label", e.target.value)} placeholder="Plano Anual" />
+                  <Input label="Limite de Acessos" type="number" min={1} value={tenantForm.max_users} onChange={(e) => updateTenantField("max_users", e.target.value)} />
+                  <Select label="Perfil Padrão de Novos Acessos" value={tenantForm.access_profile} onChange={(e) => updateTenantField("access_profile", e.target.value)}>
+                    <option value="rh-operacao">RH Operação</option>
+                    <option value="executivo-leitura">Executivo Leitura</option>
+                    <option value="admin-mestre">Admin Mestre</option>
+                  </Select>
+                </div>
+
+                <div className="mt-5 flex gap-3">
+                  <button type="button" onClick={closeTenantModal}
+                    className="flex-1 rounded-xl border border-zinc-200 bg-zinc-50 py-2.5 text-[12px] font-semibold text-zinc-600 transition-colors hover:bg-zinc-100">
+                    Cancelar
+                  </button>
+                  <button type="submit"
+                    className="flex-1 rounded-xl bg-develoi-navy py-2.5 text-[12px] font-bold text-white shadow-sm transition-colors hover:bg-[#0a1e3a]">
+                    Finalizar Provisionamento
+                  </button>
+                </div>
+              </form>
             </motion.div>
           </div>
         )}
@@ -1131,131 +1083,78 @@ export default function SuperAdmin() {
 
       <AnimatePresence>
         {showContractModal && selectedTenant && (
-          <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 md:p-8">
+          <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 sm:p-8">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={closeContractModal} className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={closeContractModal}
-              className="absolute inset-0 bg-zinc-950/60 backdrop-blur-md"
-            />
-
-            <motion.div
-              initial={{ opacity: 0, y: 40, scale: 0.96 }}
+              initial={{ opacity: 0, y: 16, scale: 0.97 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 40, scale: 0.96 }}
-              className="relative w-full max-w-3xl"
+              exit={{ opacity: 0, y: 16, scale: 0.97 }}
+              transition={{ duration: 0.2 }}
+              className="relative w-full max-w-lg overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-2xl"
             >
-              <PanelCard
-                title={`Ajustar Contrato • ${selectedTenant.name}`}
-                description="Renove validade, altere capacidade contratada e o perfil padrão de novos acessos."
-                icon={CalendarClock}
-                className="rounded-[40px] shadow-2xl"
-                contentClassName="space-y-6 p-8 pt-0 md:p-10 md:pt-0"
-              >
-                <form onSubmit={handleContractSubmit} className="space-y-6">
-                  <div className="grid gap-5 md:grid-cols-2">
-                    <Select
-                      label="Status do Contrato"
-                      value={contractForm.status}
-                      onChange={(e) => updateContractField("status", e.target.value)}
-                      className="h-11 rounded-2xl bg-zinc-50 text-sm font-bold"
-                    >
-                      {STATUS_OPTIONS.map((status) => (
-                        <option key={status} value={status}>
-                          {status}
-                        </option>
-                      ))}
-                    </Select>
-                    <Select
-                      label="Validade"
-                      value={contractForm.validity_days}
-                      onChange={(e) => handleContractValidityChange(e.target.value)}
-                      className="h-11 rounded-2xl bg-zinc-50 text-sm font-bold"
-                    >
-                      {VALIDITY_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </Select>
-                    <Input
-                      label="Nome do Plano"
-                      value={contractForm.plan_label}
-                      onChange={(e) => updateContractField("plan_label", e.target.value)}
-                      className="h-11 rounded-2xl bg-zinc-50 text-sm font-bold"
-                    />
-                    <Input
-                      label="Limite de Acessos"
-                      type="number"
-                      min={1}
-                      value={contractForm.max_users}
-                      onChange={(e) => updateContractField("max_users", e.target.value)}
-                      className="h-11 rounded-2xl bg-zinc-50 text-sm font-bold"
-                    />
-                    <Select
-                      label="Perfil Padrão de Novos Acessos"
-                      value={contractForm.access_profile}
-                      onChange={(e) =>
-                        updateContractField("access_profile", e.target.value as AccessProfile)
-                      }
-                      className="h-11 rounded-2xl bg-zinc-50 text-sm font-bold md:col-span-2"
-                    >
-                      {PROFILE_OPTIONS.filter((profile) => profile !== "custom").map((profile) => (
-                        <option key={profile} value={profile}>
-                          {ACCESS_PROFILE_LABELS[profile]}
-                        </option>
-                      ))}
-                    </Select>
-                  </div>
-
-                  <div className="rounded-[28px] border border-zinc-200 bg-zinc-50/70 p-5">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
-                      Situação atual
-                    </p>
-                    <div className="mt-3 grid gap-3 md:grid-cols-3">
-                      <div>
-                        <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
-                          Início
-                        </p>
-                        <p className="mt-1 text-sm font-bold text-zinc-900">
-                          {formatDate(selectedTenant.starts_at || selectedTenant.created_at)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
-                          Expira em
-                        </p>
-                        <p className="mt-1 text-sm font-bold text-zinc-900">
-                          {formatDate(selectedTenant.expires_at)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
-                          Capacidade
-                        </p>
-                        <p className="mt-1 text-sm font-bold text-zinc-900">
-                          {selectedTenant.total_users || 0}/{selectedTenant.max_users || 0}
-                        </p>
-                      </div>
+              {/* Header */}
+              <div className="relative overflow-hidden bg-develoi-navy px-6 py-5">
+                <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-develoi-gold/10 blur-3xl" />
+                <div className="relative z-10 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-develoi-gold/15 ring-1 ring-develoi-gold/25">
+                      <CalendarClock size={16} className="text-develoi-gold" />
+                    </div>
+                    <div>
+                      <p className="text-[14px] font-bold text-white">Ajustar Contrato</p>
+                      <p className="text-[11px] text-white/40">{selectedTenant.name}</p>
                     </div>
                   </div>
+                  <button onClick={closeContractModal} className="flex h-7 w-7 items-center justify-center rounded-lg text-white/40 transition-colors hover:bg-white/10 hover:text-white">✕</button>
+                </div>
+              </div>
 
-                  <div className="flex gap-3 pt-2">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      onClick={closeContractModal}
-                      className="flex-1 rounded-2xl"
-                    >
-                      Cancelar
-                    </Button>
-                    <Button type="submit" className="flex-1 rounded-2xl">
-                      Salvar Contrato
-                    </Button>
+              <form onSubmit={handleContractSubmit} className="p-6 space-y-4">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Select label="Status do Contrato" value={contractForm.status} onChange={(e) => updateContractField("status", e.target.value)}>
+                    {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                  </Select>
+                  <Select label="Validade" value={contractForm.validity_days} onChange={(e) => handleContractValidityChange(e.target.value)}>
+                    {VALIDITY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </Select>
+                  <Input label="Nome do Plano" value={contractForm.plan_label} onChange={(e) => updateContractField("plan_label", e.target.value)} />
+                  <Input label="Limite de Acessos" type="number" min={1} value={contractForm.max_users} onChange={(e) => updateContractField("max_users", e.target.value)} />
+                  <div className="sm:col-span-2">
+                    <Select label="Perfil Padrão de Novos Acessos" value={contractForm.access_profile} onChange={(e) => updateContractField("access_profile", e.target.value as AccessProfile)}>
+                      {PROFILE_OPTIONS.filter(p => p !== "custom").map(p => <option key={p} value={p}>{ACCESS_PROFILE_LABELS[p]}</option>)}
+                    </Select>
                   </div>
-                </form>
-              </PanelCard>
+                </div>
+
+                {/* Situação atual */}
+                <div className="rounded-xl border border-zinc-100 bg-zinc-50 p-4">
+                  <p className="mb-2.5 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Situação atual</p>
+                  <div className="grid grid-cols-3 gap-3">
+                    {[
+                      { label: "Início",     value: formatDate(selectedTenant.starts_at || selectedTenant.created_at) },
+                      { label: "Expira em",  value: formatDate(selectedTenant.expires_at) },
+                      { label: "Capacidade", value: `${selectedTenant.total_users||0}/${selectedTenant.max_users||0}` },
+                    ].map(row => (
+                      <div key={row.label}>
+                        <p className="text-[9px] font-semibold uppercase tracking-wider text-zinc-400">{row.label}</p>
+                        <p className="mt-0.5 text-[12px] font-bold text-zinc-800">{row.value}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-1">
+                  <button type="button" onClick={closeContractModal}
+                    className="flex-1 rounded-xl border border-zinc-200 bg-zinc-50 py-2.5 text-[12px] font-semibold text-zinc-600 transition-colors hover:bg-zinc-100">
+                    Cancelar
+                  </button>
+                  <button type="submit"
+                    className="flex-1 rounded-xl bg-develoi-navy py-2.5 text-[12px] font-bold text-white shadow-sm transition-colors hover:bg-[#0a1e3a]">
+                    Salvar Contrato
+                  </button>
+                </div>
+              </form>
             </motion.div>
           </div>
         )}
@@ -1264,52 +1163,40 @@ export default function SuperAdmin() {
       <AnimatePresence>
         {deleteTarget && (
           <div className="fixed inset-0 z-[130] flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setDeleteTarget(null)} className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setDeleteTarget(null)}
-              className="absolute inset-0 bg-zinc-950/50 backdrop-blur-sm"
-            />
-
-            <motion.div
-              initial={{ opacity: 0, y: 24, scale: 0.96 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 24, scale: 0.96 }}
-              className="relative w-full max-w-sm"
+              initial={{ opacity: 0, scale: 0.97 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.97 }}
+              transition={{ duration: 0.18 }}
+              className="relative w-full max-w-sm overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-2xl"
             >
-              <PanelCard className="rounded-[36px] text-center shadow-2xl" contentClassName="p-10">
-                <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-3xl bg-red-100 text-red-600 shadow-sm">
-                  <Trash2 size={30} />
+              <div className="flex flex-col items-center gap-4 p-8 text-center">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-50 text-rose-500 ring-1 ring-rose-200">
+                  <Trash2 size={22} />
                 </div>
-                <h2 className="mb-2 text-2xl font-bold tracking-tight text-zinc-900">
-                  Excluir cliente?
-                </h2>
-                <p className="mb-8 text-sm font-medium leading-relaxed text-zinc-500">
-                  Deseja remover <span className="font-bold text-red-600">{deleteTarget.name}</span>{" "}
-                  e todos os dados relacionados?
-                </p>
-                <div className="flex gap-3">
-                  <Button
-                    variant="ghost"
-                    onClick={() => setDeleteTarget(null)}
-                    className="flex-1 rounded-2xl"
-                  >
+                <div>
+                  <h2 className="text-[16px] font-bold text-zinc-900">Excluir cliente?</h2>
+                  <p className="mt-1.5 text-[13px] font-medium leading-relaxed text-zinc-500">
+                    Deseja remover <span className="font-bold text-rose-600">{deleteTarget.name}</span> e todos os dados relacionados? Esta ação é irreversível.
+                  </p>
+                </div>
+                <div className="flex w-full gap-3">
+                  <button onClick={() => setDeleteTarget(null)}
+                    className="flex-1 rounded-xl border border-zinc-200 bg-zinc-50 py-2.5 text-[12px] font-semibold text-zinc-600 transition-colors hover:bg-zinc-100">
                     Cancelar
-                  </Button>
-                  <Button
-                    variant="danger"
-                    onClick={handleDelete}
-                    className="flex-1 rounded-2xl shadow-lg shadow-red-600/20"
-                  >
+                  </button>
+                  <button onClick={handleDelete}
+                    className="flex-1 rounded-xl bg-rose-500 py-2.5 text-[12px] font-bold text-white shadow-sm transition-colors hover:bg-rose-600">
                     Remover
-                  </Button>
+                  </button>
                 </div>
-              </PanelCard>
+              </div>
             </motion.div>
           </div>
         )}
       </AnimatePresence>
-    </div>
+    </>
   );
 }

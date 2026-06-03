@@ -89,7 +89,7 @@ export function registerPublicRoutes(app: Express) {
     }
   });
 
-  app.post('/api/public/jobs/:jobId/apply', upload.single('resume'), async (req, res) => {
+  app.post('/api/public/jobs/:jobId/apply', upload.single('resume') as any, async (req, res) => {
     const { jobId } = req.params;
     const { full_name, email, phone, linkedin } = req.body;
 

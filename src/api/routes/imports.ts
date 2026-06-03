@@ -112,7 +112,7 @@ export function registerImportRoutes(app: Express) {
   });
 
   app.post('/api/imports/:id/files', (req, res) => {
-    candidateBatchUpload.array('files', CANDIDATE_BATCH_IMPORT_MAX_FILES)(req, res, async (uploadError: any) => {
+    candidateBatchUpload.array('files', CANDIDATE_BATCH_IMPORT_MAX_FILES)(req as any, res as any, async (uploadError: any) => {
       if (uploadError instanceof multer.MulterError) {
         if (uploadError.code === 'LIMIT_FILE_SIZE') {
           return res.status(400).json({

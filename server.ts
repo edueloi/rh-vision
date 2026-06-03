@@ -24,6 +24,9 @@ import { registerUnitRoutes } from './src/api/routes/units';
 import { registerUserRoutes } from './src/api/routes/users';
 import { registerSettingsRoutes } from './src/api/routes/settings';
 import { registerPublicRoutes } from './src/api/routes/public';
+import { registerFeedRoutes } from './src/api/routes/feed';
+import { registerLinkedInRoutes } from './src/api/routes/linkedin';
+import { registerShiguenoWebhookRoutes } from './src/api/routes/shigueno-webhook';
 
 dotenv.config({ override: true });
 
@@ -71,10 +74,13 @@ async function startServer() {
   registerDiscRoutes(app);
   registerHrToolRoutes(app);
   registerPublicRoutes(app);
+  registerFeedRoutes(app);
+  registerLinkedInRoutes(app);
   registerTenantRoutes(app);
   registerUnitRoutes(app);
   registerUserRoutes(app);
   registerSettingsRoutes(app);
+  registerShiguenoWebhookRoutes(app);
 
   const server = createHttpServer(app);
 

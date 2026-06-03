@@ -39,14 +39,11 @@ import {
   useToast,
   Badge,
   Button,
-  IconButton,
-  Input,
-  Select,
   Modal,
   PageWrapper,
-  SectionTitle,
 } from "@/src/components/ui";
-import { getTenantId } from "@/src/lib/auth";
+import { getTenantId, getAuthUser } from "@/src/lib/auth";
+import { getActionPermissions } from "@/src/lib/access";
 import { Candidate } from "@/src/types";
 import { useUnit } from "@/src/lib/useUnit";
 import CandidateForm from "./CandidateForm";
@@ -410,6 +407,7 @@ export default function Candidates() {
   const queryUnitId = currentUnit.is_master ? "master" : currentUnit.id;
   const toast = useToast();
   const navigate = useNavigate();
+  const actions = getActionPermissions(getAuthUser());
   const createMatch = useMatch("/candidatos/novo");
   const editMatch = useMatch("/candidatos/:candidateId/editar");
   const isCreateRoute = Boolean(createMatch);
@@ -640,406 +638,402 @@ export default function Candidates() {
   };
 
   return (
-    <PageWrapper className="min-h-screen bg-zinc-50/60">
-      <div className="space-y-5 px-3 py-5 sm:space-y-6 sm:px-5 sm:py-7 lg:px-8 lg:py-8">
+    <PageWrapper className="min-h-screen bg-[#f8fafc]">
+      <div className="space-y-5 px-4 pb-24 pt-5 sm:px-6">
 
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <SectionTitle
-            title="Gestão de Talentos"
-            subtitle={`${currentUnit.name} · ${candidates.length} candidatos encontrados`}
-            icon={<Users size={22} />}
-          />
-          <div className="flex items-center gap-2 shrink-0">
-            <IconButton
-              onClick={fetchCandidates}
-              variant="outline"
-              className="bg-white hover:bg-zinc-50 border-zinc-200"
-              aria-label="Atualizar"
-            >
-              <RefreshCcw size={16} />
-            </IconButton>
-            <Button
-              variant="outline"
-              onClick={() => navigate("/importar-cvs")}
-              iconLeft={<Upload size={14} />}
-              className="text-xs"
-            >
-              Importar
-            </Button>
-            <Button
-              onClick={() => navigate("/candidatos/novo")}
-              iconLeft={<Plus size={14} />}
-              className="text-xs"
-            >
-              Novo Talento
-            </Button>
-          </div>
-        </div>
-
-        {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {[
-            { label: "Total", value: stats.total, color: "text-zinc-900" },
-            { label: "Novos", value: stats.new, color: "text-amber-600" },
-            { label: "Entrevista", value: stats.interview, color: "text-blue-600" },
-            { label: "Aprovados", value: stats.approved, color: "text-emerald-600" },
-          ].map(s => (
-            <div key={s.label} className="bg-white border border-zinc-100 rounded-xl p-4 shadow-sm">
-              <p className={cn("text-[10px] font-black uppercase tracking-widest mb-1", s.color)}>{s.label}</p>
-              <p className={cn("text-2xl font-black", s.color)}>{s.value}</p>
+        {/* ── PAGE HEADER ── */}
+        <div className="relative overflow-hidden rounded-2xl bg-develoi-navy px-5 py-5 sm:px-7">
+          <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-develoi-gold/10 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-12 left-1/3 h-36 w-36 rounded-full bg-sky-500/8 blur-3xl" />
+          <div className="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="mb-1 flex items-center gap-2">
+                <Building2 size={11} className="text-develoi-gold/70" />
+                <span className="text-[10px] font-medium uppercase tracking-[0.15em] text-white/40">{currentUnit.name}</span>
+              </div>
+              <h1 className="text-[22px] font-black leading-none tracking-tight text-white sm:text-[26px]">
+                Banco de Talentos
+              </h1>
+              <p className="mt-1.5 text-[11px] font-medium text-white/40">
+                <span className="font-semibold text-white/60">{candidates.length}</span> candidatos encontrados
+              </p>
             </div>
-          ))}
-        </div>
-
-        {/* Filters */}
-        <div className="bg-white border border-zinc-100 rounded-xl p-4 shadow-sm">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-            <Input
-              icon={<Search size={14} />}
-              placeholder="Nome, cargo, skill..."
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              className="h-10 rounded-lg bg-zinc-50 text-sm"
-            />
-            <Select
-              value={filters.status}
-              onChange={(e) => setFilters(f => ({ ...f, status: e.target.value }))}
-              className="h-10 rounded-lg bg-zinc-50 text-xs font-bold"
-            >
-              <option value="">Status: Todos</option>
-              {['Novo', 'Em análise', 'Compatível', 'Entrevista', 'Aprovado', 'Reprovado', 'Banco de talentos', 'Contratado'].map(s => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </Select>
-            <Select
-              value={filters.source}
-              onChange={(e) => setFilters(f => ({ ...f, source: e.target.value }))}
-              className="h-10 rounded-lg bg-zinc-50 text-xs font-bold"
-            >
-              <option value="">Origem: Todas</option>
-              <option value="Manual">Manual</option>
-              <option value="Portal">Portal</option>
-              <option value="LinkedIn">LinkedIn</option>
-              <option value="Indicação">Indicação</option>
-              <option value="Importação em Lote">Importação</option>
-            </Select>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold text-zinc-400 uppercase shrink-0">Ordem:</span>
               <button
-                onClick={() => toggleSort('name')}
-                className={cn(
-                  "flex items-center gap-1.5 px-3 h-10 rounded-lg text-[10px] font-bold border transition-all flex-1 justify-center",
-                  sortField === 'name'
-                    ? "bg-develoi-navy/5 border-develoi-navy/20 text-develoi-navy"
-                    : "bg-zinc-50 border-zinc-200 text-zinc-500 hover:border-zinc-300"
-                )}
+                onClick={() => navigate("/importar-cvs")}
+                className="flex h-8 items-center gap-1.5 rounded-lg border border-white/15 bg-white/8 px-3.5 text-[11px] font-medium text-white/70 transition-all hover:bg-white/12 hover:text-white"
               >
-                <SortIcon field="name" />
-                Nome
+                <Upload size={13} /> Importar CVs
               </button>
-              <button
-                onClick={() => toggleSort('date')}
-                className={cn(
-                  "flex items-center gap-1.5 px-3 h-10 rounded-lg text-[10px] font-bold border transition-all flex-1 justify-center",
-                  sortField === 'date'
-                    ? "bg-develoi-navy/5 border-develoi-navy/20 text-develoi-navy"
-                    : "bg-zinc-50 border-zinc-200 text-zinc-500 hover:border-zinc-300"
-                )}
-              >
-                <SortIcon field="date" />
-                Data
-              </button>
+              {actions.can_create_candidates && (
+                <button
+                  onClick={() => navigate("/candidatos/novo")}
+                  className="flex h-8 items-center gap-1.5 rounded-lg bg-develoi-gold px-4 text-[11px] font-bold text-develoi-navy shadow-lg shadow-develoi-gold/20 transition-all hover:bg-[#d4a83a]"
+                >
+                  <Plus size={13} /> Novo Talento
+                </button>
+              )}
             </div>
+          </div>
+
+          {/* Stats strip */}
+          <div className="relative z-10 mt-4 flex flex-wrap items-center gap-4 border-t border-white/[0.06] pt-4">
+            {[
+              { label: "Total",      value: stats.total,     color: "text-white" },
+              { label: "Novos",      value: stats.new,       color: "text-amber-300" },
+              { label: "Entrevista", value: stats.interview, color: "text-sky-300" },
+              { label: "Aprovados",  value: stats.approved,  color: "text-emerald-400" },
+            ].map((s, i) => (
+              <div key={i} className="flex items-center gap-2.5">
+                {i > 0 && <span className="h-3 w-px bg-white/10" />}
+                <span className={cn("text-[20px] font-black tabular-nums", s.color)}>{s.value}</span>
+                <span className="text-[10px] font-medium text-white/35">{s.label}</span>
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* Bulk action bar */}
+        {/* ── FILTER BAR ── */}
+        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-3 py-2.5 shadow-sm sm:gap-3 sm:px-4">
+          {/* Search */}
+          <div className="relative flex min-w-[180px] flex-1 items-center">
+            <Search size={13} className="pointer-events-none absolute left-3 text-zinc-400" />
+            <input
+              type="text"
+              placeholder="Nome, cargo, skill…"
+              value={searchInput}
+              onChange={e => setSearchInput(e.target.value)}
+              className="h-8 w-full rounded-lg border border-zinc-200 bg-zinc-50 pl-8 pr-3 text-[12px] font-medium text-zinc-800 outline-none transition-all placeholder:text-zinc-400 focus:border-develoi-gold/50 focus:bg-white focus:ring-2 focus:ring-develoi-gold/15"
+            />
+          </div>
+
+          {/* Status */}
+          <select
+            value={filters.status}
+            onChange={e => setFilters(f => ({ ...f, status: e.target.value }))}
+            className="h-8 w-full cursor-pointer appearance-none rounded-lg border border-zinc-200 bg-zinc-50 px-3 text-[12px] font-medium text-zinc-700 outline-none transition-all focus:border-develoi-gold/50 sm:w-36"
+            style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M6 8L1 3h10z'/%3E%3C/svg%3E\")", backgroundRepeat: 'no-repeat', backgroundPosition: 'right 8px center', backgroundSize: '10px', paddingRight: '2rem' }}
+          >
+            <option value="">Todos status</option>
+            {['Novo', 'Em análise', 'Compatível', 'Entrevista', 'Aprovado', 'Reprovado', 'Banco de talentos', 'Contratado'].map(s => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+
+          {/* Source */}
+          <select
+            value={filters.source}
+            onChange={e => setFilters(f => ({ ...f, source: e.target.value }))}
+            className="h-8 w-full cursor-pointer appearance-none rounded-lg border border-zinc-200 bg-zinc-50 px-3 text-[12px] font-medium text-zinc-700 outline-none transition-all focus:border-develoi-gold/50 sm:w-36"
+            style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M6 8L1 3h10z'/%3E%3C/svg%3E\")", backgroundRepeat: 'no-repeat', backgroundPosition: 'right 8px center', backgroundSize: '10px', paddingRight: '2rem' }}
+          >
+            <option value="">Todas origens</option>
+            <option value="Manual">Manual</option>
+            <option value="Portal">Portal</option>
+            <option value="LinkedIn">LinkedIn</option>
+            <option value="Indicação">Indicação</option>
+            <option value="Importação em Lote">Importação</option>
+          </select>
+
+          {/* Sort pills */}
+          <div className="flex h-8 items-center gap-0.5 rounded-lg border border-zinc-200 bg-zinc-50 p-0.5">
+            <button
+              onClick={() => toggleSort('name')}
+              className={cn(
+                "flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[11px] font-semibold transition-colors",
+                sortField === 'name' ? "bg-white text-develoi-navy shadow-sm" : "text-zinc-400 hover:text-zinc-600"
+              )}
+            >
+              <SortIcon field="name" /> Nome
+            </button>
+            <button
+              onClick={() => toggleSort('date')}
+              className={cn(
+                "flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[11px] font-semibold transition-colors",
+                sortField === 'date' ? "bg-white text-develoi-navy shadow-sm" : "text-zinc-400 hover:text-zinc-600"
+              )}
+            >
+              <SortIcon field="date" /> Data
+            </button>
+          </div>
+
+          {/* Spacer + refresh */}
+          <div className="flex-1" />
+          <button
+            onClick={fetchCandidates}
+            title="Atualizar"
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-400 transition-colors hover:border-zinc-300 hover:bg-white hover:text-zinc-700"
+          >
+            <RefreshCcw size={13} />
+          </button>
+        </div>
+
+        {/* ── BULK BAR ── */}
         <AnimatePresence>
           {selectedIds.size > 0 && (
             <motion.div
-              initial={{ opacity: 0, y: -8 }}
+              initial={{ opacity: 0, y: -6 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              className="flex items-center gap-3 bg-develoi-navy text-white rounded-xl px-4 py-2.5 shadow-lg shadow-develoi-navy/20"
+              exit={{ opacity: 0, y: -6 }}
+              className="flex items-center justify-between gap-3 rounded-xl border border-amber-200/80 bg-amber-50 px-4 py-2.5"
             >
-              <div className="flex-1">
-                <span className="text-[11px] font-black uppercase tracking-wider">
-                  {selectedIds.size} candidato{selectedIds.size > 1 ? 's' : ''} selecionado{selectedIds.size > 1 ? 's' : ''}
-                </span>
+              <span className="text-[12px] font-semibold text-amber-800">
+                {selectedIds.size} candidato{selectedIds.size > 1 ? 's' : ''} selecionado{selectedIds.size > 1 ? 's' : ''}
+              </span>
+              <div className="flex items-center gap-2">
+                <button onClick={() => setSelectedIds(new Set())}
+                  className="rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-zinc-500 transition-colors hover:bg-zinc-50">
+                  Limpar
+                </button>
+                {actions.can_delete_candidates && (
+                  <button onClick={() => setDeleteBulkConfirm(true)}
+                    className="flex items-center gap-1.5 rounded-lg bg-rose-500 px-3 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-rose-600">
+                    <Trash2 size={12} /> Remover {selectedIds.size}
+                  </button>
+                )}
               </div>
-              <button
-                onClick={() => setSelectedIds(new Set())}
-                className="text-[10px] font-bold text-white/60 hover:text-white transition-colors uppercase tracking-wider"
-              >
-                Limpar
-              </button>
-              <Button
-                variant="danger"
-                onClick={() => setDeleteBulkConfirm(true)}
-                iconLeft={<Trash2 size={13} />}
-                className="text-[10px] h-8 px-3"
-              >
-                Remover {selectedIds.size}
-              </Button>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* Candidates Table */}
-        <div className="bg-white border border-zinc-100 rounded-xl shadow-sm overflow-hidden">
+        {/* ── TABLE ── */}
+        <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
 
-          {/* Table header */}
-          <div className="grid grid-cols-[3rem_1fr_auto] md:grid-cols-[3rem_1fr_7rem_7rem_11rem] items-center border-b-2 border-zinc-200 bg-zinc-100 border-l-2 border-l-transparent">
-            <div className="flex items-center justify-center py-2.5">
+          {/* Header */}
+          <div className="grid grid-cols-[2.5rem_1fr_auto] items-center border-b border-zinc-200 bg-zinc-50/80 md:grid-cols-[2.5rem_1fr_6.5rem_7rem_10rem]">
+            <div className="flex items-center justify-center py-3">
               <Checkbox checked={allSelected} indeterminate={someSelected} onChange={toggleSelectAll} />
             </div>
-            <div className="px-4 py-2.5 border-l border-zinc-200">
-              <button
-                onClick={() => toggleSort('name')}
-                className="flex items-center gap-1.5 text-[10px] font-black text-zinc-500 uppercase tracking-widest hover:text-zinc-700 transition-colors"
-              >
+            <div className="border-l border-zinc-200 px-4 py-3">
+              <button onClick={() => toggleSort('name')}
+                className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-400 transition-colors hover:text-zinc-600">
                 Candidato <SortIcon field="name" />
               </button>
             </div>
-            <div className="hidden md:flex items-center justify-center px-4 py-2.5 border-l border-zinc-200">
-              <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Status</p>
+            <div className="hidden items-center justify-center border-l border-zinc-200 px-4 py-3 md:flex">
+              <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-400">Status</span>
             </div>
-            <div className="hidden md:flex items-center justify-center px-4 py-2.5 border-l border-zinc-200">
-              <button
-                onClick={() => toggleSort('date')}
-                className="flex items-center gap-1.5 text-[10px] font-black text-zinc-500 uppercase tracking-widest hover:text-zinc-700 transition-colors"
-              >
+            <div className="hidden items-center justify-center border-l border-zinc-200 px-4 py-3 md:flex">
+              <button onClick={() => toggleSort('date')}
+                className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-400 transition-colors hover:text-zinc-600">
                 <SortIcon field="date" /> Inclusão
               </button>
             </div>
-            <div className="flex items-center justify-end px-4 py-2.5 border-l border-zinc-200">
-              <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Ações</p>
+            <div className="flex items-center justify-end border-l border-zinc-200 px-4 py-3">
+              <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-400">Ações</span>
             </div>
           </div>
 
-          {loading ? (
-            <div className="flex flex-col items-center justify-center gap-4 py-20">
-              <div className="w-10 h-10 border-4 border-develoi-navy border-t-transparent rounded-full animate-spin" />
-              <p className="text-xs font-bold text-zinc-400 uppercase">Carregando...</p>
-            </div>
-          ) : pagedCandidates.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-4 py-16 px-6">
-              <div className="w-14 h-14 bg-zinc-100 rounded-full flex items-center justify-center text-zinc-400">
-                <Users size={28} />
+          {/* Loading */}
+          {loading && (
+            <div className="flex flex-col items-center justify-center gap-3 py-20">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-develoi-navy/5">
+                <Loader2 size={20} className="animate-spin text-develoi-navy" />
               </div>
-              <div className="text-center">
-                <p className="text-sm font-bold text-zinc-900">Nenhum talento encontrado</p>
-                <p className="text-xs text-zinc-500 mt-1">Altere os filtros ou cadastre um novo candidato</p>
-              </div>
-            </div>
-          ) : (
-            <div>
-              {pagedCandidates.map((c, idx) => {
-                const isSelected = selectedIds.has(c.id);
-                return (
-                  <motion.div
-                    key={c.id}
-                    layout
-                    className={cn(
-                      "grid grid-cols-[3rem_1fr_auto] md:grid-cols-[3rem_1fr_7rem_7rem_11rem] items-center transition-colors duration-100 border-b border-zinc-200",
-                      isSelected
-                        ? "bg-amber-50 border-l-2 border-l-develoi-gold"
-                        : idx % 2 === 0
-                          ? "bg-white hover:bg-zinc-50 border-l-2 border-l-transparent"
-                          : "bg-zinc-50 hover:bg-zinc-100 border-l-2 border-l-transparent"
-                    )}
-                  >
-                    {/* Checkbox */}
-                    <div className="flex items-center justify-center py-3 cursor-pointer" onClick={() => toggleSelect(c.id)}>
-                      <Checkbox checked={isSelected} onChange={() => toggleSelect(c.id)} />
-                    </div>
-
-                    {/* Info */}
-                    <div className="flex items-center gap-3 px-4 py-3 border-l border-zinc-200 min-w-0">
-                      <div className={cn(
-                        "w-8 h-8 flex items-center justify-center rounded-lg font-black text-[10px] shrink-0 transition-colors",
-                        isSelected ? "bg-develoi-gold/20 text-develoi-navy" : "bg-zinc-200/70 text-zinc-600"
-                      )}>
-                        {c.full_name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-semibold text-zinc-900 text-sm">{c.full_name}</span>
-                          {c.experience_years && (
-                            <span className="text-[9px] font-bold text-zinc-400 px-1.5 py-0.5 bg-zinc-100 rounded shrink-0">
-                              {c.experience_years}a
-                            </span>
-                          )}
-                          <span className="md:hidden">
-                            <Badge className={cn("text-[9px] font-bold", statusColor(c.status))}>
-                              {c.status}
-                            </Badge>
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2 text-[11px] text-zinc-400 mt-0.5 flex-wrap">
-                          {c.desired_position && (
-                            <span className="flex items-center gap-1">
-                              <Briefcase size={10} />
-                              {c.desired_position}
-                            </span>
-                          )}
-                          {c.city && (
-                            <>
-                              <span className="w-0.5 h-0.5 bg-zinc-300 rounded-full shrink-0" />
-                              <span className="flex items-center gap-1">
-                                <MapPin size={10} />
-                                {c.city}
-                              </span>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Status desktop */}
-                    <div className="hidden md:flex items-center justify-center px-4 py-3 border-l border-zinc-200">
-                      <Badge className={cn("text-[9px] font-bold", statusColor(c.status))}>
-                        {c.status}
-                      </Badge>
-                    </div>
-
-                    {/* Data inclusão desktop */}
-                    <div className="hidden md:flex flex-col items-center justify-center px-4 py-3 border-l border-zinc-200">
-                      <span className="text-[11px] font-semibold text-zinc-700">
-                        {new Date(c.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })}
-                      </span>
-                      <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">
-                        {new Date(c.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                    </div>
-
-                    {/* Actions */}
-                    <div className="flex items-center justify-end gap-0.5 px-2 py-3 border-l border-zinc-200" onClick={e => e.stopPropagation()}>
-                      <IconButton
-                        onClick={() => navigate(`/candidatos/${encodeId(c.id)}`)}
-                        variant="ghost"
-                        className="h-7 w-7 text-zinc-400 hover:text-develoi-navy hover:bg-develoi-navy/5"
-                        aria-label="Ver perfil"
-                        title="Ver perfil completo"
-                      >
-                        <Eye size={13} />
-                      </IconButton>
-                      <IconButton
-                        onClick={() => navigate(`/candidatos/${encodeId(c.id)}?tab=evaluations`)}
-                        variant="ghost"
-                        className="h-7 w-7 text-zinc-400 hover:text-purple-600 hover:bg-purple-50"
-                        aria-label="Avaliações"
-                        title="Avaliações"
-                      >
-                        <ClipboardCheck size={13} />
-                      </IconButton>
-                      <IconButton
-                        onClick={() => setFunnelModalCandidate({ id: c.id, full_name: c.full_name })}
-                        variant="ghost"
-                        className="h-7 w-7 text-zinc-400 hover:text-emerald-600 hover:bg-emerald-50"
-                        aria-label="Etapa do processo"
-                        title="Gerenciar etapa do processo"
-                      >
-                        <TrendingUp size={13} />
-                      </IconButton>
-                      <IconButton
-                        onClick={() => navigate(`/candidatos/${encodeId(c.id)}/editar`)}
-                        variant="ghost"
-                        className="h-7 w-7 text-zinc-400 hover:text-blue-600 hover:bg-blue-50"
-                        aria-label="Editar"
-                        title="Editar candidato"
-                      >
-                        <Edit size={13} />
-                      </IconButton>
-                      <IconButton
-                        onClick={() => setDeleteConfirmId(c.id)}
-                        variant="ghost"
-                        className="h-7 w-7 text-zinc-400 hover:text-red-500 hover:bg-red-50"
-                        aria-label="Excluir"
-                        title="Excluir candidato"
-                      >
-                        <Trash2 size={13} />
-                      </IconButton>
-                    </div>
-                  </motion.div>
-                );
-              })}
+              <p className="text-[11px] font-medium text-zinc-400">Carregando candidatos…</p>
             </div>
           )}
 
+          {/* Empty */}
+          {!loading && pagedCandidates.length === 0 && (
+            <div className="flex flex-col items-center justify-center gap-4 px-6 py-16">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-100 text-zinc-400">
+                <Users size={26} />
+              </div>
+              <div className="text-center">
+                <p className="text-[14px] font-semibold text-zinc-800">Nenhum talento encontrado</p>
+                <p className="mt-1 text-[12px] text-zinc-400">Altere os filtros ou cadastre um novo candidato</p>
+              </div>
+              {actions.can_create_candidates && (
+                <button onClick={() => navigate("/candidatos/novo")}
+                  className="flex items-center gap-1.5 rounded-xl bg-develoi-navy px-4 py-2 text-[12px] font-semibold text-white transition-colors hover:bg-[#0a1e3a]">
+                  <Plus size={13} /> Novo Talento
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Rows */}
+          {!loading && pagedCandidates.map((c, idx) => {
+            const isSelected = selectedIds.has(c.id);
+            return (
+              <motion.div
+                key={c.id}
+                layout
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: idx * 0.02, duration: 0.18 }}
+                className={cn(
+                  "group grid grid-cols-[2.5rem_1fr_auto] items-center border-b border-zinc-100 transition-all duration-150 md:grid-cols-[2.5rem_1fr_6.5rem_7rem_10rem]",
+                  "border-l-2",
+                  isSelected
+                    ? "border-l-develoi-gold bg-develoi-gold/[0.04]"
+                    : "border-l-transparent hover:border-l-zinc-300 hover:bg-zinc-50/80"
+                )}
+              >
+                {/* Checkbox */}
+                <div className="flex cursor-pointer items-center justify-center py-3.5" onClick={() => toggleSelect(c.id)}>
+                  <Checkbox checked={isSelected} onChange={() => toggleSelect(c.id)} />
+                </div>
+
+                {/* Info */}
+                <div
+                  className="flex cursor-pointer items-center gap-3 border-l border-zinc-100 px-4 py-3.5 min-w-0"
+                  onClick={() => navigate(`/candidatos/${encodeId(c.id)}`)}
+                >
+                  {/* Avatar */}
+                  <div className={cn(
+                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-[11px] font-black transition-colors",
+                    isSelected
+                      ? "bg-develoi-gold/20 text-develoi-navy"
+                      : "bg-zinc-100 text-zinc-500 group-hover:bg-develoi-navy/8 group-hover:text-develoi-navy"
+                  )}>
+                    {c.full_name.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase()}
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="truncate text-[13px] font-semibold text-zinc-900">{c.full_name}</span>
+                      {c.experience_years ? (
+                        <span className="shrink-0 rounded-md bg-zinc-100 px-1.5 py-0.5 text-[9px] font-semibold text-zinc-500">
+                          {c.experience_years}a exp.
+                        </span>
+                      ) : null}
+                      <span className="md:hidden">
+                        <span className={cn("rounded-md px-1.5 py-0.5 text-[10px] font-semibold border", statusColor(c.status))}>
+                          {c.status}
+                        </span>
+                      </span>
+                    </div>
+                    <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[10px] text-zinc-400">
+                      {c.desired_position && (
+                        <span className="flex items-center gap-0.5 truncate">
+                          <Briefcase size={9} /> {c.desired_position}
+                        </span>
+                      )}
+                      {c.city && (
+                        <>
+                          <span className="h-0.5 w-0.5 shrink-0 rounded-full bg-zinc-300" />
+                          <span className="flex items-center gap-0.5">
+                            <MapPin size={9} /> {c.city}
+                          </span>
+                        </>
+                      )}
+                      {(c as any).source && (c as any).source !== 'Manual' && (
+                        <>
+                          <span className="h-0.5 w-0.5 shrink-0 rounded-full bg-zinc-300" />
+                          <span className="rounded bg-zinc-100 px-1 text-[9px] font-medium text-zinc-500">{(c as any).source}</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Status */}
+                <div className="hidden items-center justify-center border-l border-zinc-100 px-4 py-3.5 md:flex">
+                  <span className={cn("rounded-md px-2 py-0.5 text-[10px] font-semibold border", statusColor(c.status))}>
+                    {c.status}
+                  </span>
+                </div>
+
+                {/* Date */}
+                <div className="hidden flex-col items-center justify-center border-l border-zinc-100 px-4 py-3.5 md:flex">
+                  <span className="flex items-center gap-1 text-[11px] font-medium text-zinc-600">
+                    {new Date(c.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: '2-digit' })}
+                  </span>
+                  <span className="text-[9px] text-zinc-400">
+                    {new Date(c.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center justify-end gap-0.5 border-l border-zinc-100 px-2.5 py-3.5" onClick={e => e.stopPropagation()}>
+                  <button onClick={() => navigate(`/candidatos/${encodeId(c.id)}`)}
+                    title="Ver perfil" className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-develoi-navy">
+                    <Eye size={13} />
+                  </button>
+                  <button onClick={() => navigate(`/candidatos/${encodeId(c.id)}?tab=evaluations`)}
+                    title="Avaliações" className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-purple-50 hover:text-purple-600">
+                    <ClipboardCheck size={13} />
+                  </button>
+                  <button onClick={() => setFunnelModalCandidate({ id: c.id, full_name: c.full_name })}
+                    title="Etapa do processo" className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-emerald-50 hover:text-emerald-600">
+                    <TrendingUp size={13} />
+                  </button>
+                  {actions.can_edit_candidates && (
+                    <button onClick={() => navigate(`/candidatos/${encodeId(c.id)}/editar`)}
+                      title="Editar" className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-blue-50 hover:text-blue-600">
+                      <Edit size={13} />
+                    </button>
+                  )}
+                  {actions.can_delete_candidates && (
+                    <button onClick={() => setDeleteConfirmId(c.id)}
+                      title="Excluir" className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-500">
+                      <Trash2 size={13} />
+                    </button>
+                  )}
+                </div>
+              </motion.div>
+            );
+          })}
+
           {/* Pagination footer */}
           {!loading && sortedCandidates.length > 0 && (
-            <div className="px-4 py-3 border-t border-zinc-200 bg-zinc-50 flex flex-wrap items-center justify-between gap-3">
-              {/* Left: count + selected */}
-              <div className="flex items-center gap-3">
-                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-zinc-100 bg-zinc-50/60 px-4 py-3">
+              <div className="flex items-center gap-2.5">
+                <span className="text-[11px] font-medium text-zinc-500">
                   {sortedCandidates.length} candidato{sortedCandidates.length !== 1 ? 's' : ''}
-                  {' '}· pág. {safePage}/{totalPages}
-                </p>
+                </span>
+                <span className="text-[10px] text-zinc-300">·</span>
+                <span className="text-[11px] text-zinc-400">pág. {safePage} / {totalPages}</span>
                 {selectedIds.size > 0 && (
-                  <span className="text-[10px] font-black text-develoi-navy uppercase tracking-wider bg-develoi-navy/8 px-2 py-0.5 rounded-full">
+                  <span className="rounded-full bg-develoi-navy/8 px-2 py-0.5 text-[10px] font-semibold text-develoi-navy">
                     {selectedIds.size} selecionado{selectedIds.size !== 1 ? 's' : ''}
                   </span>
                 )}
               </div>
-
-              {/* Right: nav + page size */}
               <div className="flex items-center gap-2">
-                {/* Page nav */}
                 <div className="flex items-center gap-0.5">
-                  <button onClick={() => setCurrentPage(1)} disabled={safePage === 1}
-                    className="h-7 w-7 flex items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-200 disabled:opacity-30 disabled:cursor-not-allowed transition-all">
-                    <ChevronsLeft size={13} />
-                  </button>
-                  <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={safePage === 1}
-                    className="h-7 w-7 flex items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-200 disabled:opacity-30 disabled:cursor-not-allowed transition-all">
-                    <ChevronLeft size={13} />
-                  </button>
-
-                  {/* Page number pills */}
+                  {[
+                    { icon: <ChevronsLeft size={13} />, action: () => setCurrentPage(1), disabled: safePage === 1 },
+                    { icon: <ChevronLeft size={13} />,  action: () => setCurrentPage(p => Math.max(1, p - 1)), disabled: safePage === 1 },
+                  ].map((btn, i) => (
+                    <button key={i} onClick={btn.action} disabled={btn.disabled}
+                      className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-400 transition-all hover:bg-zinc-200 hover:text-zinc-700 disabled:cursor-not-allowed disabled:opacity-30">
+                      {btn.icon}
+                    </button>
+                  ))}
                   {Array.from({ length: totalPages }, (_, i) => i + 1)
                     .filter(p => p === 1 || p === totalPages || Math.abs(p - safePage) <= 1)
                     .reduce<(number | '...')[]>((acc, p, i, arr) => {
                       if (i > 0 && (p as number) - (arr[i - 1] as number) > 1) acc.push('...');
-                      acc.push(p);
-                      return acc;
+                      acc.push(p); return acc;
                     }, [])
-                    .map((p, i) => p === '...' ? (
-                      <span key={`dots-${i}`} className="w-7 text-center text-[10px] font-bold text-zinc-400">…</span>
-                    ) : (
-                      <button key={p} onClick={() => setCurrentPage(p as number)}
-                        className={cn(
-                          "h-7 min-w-[1.75rem] px-1 rounded-lg text-[10px] font-black transition-all",
-                          safePage === p
-                            ? "bg-develoi-navy text-white shadow-sm"
-                            : "text-zinc-500 hover:bg-zinc-200"
-                        )}>
-                        {p}
-                      </button>
-                    ))
-                  }
-
-                  <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages}
-                    className="h-7 w-7 flex items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-200 disabled:opacity-30 disabled:cursor-not-allowed transition-all">
-                    <ChevronRight size={13} />
-                  </button>
-                  <button onClick={() => setCurrentPage(totalPages)} disabled={safePage === totalPages}
-                    className="h-7 w-7 flex items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-200 disabled:opacity-30 disabled:cursor-not-allowed transition-all">
-                    <ChevronsRight size={13} />
-                  </button>
+                    .map((p, i) => p === '...'
+                      ? <span key={`d-${i}`} className="flex h-7 w-7 items-center justify-center text-[10px] text-zinc-300">…</span>
+                      : <button key={p} onClick={() => setCurrentPage(p as number)}
+                          className={cn("h-7 min-w-[1.75rem] rounded-lg px-1 text-[11px] font-semibold transition-all",
+                            safePage === p ? "bg-develoi-navy text-white shadow-sm" : "text-zinc-500 hover:bg-zinc-200")}>
+                          {p}
+                        </button>
+                    )}
+                  {[
+                    { icon: <ChevronRight size={13} />,  action: () => setCurrentPage(p => Math.min(totalPages, p + 1)), disabled: safePage === totalPages },
+                    { icon: <ChevronsRight size={13} />, action: () => setCurrentPage(totalPages), disabled: safePage === totalPages },
+                  ].map((btn, i) => (
+                    <button key={i} onClick={btn.action} disabled={btn.disabled}
+                      className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-400 transition-all hover:bg-zinc-200 hover:text-zinc-700 disabled:cursor-not-allowed disabled:opacity-30">
+                      {btn.icon}
+                    </button>
+                  ))}
                 </div>
-
-                {/* Page size selector */}
                 <select
                   value={pageSize}
                   onChange={e => { const n = Number(e.target.value); setPageSize(n); setPref("candidates_pageSize", n); setCurrentPage(1); }}
-                  className="h-7 appearance-none rounded-lg border border-zinc-200 bg-white text-[10px] font-black text-zinc-600 pl-2.5 pr-6 outline-none cursor-pointer hover:border-zinc-300 transition-colors"
-                  title="Itens por página"
+                  className="h-7 cursor-pointer appearance-none rounded-lg border border-zinc-200 bg-white pl-2.5 pr-6 text-[11px] font-medium text-zinc-600 outline-none transition-colors hover:border-zinc-300"
+                  style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M6 8L1 3h10z'/%3E%3C/svg%3E\")", backgroundRepeat: 'no-repeat', backgroundPosition: 'right 6px center', backgroundSize: '9px' }}
                 >
-                  {PAGE_SIZE_OPTIONS.map(n => (
-                    <option key={n} value={n}>{n} / pág.</option>
-                  ))}
+                  {PAGE_SIZE_OPTIONS.map(n => <option key={n} value={n}>{n} / pág.</option>)}
                 </select>
               </div>
             </div>

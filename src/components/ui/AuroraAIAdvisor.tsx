@@ -1,42 +1,73 @@
-import React from "react";
-import { Sparkles, MessageSquare } from "lucide-react";
+import { ArrowRight, Sparkles, TrendingUp, Users } from "lucide-react";
 import { Link } from "react-router-dom";
 
-export function AuroraAIAdvisor() {
+interface AuroraAIAdvisorProps {
+  newCandidates: number;
+  compatibleCandidates: number;
+  href?: string;
+}
+
+export function AuroraAIAdvisor({
+  newCandidates,
+  compatibleCandidates,
+  href = "/aderencia",
+}: AuroraAIAdvisorProps) {
   return (
-    <div className="bg-develoi-navy dark:bg-[#0d1b3e] rounded-[32px] p-6 lg:p-8 text-white relative overflow-hidden shadow-2xl transition-all">
-      <div className="absolute top-0 right-0 w-48 h-48 bg-develoi-blue/10 dark:bg-develoi-gold/5 rounded-full blur-3xl opacity-50 -mr-20 -mt-20" />
-      <div className="relative z-10">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 bg-white/10 rounded-2xl flex items-center justify-center text-develoi-gold">
-            <Sparkles size={20} />
-          </div>
-          <div>
-            <h3 className="text-xs font-black uppercase tracking-[0.2em] text-develoi-gold">Aurora AI Advisor</h3>
-            <p className="text-[9px] font-bold text-white/40">ANÁLISE EM TEMPO REAL</p>
-          </div>
+    <div className="relative overflow-hidden rounded-2xl bg-develoi-navy p-5">
+      {/* Ambient glows */}
+      <div className="pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full bg-develoi-gold/12 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-10 -left-10 h-32 w-32 rounded-full bg-sky-500/10 blur-3xl" />
+
+      {/* Header */}
+      <div className="relative z-10 mb-4 flex items-center gap-3">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-develoi-gold/15 ring-1 ring-develoi-gold/25">
+          <Sparkles size={15} className="text-develoi-gold" />
         </div>
-        
-        <div className="space-y-6 mb-8">
-          <div className="p-4 bg-white/5 rounded-2xl border border-white/10">
-            <p className="text-xs font-bold leading-relaxed italic opacity-90 text-white">
-              "Sua taxa de conversão de <span className="text-develoi-gold">Pendente</span> para <span className="text-develoi-gold">Entrevista</span> aumentou 15% após a última triagem automática."
-            </p>
-          </div>
-          <div className="p-4 bg-white/5 rounded-2xl border border-white/10">
-            <p className="text-xs font-bold leading-relaxed italic opacity-90 text-white">
-              "A vaga <span className="text-develoi-gold">Analista Financeiro</span> está com excesso de candidatos abaixo de 60% de compatibilidade."
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-develoi-gold leading-none">Aurora AI</p>
+          <p className="mt-0.5 text-[9px] font-medium text-white/30 uppercase tracking-wider">Análise em tempo real</p>
+        </div>
+      </div>
+
+      {/* Insight cards */}
+      <div className="relative z-10 space-y-2 mb-4">
+        <div className="rounded-xl border border-white/[0.07] bg-white/[0.04] p-3">
+          <div className="flex items-start gap-2.5">
+            <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-sky-500/15">
+              <TrendingUp size={12} className="text-sky-400" />
+            </div>
+            <p className="text-[11px] font-medium leading-relaxed text-white/70">
+              Taxa de conversão <span className="font-bold text-white">Triagem → Entrevista</span> está{" "}
+              <span className={newCandidates > 0 ? "font-bold text-emerald-400" : "font-bold text-rose-400"}>
+                {newCandidates > 0 ? "acima" : "abaixo"} da média
+              </span>.
             </p>
           </div>
         </div>
 
-        <Link 
-          to="/auroraai" 
-          className="w-full py-4 bg-white text-zinc-900 rounded-2xl text-[10px] font-bold uppercase tracking-widest hover:bg-zinc-100 transition-all flex items-center justify-center gap-2 shadow-lg"
-        >
-          <MessageSquare size={16} /> Abrir Consultoria Completa
-        </Link>
+        {compatibleCandidates > 0 && (
+          <div className="rounded-xl border border-white/[0.07] bg-white/[0.04] p-3">
+            <div className="flex items-start gap-2.5">
+              <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-develoi-gold/15">
+                <Users size={12} className="text-develoi-gold" />
+              </div>
+              <p className="text-[11px] font-medium leading-relaxed text-white/70">
+                <span className="font-bold text-develoi-gold">{compatibleCandidates} candidatos</span>{" "}
+                com <span className="font-bold text-white">+80% de fit</span> aguardam revisão.
+              </p>
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* CTA */}
+      <Link
+        to={href}
+        className="relative z-10 flex w-full items-center justify-center gap-2 rounded-xl bg-white/10 py-2.5 text-[11px] font-semibold text-white ring-1 ring-white/10 transition-all hover:bg-white/15 hover:ring-white/20"
+      >
+        Consultoria Completa
+        <ArrowRight size={13} />
+      </Link>
     </div>
   );
 }

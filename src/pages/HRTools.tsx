@@ -1411,461 +1411,424 @@ export default function HRTools() {
   );
 
   const renderToolsTab = () => (
-    <div className="space-y-8">
-      <StatGrid cols={4}>
-        <StatCard
-          title="Formulários ativos"
-          value={dashboardIndicators.activeForms}
-          icon={ClipboardCheck}
-          color="default"
-        />
-        <StatCard
-          title="Respostas recebidas"
-          value={dashboardIndicators.received}
-          icon={Users}
-          color="gold"
-        />
-        <StatCard
-          title="Taxa de conclusão"
-          value={`${dashboardIndicators.completionRate}%`}
-          icon={BarChart3}
-          color="info"
-        />
-        <StatCard
-          title="Candidatos com DISC"
-          value={dashboardIndicators.discCount}
-          icon={Brain}
-          color="warning"
-        />
-      </StatGrid>
-
-      <div className="grid gap-6 xl:grid-cols-[1.3fr,0.7fr]">
-        <PanelCard
-          title="Radar da operação"
-          description="Leitura rápida do uso das ferramentas e do funil de respostas da unidade."
-          icon={BarChart3}
-        >
-          <div className="grid gap-4 lg:grid-cols-2">
-            <ContentCard className="space-y-4 border-zinc-100 bg-zinc-50/70">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-black tracking-tight text-zinc-900">Ferramentas mais usadas</p>
-                  <p className="text-xs text-zinc-500">Quanto do volume total cada formulário está concentrando.</p>
-                </div>
-                <Badge color="default" pill>
-                  {(dashboardData?.charts.usage || []).length} itens
-                </Badge>
+    <div className="space-y-5">
+      {/* KPI cards */}
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+        {[
+          { title: "Formulários ativos",  value: dashboardIndicators.activeForms,       icon: ClipboardCheck, color: "text-develoi-navy",  bg: "bg-develoi-navy/8",   bar: "bg-develoi-navy" },
+          { title: "Respostas recebidas", value: dashboardIndicators.received,           icon: Users,          color: "text-develoi-gold",  bg: "bg-develoi-gold/10",  bar: "bg-develoi-gold" },
+          { title: "Taxa de conclusão",   value: `${dashboardIndicators.completionRate}%`, icon: BarChart3,    color: "text-sky-600",        bg: "bg-sky-50",           bar: "bg-sky-500" },
+          { title: "Candidatos com DISC", value: dashboardIndicators.discCount,          icon: Brain,          color: "text-amber-600",     bg: "bg-amber-50",         bar: "bg-amber-400" },
+        ].map((s, i) => (
+          <motion.div key={s.title} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
+            className="group relative overflow-hidden rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md">
+            <div className={cn("absolute -right-4 -top-4 h-14 w-14 rounded-full blur-xl opacity-50", s.bg)} />
+            <div className="relative z-10">
+              <div className={cn("mb-2.5 flex h-8 w-8 items-center justify-center rounded-lg", s.bg)}>
+                <s.icon size={15} className={s.color} />
               </div>
-
-              <div className="space-y-3">
-                {(dashboardData?.charts.usage || []).slice(0, 4).map((item) => {
-                  const denominator = Math.max(dashboardIndicators.sent || 0, 1);
-                  const width = Math.min(100, Math.round((item.count / denominator) * 100));
-
-                  return (
-                    <div key={item.name} className="space-y-1.5">
-                      <div className="flex items-center justify-between gap-3 text-xs font-semibold text-zinc-600">
-                        <span className="truncate">{item.name}</span>
-                        <span>{item.count}</span>
-                      </div>
-                      <div className="h-2 overflow-hidden rounded-full bg-zinc-100">
-                        <div className="h-full rounded-full bg-develoi-navy transition-all" style={{ width: `${width}%` }} />
-                      </div>
-                    </div>
-                  );
-                })}
-
-                {(dashboardData?.charts.usage || []).length === 0 && (
-                  <p className="text-sm text-zinc-400">Ainda não há volume suficiente para gerar leitura de uso.</p>
-                )}
-              </div>
-            </ContentCard>
-
-            <ContentCard className="space-y-4 border-zinc-100 bg-zinc-50/70">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-black tracking-tight text-zinc-900">Status das respostas</p>
-                  <p className="text-xs text-zinc-500">Visão simples do que já chegou pronto para leitura do RH.</p>
-                </div>
-                <Badge color="primary" pill>
-                  Funil
-                </Badge>
-              </div>
-
-              <div className="space-y-3">
-                {(dashboardData?.charts.funnel || []).map((item) => {
-                  const color = isCompletedStatus(item.status)
-                    ? "bg-emerald-500"
-                    : item.status?.toLowerCase().includes("pend")
-                      ? "bg-amber-500"
-                      : "bg-blue-500";
-
-                  return (
-                    <div key={`${item.status}-${item.count}`} className="flex items-center justify-between rounded-2xl border border-zinc-100 bg-white px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <span className={cn("h-2.5 w-2.5 rounded-full", color)} />
-                        <span className="text-sm font-semibold text-zinc-700">{item.status}</span>
-                      </div>
-                      <span className="text-sm font-black tracking-tight text-zinc-900">{item.count}</span>
-                    </div>
-                  );
-                })}
-
-                {(dashboardData?.charts.funnel || []).length === 0 && (
-                  <p className="text-sm text-zinc-400">O funil será preenchido conforme novas submissões chegarem.</p>
-                )}
-              </div>
-            </ContentCard>
-          </div>
-        </PanelCard>
-
-        <PanelCard
-          title="Atalhos de criação"
-          description="Biblioteca rápida para abrir um formulário pronto e ajustar só o que interessa."
-          icon={Layout}
-        >
-          <div className="space-y-3">
-            {TOOL_TEMPLATES.map((template) => (
-              <button
-                key={template.key}
-                type="button"
-                onClick={() => applyTemplate(template)}
-                className="w-full rounded-2xl border border-zinc-200 bg-zinc-50/80 px-4 py-4 text-left transition-all hover:border-develoi-navy/25 hover:bg-white"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-black tracking-tight text-zinc-900">{template.name}</p>
-                    <p className="mt-1 text-xs leading-relaxed text-zinc-500">{template.summary}</p>
-                  </div>
-                  <Badge color={template.accent} pill>
-                    {template.questions.length} perguntas
-                  </Badge>
-                </div>
-              </button>
-            ))}
-          </div>
-        </PanelCard>
+              <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-400">{s.title}</p>
+              <p className={cn("text-[26px] font-black leading-none tabular-nums", s.color)}>{s.value}</p>
+            </div>
+          </motion.div>
+        ))}
       </div>
 
-      <ContentCard className="space-y-4">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-end">
-          <Input
-            label="Pesquisar formulário"
-            value={toolSearch}
-            onChange={(event) => setToolSearch(event.target.value)}
-            placeholder="Busque por nome ou objetivo da ferramenta..."
-            icon={<Search size={14} />}
-          />
-
-          <Select
-            label="Tipo"
-            value={toolTypeFilter}
-            onChange={(event) => setToolTypeFilter(event.target.value)}
-            containerClassName="xl:max-w-[240px]"
-          >
-            <option value="">Todos os tipos</option>
-            {TOOL_TYPE_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </Select>
-
-          <div className="flex gap-2 xl:ml-auto">
-            <Button variant="outline" iconLeft={<Filter size={14} />} onClick={() => {
-              setToolSearch("");
-              setToolTypeFilter("");
-            }}>
-              Limpar filtros
-            </Button>
-            <Button variant="secondary" iconLeft={<Plus size={14} />} onClick={openBlankBuilder}>
-              Novo formulário
-            </Button>
+      <div className="grid gap-5 xl:grid-cols-[1.3fr,0.7fr]">
+        {/* Radar */}
+        <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+          <div className="flex items-center gap-2.5 border-b border-zinc-100 px-4 py-3.5">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-develoi-navy/8">
+              <BarChart3 size={13} className="text-develoi-navy" />
+            </div>
+            <div>
+              <span className="text-[13px] font-bold text-zinc-900">Radar da operação</span>
+              <p className="text-[10px] text-zinc-400">Uso das ferramentas e funil de respostas</p>
+            </div>
+          </div>
+          <div className="grid gap-0 divide-x divide-zinc-100 lg:grid-cols-2">
+            {/* Usage bars */}
+            <div className="space-y-3 p-4">
+              <p className="text-[11px] font-semibold text-zinc-500">Ferramentas mais usadas</p>
+              {(dashboardData?.charts.usage || []).slice(0, 4).map((item) => {
+                const denominator = Math.max(dashboardIndicators.sent || 0, 1);
+                const width = Math.min(100, Math.round((item.count / denominator) * 100));
+                return (
+                  <div key={item.name} className="space-y-1">
+                    <div className="flex items-center justify-between text-[11px] text-zinc-600">
+                      <span className="truncate font-medium">{item.name}</span>
+                      <span className="font-semibold tabular-nums">{item.count}</span>
+                    </div>
+                    <div className="h-1.5 overflow-hidden rounded-full bg-zinc-100">
+                      <div className="h-full rounded-full bg-develoi-navy transition-all" style={{ width: `${width}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
+              {(dashboardData?.charts.usage || []).length === 0 && (
+                <p className="text-[11px] italic text-zinc-400">Volume insuficiente para leitura de uso.</p>
+              )}
+            </div>
+            {/* Funnel */}
+            <div className="space-y-2 p-4">
+              <p className="text-[11px] font-semibold text-zinc-500">Status das respostas</p>
+              {(dashboardData?.charts.funnel || []).map((item) => {
+                const color = isCompletedStatus(item.status) ? "bg-emerald-500"
+                  : item.status?.toLowerCase().includes("pend") ? "bg-amber-400" : "bg-sky-500";
+                return (
+                  <div key={`${item.status}-${item.count}`} className="flex items-center justify-between rounded-xl border border-zinc-100 bg-zinc-50 px-3 py-2.5">
+                    <div className="flex items-center gap-2.5">
+                      <span className={cn("h-2 w-2 shrink-0 rounded-full", color)} />
+                      <span className="text-[12px] font-medium text-zinc-700">{item.status}</span>
+                    </div>
+                    <span className="text-[13px] font-bold tabular-nums text-zinc-900">{item.count}</span>
+                  </div>
+                );
+              })}
+              {(dashboardData?.charts.funnel || []).length === 0 && (
+                <p className="text-[11px] italic text-zinc-400">Funil vazio — aguardando submissões.</p>
+              )}
+            </div>
           </div>
         </div>
-      </ContentCard>
 
-      <PanelCard
-        title="Formulários da unidade"
-        description="Cada card concentra briefing, volume, conversão e atalhos operacionais em um único lugar."
-        icon={ClipboardCheck}
-      >
-        {toolsLoading ? (
-          <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
-            {Array.from({ length: 6 }).map((_, index) => (
-              <div key={index} className="h-72 animate-pulse rounded-3xl border border-zinc-100 bg-zinc-50" />
-            ))}
+        {/* Quick templates */}
+        <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+          <div className="flex items-center gap-2.5 border-b border-zinc-100 px-4 py-3.5">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-develoi-navy/8">
+              <Layout size={13} className="text-develoi-navy" />
+            </div>
+            <div>
+              <span className="text-[13px] font-bold text-zinc-900">Templates prontos</span>
+              <p className="text-[10px] text-zinc-400">Comece de um modelo e ajuste apenas o que precisar</p>
+            </div>
           </div>
-        ) : filteredTools.length === 0 ? (
-          <EmptyState
-            title="Nenhuma ferramenta encontrada"
-            description="Ajuste os filtros ou crie um novo formulário para iniciar a operação."
-            icon={<ClipboardCheck size={42} />}
-            action={
-              <Button variant="secondary" onClick={openBlankBuilder}>
-                Criar ferramenta
-              </Button>
-            }
-          />
-        ) : (
-          <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
-            {filteredTools.map((tool, index) => {
-              const meta = getToolTypeMeta(tool.type);
-              const metrics = toolMetrics.get(tool.id);
-              const Icon = meta.icon;
-              const completionRate = metrics?.responsesCount
-                ? Math.round((metrics.completedCount / metrics.responsesCount) * 100)
-                : 0;
-              const averageScore =
-                metrics && metrics.scoredCount > 0 ? Math.round(metrics.totalScore / metrics.scoredCount) : null;
-
+          <div className="divide-y divide-zinc-50">
+            {TOOL_TEMPLATES.map((template) => {
+              const ACCENT_COLORS: Record<string, { dot: string; badge: string }> = {
+                warning: { dot: "bg-amber-400",   badge: "bg-amber-50 text-amber-700" },
+                info:    { dot: "bg-sky-500",      badge: "bg-sky-50 text-sky-700" },
+                primary: { dot: "bg-develoi-navy", badge: "bg-develoi-navy/8 text-develoi-navy" },
+                purple:  { dot: "bg-violet-500",   badge: "bg-violet-50 text-violet-700" },
+              };
+              const ac = ACCENT_COLORS[template.accent] ?? ACCENT_COLORS.primary;
               return (
-                <motion.div
-                  key={tool.id}
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.03, duration: 0.22 }}
-                >
-                  <ContentCard className="flex h-full flex-col gap-5 border-zinc-200/80 transition-all hover:border-develoi-navy/20 hover:shadow-md">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex items-start gap-3">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-zinc-100 bg-zinc-50 text-develoi-navy">
-                          <Icon size={20} />
-                        </div>
-                        <div className="space-y-2">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <Badge color={meta.badgeColor} pill>
-                              {meta.label}
-                            </Badge>
-                            <Badge color={tool.status === "Ativo" ? "success" : "default"} pill>
-                              {tool.status || "Rascunho"}
-                            </Badge>
-                          </div>
-                          <div>
-                            <h3 className="text-base font-black tracking-tight text-zinc-900">{tool.name}</h3>
-                            <p className="mt-1 text-xs leading-relaxed text-zinc-500">{tool.description || meta.description}</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="grid gap-3 sm:grid-cols-3">
-                      <ContentCard padding="sm" className="border-zinc-100 bg-zinc-50/80">
-                        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-400">Respostas</p>
-                        <p className="mt-2 text-2xl font-black tracking-tight text-zinc-900">
-                          {metrics?.responsesCount || 0}
-                        </p>
-                      </ContentCard>
-
-                      <ContentCard padding="sm" className="border-zinc-100 bg-zinc-50/80">
-                        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-400">Conclusão</p>
-                        <p className="mt-2 text-2xl font-black tracking-tight text-zinc-900">{completionRate}%</p>
-                      </ContentCard>
-
-                      <ContentCard padding="sm" className="border-zinc-100 bg-zinc-50/80">
-                        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-400">Média score</p>
-                        <p className="mt-2 text-2xl font-black tracking-tight text-zinc-900">
-                          {averageScore ?? "--"}
-                        </p>
-                      </ContentCard>
-                    </div>
-
-                    <div className="rounded-2xl border border-zinc-100 bg-zinc-50/80 px-4 py-3 text-xs text-zinc-500">
-                      Última interação: <span className="font-semibold text-zinc-700">{formatDateTime(metrics?.lastResponseAt)}</span>
-                    </div>
-
-                    <div className="mt-auto grid gap-2 sm:grid-cols-2">
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        iconLeft={<LinkIcon size={14} />}
-                        onClick={() => handleCopyLink(tool.public_slug)}
-                      >
-                        Copiar link
-                      </Button>
-
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        iconLeft={<Eye size={14} />}
-                        onClick={() => window.open(`/public/tools/${tool.public_slug}`, "_blank")}
-                        disabled={!tool.public_slug}
-                      >
-                        Pré-visualizar
-                      </Button>
-
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        iconLeft={<Copy size={14} />}
-                        onClick={() => cloneTool(tool)}
-                        loading={isCloningId === tool.id}
-                      >
-                        Duplicar
-                      </Button>
-
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        iconLeft={<Trash2 size={14} />}
-                        className="text-red-600 hover:bg-red-50 hover:text-red-700"
-                        onClick={() => setToolToDelete(tool)}
-                      >
-                        Remover
-                      </Button>
-                    </div>
-                  </ContentCard>
-                </motion.div>
+                <button key={template.key} type="button" onClick={() => applyTemplate(template)}
+                  className="group flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-zinc-50">
+                  <span className={cn("h-2.5 w-2.5 shrink-0 rounded-full", ac.dot)} />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[12px] font-semibold text-zinc-900">{template.name}</p>
+                    <p className="text-[10px] text-zinc-400">{template.summary}</p>
+                  </div>
+                  <span className={cn("shrink-0 rounded-md px-2 py-0.5 text-[10px] font-semibold", ac.badge)}>
+                    {template.questions.length} perguntas
+                  </span>
+                </button>
               );
             })}
           </div>
+        </div>
+      </div>
+
+      {/* Filter bar tools */}
+      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-3 py-2.5 shadow-sm sm:gap-3 sm:px-4">
+        <div className="relative flex min-w-[180px] flex-1 items-center">
+          <Search size={13} className="pointer-events-none absolute left-3 text-zinc-400" />
+          <input type="text" placeholder="Nome ou objetivo do formulário…"
+            value={toolSearch} onChange={e => setToolSearch(e.target.value)}
+            className="h-8 w-full rounded-lg border border-zinc-200 bg-zinc-50 pl-8 pr-3 text-[12px] font-medium text-zinc-800 outline-none transition-all placeholder:text-zinc-400 focus:border-develoi-gold/50 focus:bg-white focus:ring-2 focus:ring-develoi-gold/15" />
+        </div>
+        <select value={toolTypeFilter} onChange={e => setToolTypeFilter(e.target.value)}
+          className="h-8 w-full cursor-pointer appearance-none rounded-lg border border-zinc-200 bg-zinc-50 px-3 text-[12px] font-medium text-zinc-700 outline-none transition-all sm:w-40"
+          style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M6 8L1 3h10z'/%3E%3C/svg%3E\")", backgroundRepeat: 'no-repeat', backgroundPosition: 'right 8px center', backgroundSize: '10px', paddingRight: '2rem' }}>
+          <option value="">Todos os tipos</option>
+          {TOOL_TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+        <div className="flex-1" />
+        {(toolSearch || toolTypeFilter) && (
+          <button onClick={() => { setToolSearch(""); setToolTypeFilter(""); }}
+            className="text-[11px] font-medium text-zinc-400 transition-colors hover:text-rose-500">Limpar</button>
         )}
-      </PanelCard>
+      </div>
+
+      {/* Tool cards */}
+      {toolsLoading ? (
+        <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="h-64 animate-pulse rounded-2xl border border-zinc-200 bg-zinc-100" />
+          ))}
+        </div>
+      ) : filteredTools.length === 0 ? (
+        <div className="flex flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-zinc-200 bg-white py-16 shadow-sm">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-100 text-zinc-400">
+            <ClipboardCheck size={24} />
+          </div>
+          <div className="text-center">
+            <p className="text-[14px] font-semibold text-zinc-700">Nenhuma ferramenta encontrada</p>
+            <p className="mt-1 text-[12px] text-zinc-400">Crie seu primeiro formulário ou escolha um template abaixo.</p>
+          </div>
+          <button onClick={openBlankBuilder}
+            className="flex items-center gap-1.5 rounded-xl bg-develoi-navy px-4 py-2 text-[12px] font-semibold text-white transition-colors hover:bg-[#0a1e3a]">
+            <Plus size={13} /> Criar formulário
+          </button>
+        </div>
+      ) : (
+        <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+          {filteredTools.map((tool, index) => {
+            const meta = getToolTypeMeta(tool.type);
+            const metrics = toolMetrics.get(tool.id);
+            const Icon = meta.icon;
+            const completionRate = metrics?.responsesCount
+              ? Math.round((metrics.completedCount / metrics.responsesCount) * 100) : 0;
+            const averageScore = metrics && metrics.scoredCount > 0
+              ? Math.round(metrics.totalScore / metrics.scoredCount) : null;
+
+            const BADGE_COLORS: Record<string, string> = {
+              warning: "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
+              info:    "bg-sky-50 text-sky-700 ring-1 ring-sky-200",
+              primary: "bg-develoi-navy/8 text-develoi-navy ring-1 ring-develoi-navy/15",
+              purple:  "bg-violet-50 text-violet-700 ring-1 ring-violet-200",
+            };
+            const badgeClass = BADGE_COLORS[meta.badgeColor] ?? BADGE_COLORS.primary;
+
+            return (
+              <motion.div key={tool.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.03, duration: 0.2 }}>
+                <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition-all hover:-translate-y-0.5 hover:border-develoi-navy/20 hover:shadow-md">
+                  {/* Top band */}
+                  <div className={cn("h-1", meta.badgeColor === "warning" ? "bg-amber-400" : meta.badgeColor === "info" ? "bg-sky-500" : meta.badgeColor === "purple" ? "bg-violet-500" : "bg-develoi-navy")} />
+
+                  <div className="flex flex-1 flex-col gap-4 p-4">
+                    {/* Header */}
+                    <div className="flex items-start gap-3">
+                      <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl", meta.badgeColor === "warning" ? "bg-amber-50 text-amber-600" : meta.badgeColor === "info" ? "bg-sky-50 text-sky-600" : meta.badgeColor === "purple" ? "bg-violet-50 text-violet-600" : "bg-develoi-navy/8 text-develoi-navy")}>
+                        <Icon size={18} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="mb-1 flex flex-wrap items-center gap-1.5">
+                          <span className={cn("rounded-md px-2 py-0.5 text-[10px] font-semibold", badgeClass)}>{meta.label}</span>
+                          <span className={cn("rounded-md px-2 py-0.5 text-[10px] font-semibold", tool.status === "Ativo" ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200" : "bg-zinc-100 text-zinc-500")}>
+                            {tool.status || "Rascunho"}
+                          </span>
+                        </div>
+                        <h3 className="text-[13px] font-bold leading-tight text-zinc-900">{tool.name}</h3>
+                        <p className="mt-0.5 line-clamp-2 text-[11px] leading-relaxed text-zinc-500">{tool.description || meta.description}</p>
+                      </div>
+                    </div>
+
+                    {/* Metrics row */}
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { label: "Respostas", value: metrics?.responsesCount || 0, color: "text-zinc-900" },
+                        { label: "Conclusão", value: `${completionRate}%`,          color: completionRate >= 70 ? "text-emerald-600" : "text-amber-600" },
+                        { label: "Score",     value: averageScore != null ? `${averageScore}` : "—", color: averageScore && averageScore >= 70 ? "text-emerald-600" : "text-zinc-600" },
+                      ].map(m => (
+                        <div key={m.label} className="rounded-xl bg-zinc-50 p-2.5 text-center ring-1 ring-zinc-200/80">
+                          <p className="text-[9px] font-semibold uppercase tracking-wider text-zinc-400">{m.label}</p>
+                          <p className={cn("mt-1 text-[18px] font-black tabular-nums leading-none", m.color)}>{m.value}</p>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Last interaction */}
+                    <div className="flex items-center gap-1.5 text-[10px] text-zinc-400">
+                      <Clock size={10} />
+                      Última: <span className="font-medium text-zinc-600">{formatDateTime(metrics?.lastResponseAt)}</span>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="mt-auto grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => handleCopyLink(tool.public_slug)}
+                        className="flex items-center justify-center gap-1.5 rounded-lg bg-develoi-navy px-3 py-2 text-[11px] font-semibold text-white transition-colors hover:bg-[#0a1e3a]"
+                      >
+                        <LinkIcon size={12} /> Copiar link
+                      </button>
+                      <button
+                        onClick={() => window.open(`/public/tools/${tool.public_slug}`, "_blank")}
+                        disabled={!tool.public_slug}
+                        className="flex items-center justify-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-[11px] font-medium text-zinc-600 transition-colors hover:bg-zinc-50 disabled:opacity-40"
+                      >
+                        <Eye size={12} /> Visualizar
+                      </button>
+                      <button
+                        onClick={() => cloneTool(tool)}
+                        disabled={isCloningId === tool.id}
+                        className="flex items-center justify-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-[11px] font-medium text-zinc-600 transition-colors hover:bg-zinc-50 disabled:opacity-50"
+                      >
+                        {isCloningId === tool.id ? <RefreshCw size={11} className="animate-spin" /> : <Copy size={12} />} Duplicar
+                      </button>
+                      <button
+                        onClick={() => setToolToDelete(tool)}
+                        className="flex items-center justify-center gap-1.5 rounded-lg border border-rose-100 bg-rose-50 px-3 py-2 text-[11px] font-medium text-rose-600 transition-colors hover:bg-rose-100"
+                      >
+                        <Trash2 size={12} /> Remover
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 
   const renderResponsesTab = () => (
-    <div className="space-y-8">
-      <StatGrid cols={4}>
-        <StatCard title="Respostas totais" value={derivedStats.totalResponses} icon={Users} color="default" />
-        <StatCard title="Com análise" value={derivedStats.analyzed} icon={Sparkles} color="info" />
-        <StatCard title="Score médio" value={derivedStats.averageScore || "--"} icon={BarChart3} color="gold" />
-        <StatCard title="Pendentes de leitura" value={derivedStats.pendingAnalysis} icon={Clock} color="warning" />
-      </StatGrid>
+    <div className="space-y-5">
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+        {[
+          { title: "Respostas totais",    value: derivedStats.totalResponses,          icon: Users,     color: "text-develoi-navy",  bg: "bg-develoi-navy/8" },
+          { title: "Com análise IA",      value: derivedStats.analyzed,                icon: Sparkles,  color: "text-sky-600",        bg: "bg-sky-50" },
+          { title: "Score médio",         value: derivedStats.averageScore || "—",     icon: BarChart3, color: "text-develoi-gold",   bg: "bg-develoi-gold/10" },
+          { title: "Pendentes de leitura",value: derivedStats.pendingAnalysis,         icon: Clock,     color: "text-amber-600",      bg: "bg-amber-50" },
+        ].map((s, i) => (
+          <motion.div key={s.title} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
+            className="overflow-hidden rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
+            <div className={cn("mb-2.5 flex h-8 w-8 items-center justify-center rounded-lg", s.bg)}>
+              <s.icon size={15} className={s.color} />
+            </div>
+            <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-400">{s.title}</p>
+            <p className={cn("text-[26px] font-black leading-none tabular-nums", s.color)}>{s.value}</p>
+          </motion.div>
+        ))}
+      </div>
 
-      <ContentCard className="space-y-4">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-end">
-          <Input
-            label="Pesquisar resposta"
-            value={responseSearch}
-            onChange={(event) => setResponseSearch(event.target.value)}
-            placeholder="Busque por candidato, ferramenta ou vaga..."
-            icon={<Search size={14} />}
-          />
+      {/* Filter bar */}
+      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-3 py-2.5 shadow-sm sm:gap-3 sm:px-4">
+        <div className="relative flex min-w-[180px] flex-1 items-center">
+          <Search size={13} className="pointer-events-none absolute left-3 text-zinc-400" />
+          <input type="text" placeholder="Candidato, ferramenta, vaga…"
+            value={responseSearch} onChange={e => setResponseSearch(e.target.value)}
+            className="h-8 w-full rounded-lg border border-zinc-200 bg-zinc-50 pl-8 pr-3 text-[12px] font-medium text-zinc-800 outline-none transition-all placeholder:text-zinc-400 focus:border-develoi-gold/50 focus:bg-white focus:ring-2 focus:ring-develoi-gold/15" />
+        </div>
+        <select value={responseStatusFilter} onChange={e => setResponseStatusFilter(e.target.value)}
+          className="h-8 w-full cursor-pointer appearance-none rounded-lg border border-zinc-200 bg-zinc-50 px-3 text-[12px] font-medium text-zinc-700 outline-none transition-all sm:w-36"
+          style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M6 8L1 3h10z'/%3E%3C/svg%3E\")", backgroundRepeat: 'no-repeat', backgroundPosition: 'right 8px center', backgroundSize: '10px', paddingRight: '2rem' }}>
+          <option value="">Todos status</option>
+          {[...new Set(responses.map(r => r.status).filter(Boolean))].map(s => <option key={s} value={s || ""}>{s}</option>)}
+        </select>
+        <div className="flex-1" />
+        {(responseSearch || responseStatusFilter) && (
+          <button onClick={() => { setResponseSearch(""); setResponseStatusFilter(""); }}
+            className="text-[11px] font-medium text-zinc-400 transition-colors hover:text-rose-500">
+            Limpar
+          </button>
+        )}
+        <button onClick={fetchResponses} title="Atualizar"
+          className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-400 transition-colors hover:border-zinc-300 hover:bg-white hover:text-zinc-700">
+          <RefreshCw size={13} />
+        </button>
+      </div>
 
-          <Select
-            label="Status"
-            value={responseStatusFilter}
-            onChange={(event) => setResponseStatusFilter(event.target.value)}
-            containerClassName="xl:max-w-[220px]"
-          >
-            <option value="">Todos os status</option>
-            {[...new Set(responses.map((item) => item.status).filter(Boolean))].map((status) => (
-              <option key={status} value={status || ""}>
-                {status}
-              </option>
-            ))}
-          </Select>
-
-          <div className="flex gap-2 xl:ml-auto">
-            <Button variant="outline" iconLeft={<Filter size={14} />} onClick={() => {
-              setResponseSearch("");
-              setResponseStatusFilter("");
-            }}>
-              Limpar
-            </Button>
-            <Button variant="secondary" iconLeft={<RefreshCw size={14} />} onClick={fetchResponses}>
-              Atualizar
-            </Button>
+      {/* Response cards */}
+      {responsesLoading ? (
+        <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-52 animate-pulse rounded-2xl border border-zinc-200 bg-zinc-100" />
+          ))}
+        </div>
+      ) : filteredResponses.length === 0 ? (
+        <div className="flex flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-zinc-200 bg-white py-16 shadow-sm">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-100 text-zinc-400">
+            <Mail size={24} />
+          </div>
+          <div className="text-center">
+            <p className="text-[14px] font-semibold text-zinc-700">Nenhuma resposta encontrada</p>
+            <p className="mt-1 text-[12px] text-zinc-400">Assim que candidatos responderem, a fila aparece aqui.</p>
           </div>
         </div>
-      </ContentCard>
+      ) : (
+        <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+          {filteredResponses.map((item) => {
+            const hasAnalysis = Boolean(item.ai_analysis_json);
+            const meta = getToolTypeMeta(item.tool_type || item.tool_name || "survey");
+            const ResponseIcon = meta.icon;
+            const isCompleted = isCompletedStatus(item.status);
+            const isPending   = normalizeStatus(item.status).includes("pend");
 
-      <PanelCard
-        title="Leitura operacional"
-        description="Acompanhe respostas, gere parecer com IA e entre no detalhe sem sair da fila."
-        icon={Mail}
-      >
-        {responsesLoading ? (
-          <div className="grid gap-4 lg:grid-cols-2">
-            {Array.from({ length: 4 }).map((_, index) => (
-              <div key={index} className="h-56 animate-pulse rounded-3xl border border-zinc-100 bg-zinc-50" />
-            ))}
-          </div>
-        ) : filteredResponses.length === 0 ? (
-          <EmptyState
-            title="Nenhuma resposta encontrada"
-            description="Assim que candidatos responderem, a fila aparecerá aqui com score, resumo e análise automática."
-            icon={<Users size={42} />}
-          />
-        ) : (
-          <div className="grid gap-4 lg:grid-cols-2">
-            {filteredResponses.map((item) => {
-              const hasAnalysis = Boolean(item.ai_analysis_json);
-              const meta = getToolTypeMeta(item.tool_type || item.tool_name || "survey");
-              const ResponseIcon = meta.icon;
-              const statusColor = isCompletedStatus(item.status)
-                ? "success"
-                : normalizeStatus(item.status).includes("pend")
-                  ? "warning"
-                  : "info";
+            return (
+              <motion.div key={item.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
+                <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md">
+                  {/* Score band */}
+                  <div className={cn("h-1", isCompleted ? "bg-emerald-500" : isPending ? "bg-amber-400" : "bg-sky-400")} />
 
-              return (
-                <ContentCard key={item.id} className="flex h-full flex-col gap-5 border-zinc-200/80 transition-all hover:border-develoi-navy/20 hover:shadow-md">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 space-y-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Badge color={meta.badgeColor} pill>
-                          {item.tool_name || "Ferramenta"}
-                        </Badge>
-                        <Badge color={statusColor} pill>
-                          {item.status || "Em andamento"}
-                        </Badge>
-                        {typeof item.score === "number" && (
-                          <Badge color={item.score >= 70 ? "success" : "warning"} pill>
-                            Score {item.score}
-                          </Badge>
-                        )}
-                      </div>
-
-                      <div>
-                        <h3 className="truncate text-base font-black tracking-tight text-zinc-900">
+                  <div className="flex flex-1 flex-col gap-3 p-4">
+                    {/* Header */}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="mb-1 flex flex-wrap items-center gap-1.5">
+                          <span className="rounded-md bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold text-zinc-600">
+                            {item.tool_name || "Ferramenta"}
+                          </span>
+                          <span className={cn(
+                            "rounded-md px-2 py-0.5 text-[10px] font-semibold",
+                            isCompleted ? "bg-emerald-50 text-emerald-700" :
+                            isPending   ? "bg-amber-50 text-amber-700" :
+                            "bg-sky-50 text-sky-700"
+                          )}>
+                            {item.status || "Em andamento"}
+                          </span>
+                          {typeof item.score === "number" && (
+                            <span className={cn(
+                              "rounded-md px-2 py-0.5 text-[10px] font-bold tabular-nums",
+                              item.score >= 70 ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"
+                            )}>
+                              {item.score} pts
+                            </span>
+                          )}
+                        </div>
+                        <h3 className="truncate text-[13px] font-bold text-zinc-900">
                           {item.candidate_name || "Candidato sem nome"}
                         </h3>
-                        <p className="mt-1 text-xs leading-relaxed text-zinc-500">
-                          {item.job_title || "Aplicação geral"} · {formatDateTime(item.created_at)}
+                        <p className="mt-0.5 flex items-center gap-1 text-[10px] text-zinc-400">
+                          <Clock size={9} /> {item.job_title || "Aplicação geral"} · {formatDateTime(item.created_at)}
                         </p>
+                      </div>
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-develoi-navy/8 text-develoi-navy">
+                        <ResponseIcon size={16} />
                       </div>
                     </div>
 
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-zinc-100 bg-zinc-50 text-develoi-navy">
-                      <ResponseIcon size={18} />
+                    {/* Aurora summary */}
+                    <div className={cn(
+                      "rounded-xl border p-3 text-[11px] leading-relaxed",
+                      hasAnalysis ? "border-sky-100 bg-sky-50/60 text-sky-800" : "border-zinc-100 bg-zinc-50 text-zinc-500 italic"
+                    )}>
+                      {hasAnalysis
+                        ? <><span className="mb-1 block text-[9px] font-bold uppercase tracking-wider text-sky-600">Resumo Aurora</span>{item.ai_summary}</>
+                        : "Sem resumo ainda. Gere a análise para estruturar leitura, score e recomendação."}
+                    </div>
+
+                    {/* Actions */}
+                    <div className="mt-auto grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => fetchResponseDetails(item.id)}
+                        className="flex items-center justify-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-[11px] font-medium text-zinc-600 transition-colors hover:bg-zinc-50"
+                      >
+                        <Eye size={12} /> Ver detalhe
+                      </button>
+                      <button
+                        onClick={() => runAiAnalysis(item.id)}
+                        disabled={isAnalyzingId === item.id}
+                        className={cn(
+                          "flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-[11px] font-semibold transition-colors disabled:opacity-50",
+                          hasAnalysis
+                            ? "border border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50"
+                            : "bg-develoi-navy text-white hover:bg-[#0a1e3a]"
+                        )}
+                      >
+                        {isAnalyzingId === item.id ? <RefreshCw size={11} className="animate-spin" /> : <Wand2 size={12} />}
+                        {hasAnalysis ? "Reprocessar" : "Gerar análise"}
+                      </button>
                     </div>
                   </div>
-
-                  <div className="rounded-2xl border border-zinc-100 bg-zinc-50/80 p-4">
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-400">Resumo Aurora</p>
-                    <p className="mt-2 text-sm leading-relaxed text-zinc-600">
-                      {item.ai_summary || "Ainda sem resumo automático. Gere o parecer para estruturar leitura, score e recomendação."}
-                    </p>
-                  </div>
-
-                  <div className="mt-auto grid gap-2 sm:grid-cols-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      iconLeft={<Eye size={14} />}
-                      onClick={() => fetchResponseDetails(item.id)}
-                    >
-                      Abrir detalhe
-                    </Button>
-
-                    <Button
-                      variant={hasAnalysis ? "outline" : "secondary"}
-                      size="sm"
-                      iconLeft={<Wand2 size={14} />}
-                      onClick={() => runAiAnalysis(item.id)}
-                      loading={isAnalyzingId === item.id}
-                    >
-                      {hasAnalysis ? "Reprocessar IA" : "Gerar análise"}
-                    </Button>
-                  </div>
-                </ContentCard>
-              );
-            })}
-          </div>
-        )}
-      </PanelCard>
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 
@@ -1981,59 +1944,82 @@ export default function HRTools() {
   );
 
   return (
-    <PageWrapper className="min-h-screen bg-zinc-50/60">
-      <div className="space-y-10 px-4 py-10 sm:px-6 lg:px-8">
-        <SectionTitle
-          title="Ferramentas de RH"
-          subtitle={`${currentUnit.name} · ${tools.length} formulários mapeados na unidade`}
-          icon={<ClipboardCheck size={22} />}
-          actions={
-            <div className="flex items-center gap-3">
-              <IconButton
-                variant="outline"
-                className="bg-white"
-                onClick={refreshAll}
-                aria-label="Atualizar painel"
-              >
-                <RefreshCw size={16} />
-              </IconButton>
-              <Button variant="secondary" iconLeft={<Plus size={16} />} onClick={openBlankBuilder}>
-                Novo formulário
-              </Button>
+    <PageWrapper className="min-h-screen bg-[#f8fafc]">
+      <div className="space-y-5 px-4 pb-24 pt-5 sm:px-6">
+
+        {/* ── PAGE HEADER ── */}
+        <div className="relative overflow-hidden rounded-2xl bg-develoi-navy px-5 py-5 sm:px-7">
+          <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-develoi-gold/10 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-12 left-1/3 h-36 w-36 rounded-full bg-violet-500/8 blur-3xl" />
+          <div className="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="mb-1 flex items-center gap-2">
+                <ClipboardCheck size={11} className="text-develoi-gold/70" />
+                <span className="text-[10px] font-medium uppercase tracking-[0.15em] text-white/40">{currentUnit.name}</span>
+              </div>
+              <h1 className="text-[22px] font-black leading-none tracking-tight text-white sm:text-[26px]">
+                Ferramentas de RH
+              </h1>
+              <p className="mt-1.5 text-[11px] font-medium text-white/40">
+                <span className="font-semibold text-white/60">{tools.length}</span> formulários mapeados na unidade
+              </p>
             </div>
-          }
-        />
+            <div className="flex items-center gap-2">
+              <button
+                onClick={refreshAll}
+                title="Atualizar"
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/15 bg-white/8 text-white/50 transition-all hover:bg-white/12 hover:text-white"
+              >
+                <RefreshCw size={13} className={dashboardLoading ? "animate-spin" : ""} />
+              </button>
+              <button
+                onClick={openBlankBuilder}
+                className="flex h-8 items-center gap-1.5 rounded-lg bg-develoi-gold px-4 text-[11px] font-bold text-develoi-navy shadow-lg shadow-develoi-gold/20 transition-all hover:bg-[#d4a83a]"
+              >
+                <Plus size={13} /> Novo formulário
+              </button>
+            </div>
+          </div>
 
-        <ContentCard padding="sm" className="inline-flex w-full flex-wrap gap-2 sm:w-auto">
-          <Button
-            size="sm"
-            variant={activeTab === "tools" ? "secondary" : "ghost"}
-            onClick={() => setActiveTab("tools")}
-          >
-            Dashboard e formulários
-          </Button>
-          <Button
-            size="sm"
-            variant={activeTab === "responses" ? "secondary" : "ghost"}
-            onClick={() => setActiveTab("responses")}
-          >
-            Respostas e análise
-          </Button>
-          <Button
-            size="sm"
-            variant={activeTab === "config" ? "secondary" : "ghost"}
-            onClick={() => setActiveTab("config")}
-          >
-            Biblioteca e padrões
-          </Button>
-        </ContentCard>
+          {/* Stats strip */}
+          <div className="relative z-10 mt-4 flex flex-wrap items-center gap-4 border-t border-white/[0.06] pt-4">
+            {[
+              { label: "Formulários ativos", value: dashboardIndicators.activeForms, color: "text-white" },
+              { label: "Respostas",           value: dashboardIndicators.received,    color: "text-emerald-400" },
+              { label: "Taxa conclusão",      value: `${dashboardIndicators.completionRate}%`, color: "text-sky-300" },
+              { label: "Com DISC",            value: dashboardIndicators.discCount,   color: "text-develoi-gold" },
+            ].map((s, i) => (
+              <div key={i} className="flex items-center gap-2.5">
+                {i > 0 && <span className="h-3 w-px bg-white/10" />}
+                <span className={cn("text-[20px] font-black tabular-nums", s.color)}>{s.value}</span>
+                <span className="text-[10px] font-medium text-white/35">{s.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
 
-        {dashboardLoading && activeTab === "tools" && (
-          <ContentCard className="flex items-center justify-center gap-3 py-10 text-sm font-semibold text-zinc-500">
-            <RefreshCw size={16} className="animate-spin text-develoi-navy" />
-            Carregando métricas do painel...
-          </ContentCard>
-        )}
+        {/* ── TABS ── */}
+        <div className="flex items-center gap-0.5 rounded-xl border border-zinc-200 bg-zinc-50 p-1 w-fit">
+          {([
+            { id: "tools"     as TabId, label: "Formulários",       icon: ClipboardCheck },
+            { id: "responses" as TabId, label: "Respostas",         icon: Mail },
+            { id: "config"    as TabId, label: "Biblioteca",        icon: Layout },
+          ]).map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={cn(
+                "flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-[12px] font-semibold transition-all",
+                activeTab === tab.id
+                  ? "bg-develoi-navy text-white shadow-sm"
+                  : "text-zinc-500 hover:bg-white hover:text-zinc-800"
+              )}
+            >
+              <tab.icon size={13} />
+              {tab.label}
+            </button>
+          ))}
+        </div>
 
         <AnimatePresence mode="wait">
           {activeTab === "tools" && (

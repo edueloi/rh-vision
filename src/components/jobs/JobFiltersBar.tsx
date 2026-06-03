@@ -1,5 +1,5 @@
-import { LayoutGrid, Layers, List, Plus, RefreshCcw, Search } from "lucide-react";
-import { Button, Combobox, ComboboxOption, ContentCard, Input } from "@/src/components/ui";
+import { LayoutGrid, List, RefreshCcw, Search, SlidersHorizontal, X } from "lucide-react";
+import { Combobox, ComboboxOption } from "@/src/components/ui";
 import { cn } from "@/src/lib/utils";
 
 interface JobFiltersValue {
@@ -16,141 +16,150 @@ interface JobFiltersBarProps {
   onRefresh: () => void;
   onImport: () => void;
   onCreate: () => void;
+  canCreate?: boolean;
   className?: string;
 }
 
 const statusOptions: ComboboxOption[] = [
-  { value: "", label: "Todos os status", group: "Status" },
-  { value: "Aberta", label: "Aberta", group: "Status" },
-  { value: "Rascunho", label: "Rascunho", group: "Status" },
-  { value: "Pausada", label: "Pausada", group: "Status" },
-  { value: "Encerrada", label: "Encerrada", group: "Status" },
+  { value: "",            label: "Todos os status",   group: "Status" },
+  { value: "Aberta",      label: "Aberta",             group: "Status" },
+  { value: "Rascunho",    label: "Rascunho",           group: "Status" },
+  { value: "Em Aprovação",label: "Em Aprovação",       group: "Aprovação" },
+  { value: "Pausada",     label: "Pausada",            group: "Status" },
+  { value: "Encerrada",   label: "Encerrada",          group: "Status" },
 ];
 
 const workModelOptions: ComboboxOption[] = [
-  { value: "", label: "Todos os modelos", group: "Modelo de trabalho" },
-  { value: "Presencial", label: "Presencial", group: "Modelo de trabalho" },
-  { value: "Híbrido", label: "Híbrido", group: "Modelo de trabalho" },
-  { value: "Home Office", label: "Home Office", group: "Modelo de trabalho" },
+  { value: "",             label: "Todos os modelos",  group: "Modelo" },
+  { value: "Presencial",   label: "Presencial",        group: "Modelo" },
+  { value: "Híbrido",      label: "Híbrido",           group: "Modelo" },
+  { value: "Home Office",  label: "Home Office",       group: "Modelo" },
 ];
 
+const STATUS_DOT: Record<string, string> = {
+  Aberta:         "bg-emerald-500",
+  Rascunho:       "bg-zinc-400",
+  "Em Aprovação": "bg-amber-400",
+  Pausada:        "bg-orange-400",
+  Encerrada:      "bg-rose-500",
+};
+
 export function JobFiltersBar({
-  filters,
-  onChange,
-  viewMode,
-  onViewModeChange,
-  onRefresh,
-  onImport,
-  onCreate,
-  className,
+  filters, onChange, viewMode, onViewModeChange,
+  onRefresh, canCreate = true, className,
 }: JobFiltersBarProps) {
+  const hasActiveFilters = !!(filters.search || filters.status || filters.workModel);
+  const clearAll = () => onChange({ search: "", status: "", workModel: "" });
+
   return (
-    <ContentCard className={cn("space-y-5 sm:space-y-6", className)}>
-      <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
-          <div className="min-w-0">
-            <p className="text-sm font-black tracking-tight text-zinc-900 sm:text-[15px]">Filtros da listagem</p>
-            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-400">
-              Refine a busca por status, modelo e texto livre
-            </p>
-          </div>
-
-          <div className="hidden h-8 w-px bg-zinc-100 lg:block" />
-
-          <div className="grid grid-cols-2 items-center gap-1 rounded-2xl border border-zinc-200 bg-zinc-50 p-1 sm:inline-grid">
-            <button
-              onClick={() => onViewModeChange("grid")}
-              className={cn(
-                "flex h-9 min-w-[4.25rem] items-center justify-center gap-1 rounded-xl px-3 transition-all",
-                viewMode === "grid"
-                  ? "bg-white text-develoi-navy shadow-sm ring-1 ring-zinc-200"
-                  : "text-zinc-400 hover:text-zinc-600"
-              )}
-              title="Visualização em Grade"
-            >
-              <LayoutGrid size={14} />
-              <span className="text-[10px] font-black uppercase tracking-[0.14em]">Grade</span>
-            </button>
-            <button
-              onClick={() => onViewModeChange("list")}
-              className={cn(
-                "flex h-9 min-w-[4.25rem] items-center justify-center gap-1 rounded-xl px-3 transition-all",
-                viewMode === "list"
-                  ? "bg-white text-develoi-navy shadow-sm ring-1 ring-zinc-200"
-                  : "text-zinc-400 hover:text-zinc-600"
-              )}
-              title="Visualização em Lista"
-            >
-              <List size={14} />
-              <span className="text-[10px] font-black uppercase tracking-[0.14em]">Lista</span>
-            </button>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            iconLeft={<RefreshCcw size={14} />}
-            onClick={onRefresh}
-          >
-            Atualizar
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            iconLeft={<Layers size={14} />}
-            onClick={onImport}
-          >
-            Importar vaga
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            iconLeft={<Plus size={14} />}
-            onClick={onCreate}
-          >
-            Nova vaga
-          </Button>
-        </div>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)]">
-        <Input
-          label="Pesquisar"
-          icon={<Search size={15} />}
-          placeholder="Título, cidade ou departamento"
+    <div className={cn(
+      "flex flex-wrap items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-3 py-2.5 shadow-sm sm:gap-3 sm:px-4",
+      className
+    )}>
+      {/* Search */}
+      <div className="relative flex min-w-[160px] flex-1 items-center">
+        <Search size={13} className="pointer-events-none absolute left-3 text-zinc-400" />
+        <input
+          type="text"
+          placeholder="Pesquisar vaga, cidade…"
           value={filters.search}
-          onChange={(event) => onChange({ ...filters, search: event.target.value })}
-          containerClassName="md:col-span-2 xl:col-span-1"
+          onChange={e => onChange({ ...filters, search: e.target.value })}
+          className="h-8 w-full rounded-lg border border-zinc-200 bg-zinc-50 py-0 pl-8 pr-3 text-[12px] font-medium text-zinc-800 outline-none transition-all placeholder:text-zinc-400 focus:border-develoi-gold/50 focus:bg-white focus:ring-2 focus:ring-develoi-gold/15"
         />
-
-        <div className="space-y-1.5">
-          <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">
-            Status
-          </label>
-          <Combobox
-            options={statusOptions}
-            value={filters.status}
-            onChange={(value) => onChange({ ...filters, status: Array.isArray(value) ? value[0] || "" : value })}
-            placeholder="Todos os status"
-            searchPlaceholder="Buscar status"
-          />
-        </div>
-
-        <div className="space-y-1.5">
-          <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">
-            Modelo de trabalho
-          </label>
-          <Combobox
-            options={workModelOptions}
-            value={filters.workModel}
-            onChange={(value) => onChange({ ...filters, workModel: Array.isArray(value) ? value[0] || "" : value })}
-            placeholder="Todos os modelos"
-            searchPlaceholder="Buscar modelo"
-          />
-        </div>
+        {filters.search && (
+          <button
+            onClick={() => onChange({ ...filters, search: "" })}
+            className="absolute right-2 text-zinc-300 hover:text-zinc-500"
+          >
+            <X size={12} />
+          </button>
+        )}
       </div>
-    </ContentCard>
+
+      {/* Status combobox */}
+      <div className="w-full sm:w-40">
+        <Combobox
+          options={statusOptions}
+          value={filters.status}
+          onChange={v => onChange({ ...filters, status: Array.isArray(v) ? v[0] || "" : v })}
+          placeholder="Status"
+          searchPlaceholder="Buscar status"
+        />
+      </div>
+
+      {/* Work model combobox */}
+      <div className="w-full sm:w-40">
+        <Combobox
+          options={workModelOptions}
+          value={filters.workModel}
+          onChange={v => onChange({ ...filters, workModel: Array.isArray(v) ? v[0] || "" : v })}
+          placeholder="Modelo"
+          searchPlaceholder="Buscar modelo"
+        />
+      </div>
+
+      {/* Active filter pills */}
+      {filters.status && (
+        <span className="flex items-center gap-1.5 rounded-full bg-zinc-100 px-2.5 py-1 text-[10px] font-semibold text-zinc-700">
+          <span className={cn("h-1.5 w-1.5 rounded-full", STATUS_DOT[filters.status] ?? "bg-zinc-400")} />
+          {filters.status}
+          <button onClick={() => onChange({ ...filters, status: "" })} className="text-zinc-400 hover:text-zinc-700">
+            <X size={10} />
+          </button>
+        </span>
+      )}
+      {filters.workModel && (
+        <span className="flex items-center gap-1.5 rounded-full bg-zinc-100 px-2.5 py-1 text-[10px] font-semibold text-zinc-700">
+          {filters.workModel}
+          <button onClick={() => onChange({ ...filters, workModel: "" })} className="text-zinc-400 hover:text-zinc-700">
+            <X size={10} />
+          </button>
+        </span>
+      )}
+      {hasActiveFilters && (
+        <button
+          onClick={clearAll}
+          className="text-[10px] font-semibold text-zinc-400 transition-colors hover:text-rose-500"
+        >
+          Limpar tudo
+        </button>
+      )}
+
+      {/* Spacer */}
+      <div className="flex-1" />
+
+      {/* View mode toggle */}
+      <div className="flex h-8 items-center gap-0.5 rounded-lg border border-zinc-200 bg-zinc-50 p-0.5">
+        <button
+          onClick={() => onViewModeChange("list")}
+          title="Lista"
+          className={cn(
+            "flex h-6 w-7 items-center justify-center rounded-md transition-colors",
+            viewMode === "list" ? "bg-white text-develoi-navy shadow-sm" : "text-zinc-400 hover:text-zinc-600"
+          )}
+        >
+          <List size={13} />
+        </button>
+        <button
+          onClick={() => onViewModeChange("grid")}
+          title="Grade"
+          className={cn(
+            "flex h-6 w-7 items-center justify-center rounded-md transition-colors",
+            viewMode === "grid" ? "bg-white text-develoi-navy shadow-sm" : "text-zinc-400 hover:text-zinc-600"
+          )}
+        >
+          <LayoutGrid size={13} />
+        </button>
+      </div>
+
+      {/* Refresh */}
+      <button
+        onClick={onRefresh}
+        title="Atualizar"
+        className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-400 transition-colors hover:border-zinc-300 hover:bg-white hover:text-zinc-700"
+      >
+        <RefreshCcw size={13} />
+      </button>
+    </div>
   );
 }

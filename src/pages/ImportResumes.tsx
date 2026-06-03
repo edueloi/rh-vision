@@ -392,195 +392,257 @@ export default function ImportResumes() {
   // ─── Render: Dashboard ───────────────────────────────────────────────────────
 
   const renderDashboard = () => (
-    <div className="space-y-8">
-      {/* Stats row */}
-      <StatGrid cols={2} className="md:grid-cols-3 xl:grid-cols-6">
-        <StatCard title="Arquivos" value={stats?.total_files || 0} icon={FileText} delay={0} />
-        <StatCard title="Processados" value={stats?.processed_files || 0} icon={Zap} color="info" delay={0.05} />
-        <StatCard title="Candidatos" value={stats?.created_candidates || 0} icon={Users} color="success" delay={0.1} />
-        <StatCard title="Duplicados" value={stats?.duplicate_files || 0} icon={Copy} color="warning" delay={0.15} />
-        <StatCard title="Erros" value={stats?.error_files || 0} icon={AlertCircle} color="danger" delay={0.2} />
-        <StatCard title="Lotes" value={batches.length} icon={Layers} color="purple" delay={0.25} />
-      </StatGrid>
+    <div className="space-y-5">
+      {/* KPI cards */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+        {[
+          { label: "Arquivos",   value: stats?.total_files || 0,         icon: FileText,     color: "text-develoi-navy", bg: "bg-develoi-navy/8",   bar: "bg-develoi-navy" },
+          { label: "Processados",value: stats?.processed_files || 0,      icon: Zap,          color: "text-sky-600",      bg: "bg-sky-50",           bar: "bg-sky-500" },
+          { label: "Candidatos", value: stats?.created_candidates || 0,   icon: Users,        color: "text-emerald-600",  bg: "bg-emerald-50",       bar: "bg-emerald-500" },
+          { label: "Duplicados", value: stats?.duplicate_files || 0,      icon: Copy,         color: "text-amber-600",    bg: "bg-amber-50",         bar: "bg-amber-400" },
+          { label: "Erros",      value: stats?.error_files || 0,          icon: AlertCircle,  color: "text-rose-600",     bg: "bg-rose-50",          bar: "bg-rose-500" },
+          { label: "Lotes",      value: batches.length,                   icon: Layers,       color: "text-violet-600",   bg: "bg-violet-50",        bar: "bg-violet-500" },
+        ].map((s, i) => (
+          <motion.div key={s.label} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
+            className="group relative overflow-hidden rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md">
+            <div className={cn("absolute -right-4 -top-4 h-14 w-14 rounded-full blur-xl opacity-50", s.bg)} />
+            <div className="relative z-10">
+              <div className={cn("mb-2.5 flex h-8 w-8 items-center justify-center rounded-lg", s.bg)}>
+                <s.icon size={15} className={s.color} />
+              </div>
+              <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-400">{s.label}</p>
+              <p className={cn("text-[26px] font-black leading-none tabular-nums", s.color)}>{s.value}</p>
+              <div className="mt-2.5 h-1 overflow-hidden rounded-full bg-zinc-100">
+                <div className={cn("h-full rounded-full", s.bar)} style={{ width: s.value > 0 ? "70%" : "0%" }} />
+              </div>
+            </div>
+          </motion.div>
+        ))}
+      </div>
 
-      <div className="grid lg:grid-cols-12 gap-8">
+      <div className="grid gap-5 lg:grid-cols-12">
         {/* Batch list */}
-        <div className="lg:col-span-8 space-y-6">
+        <div className="space-y-4 lg:col-span-8">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-xl font-black text-zinc-900 tracking-tighter uppercase">Lotes de Importação</h2>
-              <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mt-0.5">Histórico de processamento estruturado por IA</p>
+              <h2 className="text-[15px] font-bold text-zinc-900">Lotes de Importação</h2>
+              <p className="text-[11px] text-zinc-400">Histórico de processamento estruturado pela Aurora IA</p>
             </div>
+            <button
+              onClick={() => { fetchBatches(); fetchDashboard(); }}
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-400 transition-colors hover:border-zinc-300 hover:bg-white hover:text-zinc-700"
+              title="Atualizar"
+            >
+              <RefreshCw size={13} className={isLoading ? "animate-spin" : ""} />
+            </button>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-3">
             {isLoading ? (
-              [1, 2, 3].map(i => (
-                <div key={i} className="h-28 bg-zinc-100/60 rounded-3xl animate-pulse" />
-              ))
+              [1, 2, 3].map(i => <div key={i} className="h-20 animate-pulse rounded-2xl bg-zinc-100" />)
             ) : batches.length === 0 ? (
-              <EmptyState
-                title="Nenhum lote ainda"
-                description="Clique em '+ Novo Lote' para iniciar sua primeira importação em massa."
-                icon={<Layers size={32} />}
-              />
+              <div className="flex flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-zinc-200 bg-white py-16 shadow-sm">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-100 text-zinc-400">
+                  <Layers size={24} />
+                </div>
+                <div className="text-center">
+                  <p className="text-[14px] font-semibold text-zinc-700">Nenhum lote ainda</p>
+                  <p className="mt-1 text-[12px] text-zinc-400">Clique em "Novo Lote" para importar candidatos em massa.</p>
+                </div>
+                <button onClick={() => setShowNewBatch(true)}
+                  className="flex items-center gap-1.5 rounded-xl bg-develoi-navy px-4 py-2 text-[12px] font-semibold text-white transition-colors hover:bg-[#0a1e3a]">
+                  <Plus size={13} /> Novo Lote
+                </button>
+              </div>
             ) : (
               <AnimatePresence>
-                {batches.map((batch, idx) => (
-                  <motion.div
-                    key={batch.id}
-                    initial={{ opacity: 0, y: 12 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: idx * 0.04 }}
-                    onClick={() => openBatchDetails(batch)}
-                    className="group bg-white border border-zinc-100 rounded-3xl p-5 hover:border-develoi-navy hover:shadow-xl hover:shadow-zinc-200/40 transition-all cursor-pointer flex items-center gap-5"
-                  >
-                    {/* Icon */}
-                    <div className="w-14 h-14 shrink-0 rounded-2xl bg-zinc-50 flex items-center justify-center text-zinc-400 group-hover:bg-develoi-navy group-hover:text-develoi-gold transition-all shadow-inner">
-                      <Layers size={22} />
-                    </div>
+                {batches.map((batch, idx) => {
+                  const isProcessing = (batch.status === "processing" || batch.status === "uploaded") && batch.processed_files < batch.total_files;
+                  const pct = batch.total_files > 0 ? Math.round((batch.processed_files / batch.total_files) * 100) : 0;
+                  return (
+                    <motion.div
+                      key={batch.id}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: idx * 0.03 }}
+                      onClick={() => openBatchDetails(batch)}
+                      className="group cursor-pointer overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition-all hover:-translate-y-0.5 hover:border-develoi-navy/30 hover:shadow-md"
+                    >
+                      {/* Progress bar top */}
+                      {isProcessing && (
+                        <div className="h-0.5 w-full bg-zinc-100">
+                          <motion.div
+                            className="h-full bg-develoi-gold"
+                            initial={{ width: "0%" }}
+                            animate={{ width: `${pct}%` }}
+                            transition={{ duration: 0.5 }}
+                          />
+                        </div>
+                      )}
 
-                    {/* Info */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-3 flex-wrap">
-                        <h4 className="text-sm font-black text-zinc-900 group-hover:text-develoi-gold transition-colors tracking-tight truncate">{batch.name}</h4>
-                        <Badge color={batchStatusColor(batch.status, batch.processed_files, batch.total_files)} size="sm">{batchStatusLabel(batch.status, batch.processed_files, batch.total_files)}</Badge>
-                        {batch.job_title && (
-                          <span className="hidden sm:flex items-center gap-1.5 text-[9px] font-black text-develoi-navy uppercase tracking-widest px-2.5 py-1 bg-develoi-navy/5 rounded-lg border border-develoi-navy/10">
-                            <Briefcase size={10} /> {batch.job_title}
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-3 mt-1.5">
-                        <span className="text-[10px] font-bold text-zinc-400 flex items-center gap-1.5"><Clock size={11} />{new Date(batch.created_at).toLocaleDateString("pt-BR")}</span>
-                        {(batch.status === "processing" || batch.status === "uploaded") && batch.processed_files < batch.total_files && (
-                          <span className="flex items-center gap-1.5 text-[10px] font-black text-develoi-navy animate-pulse">
-                            <Loader2 size={11} className="animate-spin" /> Processando...
-                          </span>
-                        )}
-                      </div>
-                    </div>
+                      <div className="flex items-center gap-4 p-4">
+                        {/* Icon */}
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zinc-50 text-zinc-400 transition-colors group-hover:bg-develoi-navy/8 group-hover:text-develoi-navy">
+                          <Layers size={18} />
+                        </div>
 
-                    {/* Counters */}
-                    <div className="hidden sm:flex items-center gap-6 px-4 border-l border-zinc-100">
-                      <div className="text-center">
-                        <p className="text-base font-black text-zinc-900">{batch.total_files}</p>
-                        <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Arquivos</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-base font-black text-emerald-600">{batch.created_candidates}</p>
-                        <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Gerados</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-base font-black text-rose-500">{batch.error_files}</p>
-                        <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Falhas</p>
-                      </div>
-                    </div>
+                        {/* Info */}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h4 className="truncate text-[13px] font-bold text-zinc-900">{batch.name}</h4>
+                            <span className={cn(
+                              "rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                              batchStatusColor(batch.status, batch.processed_files, batch.total_files) === "success"  ? "bg-emerald-50 text-emerald-700" :
+                              batchStatusColor(batch.status, batch.processed_files, batch.total_files) === "info"     ? "bg-sky-50 text-sky-700" :
+                              batchStatusColor(batch.status, batch.processed_files, batch.total_files) === "danger"   ? "bg-rose-50 text-rose-700" :
+                              "bg-amber-50 text-amber-700"
+                            )}>
+                              {batchStatusLabel(batch.status, batch.processed_files, batch.total_files)}
+                            </span>
+                            {batch.job_title && (
+                              <span className="hidden items-center gap-1 rounded-lg bg-develoi-navy/5 px-2 py-0.5 text-[10px] font-medium text-develoi-navy sm:flex">
+                                <Briefcase size={9} /> {batch.job_title}
+                              </span>
+                            )}
+                            {isProcessing && (
+                              <span className="flex items-center gap-1 text-[10px] font-medium text-sky-600">
+                                <Loader2 size={10} className="animate-spin" /> {pct}%
+                              </span>
+                            )}
+                          </div>
+                          <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[10px] text-zinc-400">
+                            <span className="flex items-center gap-1"><Clock size={9} />{new Date(batch.created_at).toLocaleDateString("pt-BR")}</span>
+                            <span className="h-0.5 w-0.5 rounded-full bg-zinc-300" />
+                            <span>{batch.total_files} arquivo{batch.total_files !== 1 ? "s" : ""}</span>
+                          </div>
+                        </div>
 
-                    {/* Actions */}
-                    <div className="flex items-center gap-2 shrink-0">
-                      <IconButton
-                        onClick={e => { e.stopPropagation(); setDeleteConfirm({ id: batch.id, type: "batch", title: "Excluir este lote?" }); }}
-                        variant="outline"
-                        className="h-10 w-10 rounded-xl border-zinc-100 text-zinc-300 hover:text-rose-500 hover:bg-rose-50 hover:border-rose-100"
-                      >
-                        <Trash2 size={16} />
-                      </IconButton>
-                      <IconButton className="h-10 w-10 rounded-xl bg-zinc-50 group-hover:bg-develoi-gold group-hover:text-white transition-all">
-                        <ChevronRight size={18} />
-                      </IconButton>
-                    </div>
-                  </motion.div>
-                ))}
+                        {/* Counters */}
+                        <div className="hidden shrink-0 items-center gap-5 border-l border-zinc-100 pl-4 sm:flex">
+                          <div className="text-center">
+                            <p className="text-[15px] font-black text-emerald-600 tabular-nums">{batch.created_candidates}</p>
+                            <p className="text-[9px] font-medium text-zinc-400">gerados</p>
+                          </div>
+                          {batch.duplicate_files > 0 && (
+                            <div className="text-center">
+                              <p className="text-[15px] font-black text-amber-500 tabular-nums">{batch.duplicate_files}</p>
+                              <p className="text-[9px] font-medium text-zinc-400">duplic.</p>
+                            </div>
+                          )}
+                          {batch.error_files > 0 && (
+                            <div className="text-center">
+                              <p className="text-[15px] font-black text-rose-500 tabular-nums">{batch.error_files}</p>
+                              <p className="text-[9px] font-medium text-zinc-400">falhas</p>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex shrink-0 items-center gap-1.5" onClick={e => e.stopPropagation()}>
+                          <button
+                            onClick={() => setDeleteConfirm({ id: batch.id, type: "batch", title: "Excluir este lote?" })}
+                            className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-300 transition-colors hover:bg-rose-50 hover:text-rose-500"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-zinc-50 text-zinc-400 transition-colors group-hover:bg-develoi-navy group-hover:text-white">
+                            <ChevronRight size={14} />
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  );
+                })}
               </AnimatePresence>
             )}
           </div>
         </div>
 
         {/* Sidebar */}
-        <div className="lg:col-span-4 space-y-6">
-          {/* CTA Nova Importação */}
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-develoi-navy rounded-3xl p-8 text-white relative overflow-hidden shadow-2xl shadow-develoi-navy/20"
-          >
-            <div className="absolute top-0 right-0 w-48 h-48 bg-develoi-gold/15 rounded-full blur-3xl -mr-24 -mt-24" />
+        <div className="space-y-4 lg:col-span-4">
+          {/* CTA Aurora Engine */}
+          <div className="relative overflow-hidden rounded-2xl bg-develoi-navy p-5">
+            <div className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-develoi-gold/12 blur-3xl" />
+            <div className="pointer-events-none absolute -bottom-8 -left-8 h-28 w-28 rounded-full bg-sky-500/10 blur-3xl" />
             <div className="relative z-10">
-              <div className="w-12 h-12 bg-develoi-gold rounded-2xl flex items-center justify-center mb-5 shadow-lg shadow-develoi-gold/30">
-                <Cpu size={22} className="text-white" />
+              <div className="mb-4 flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-develoi-gold/20 ring-1 ring-develoi-gold/30">
+                  <Cpu size={17} className="text-develoi-gold" />
+                </div>
+                <div>
+                  <p className="text-[13px] font-bold text-white">Aurora Engine</p>
+                  <p className="text-[10px] font-medium text-white/40">IA para extração de currículos</p>
+                </div>
               </div>
-              <h3 className="text-lg font-black tracking-tight mb-1">Aurora Engine</h3>
-              <p className="text-[10px] font-bold text-white/50 uppercase tracking-widest mb-6 leading-relaxed">
-                IA generativa para extração e estruturação de currículos em tempo real
+              <p className="mb-4 text-[11px] leading-relaxed text-white/50">
+                Envie até <span className="font-semibold text-white/70">{capacity.max_files_per_batch} currículos</span> por lote. A IA extrai nome, e-mail, cargo, experiências e skills automaticamente.
               </p>
-              <Button
+              <button
                 onClick={() => setShowNewBatch(true)}
-                className="w-full h-12 bg-develoi-gold text-white hover:bg-white hover:text-develoi-navy rounded-2xl shadow-xl shadow-develoi-gold/20 font-black text-xs uppercase tracking-widest"
-                iconLeft={<Plus size={16} />}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-develoi-gold py-2.5 text-[12px] font-bold text-develoi-navy shadow-lg shadow-develoi-gold/20 transition-all hover:bg-[#d4a83a]"
               >
-                Novo Lote de Importação
-              </Button>
+                <Plus size={14} /> Novo Lote de Importação
+              </button>
             </div>
-          </motion.div>
+          </div>
 
-          {/* Capacidade */}
-          <PanelCard title="Capacidade do Plano" icon={Target} className="border-zinc-100">
-            <div className="space-y-5">
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Arquivos por Lote</span>
-                  <span className="text-sm font-black text-develoi-navy">{capacity.max_files_per_batch}</span>
-                </div>
-                <div className="h-2 bg-zinc-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-develoi-gold rounded-full" style={{ width: "60%" }} />
-                </div>
+          {/* Capacidade do plano */}
+          <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+            <div className="flex items-center gap-2.5 border-b border-zinc-100 px-4 py-3.5">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-develoi-navy/8">
+                <Target size={13} className="text-develoi-navy" />
               </div>
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Tamanho Máx. / Arquivo</span>
-                  <span className="text-sm font-black text-develoi-navy">{capacity.max_file_size_mb} MB</span>
+              <span className="text-[13px] font-bold text-zinc-900">Capacidade do Plano</span>
+            </div>
+            <div className="space-y-4 p-4">
+              {[
+                { label: "Arquivos por lote", value: `${capacity.max_files_per_batch}`,    bar: "bg-develoi-gold",  pct: 60 },
+                { label: "Tamanho máx. / arquivo", value: `${capacity.max_file_size_mb} MB`, bar: "bg-emerald-500", pct: 40 },
+                { label: "Total por lote", value: `${capacity.max_total_size_mb} MB`,       bar: "bg-sky-500",      pct: 50 },
+              ].map(c => (
+                <div key={c.label}>
+                  <div className="mb-1.5 flex items-center justify-between">
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-zinc-400">{c.label}</span>
+                    <span className="text-[13px] font-bold text-zinc-800">{c.value}</span>
+                  </div>
+                  <div className="h-1.5 overflow-hidden rounded-full bg-zinc-100">
+                    <div className={cn("h-full rounded-full", c.bar)} style={{ width: `${c.pct}%` }} />
+                  </div>
                 </div>
-                <div className="h-2 bg-zinc-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-emerald-500 rounded-full" style={{ width: "40%" }} />
-                </div>
-              </div>
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Total por Lote</span>
-                  <span className="text-sm font-black text-develoi-navy">{capacity.max_total_size_mb} MB</span>
-                </div>
-                <div className="h-2 bg-zinc-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-blue-500 rounded-full" style={{ width: "50%" }} />
-                </div>
-              </div>
-              <div className="pt-2 border-t border-zinc-100">
-                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Formatos aceitos:</p>
-                <div className="flex flex-wrap gap-1.5 mt-2">
+              ))}
+              <div className="border-t border-zinc-100 pt-3">
+                <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-zinc-400">Formatos aceitos</p>
+                <div className="flex flex-wrap gap-1.5">
                   {capacity.supported_extensions.map(ext => (
-                    <span key={ext} className="px-2 py-1 bg-zinc-50 border border-zinc-100 rounded-lg text-[9px] font-black text-zinc-500 uppercase">{ext}</span>
+                    <span key={ext} className="rounded-lg border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-[10px] font-semibold text-zinc-500 uppercase">{ext}</span>
                   ))}
                 </div>
               </div>
             </div>
-          </PanelCard>
+          </div>
 
-          {/* Métricas rápidas */}
+          {/* Métricas */}
           {stats && (
-            <PanelCard title="Métricas Gerais" icon={TrendingUp} className="border-zinc-100">
-              <div className="space-y-3">
+            <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+              <div className="flex items-center gap-2.5 border-b border-zinc-100 px-4 py-3.5">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-develoi-navy/8">
+                  <TrendingUp size={13} className="text-develoi-navy" />
+                </div>
+                <span className="text-[13px] font-bold text-zinc-900">Métricas Gerais</span>
+              </div>
+              <div className="divide-y divide-zinc-50 p-1">
                 {[
-                  { label: "Taxa de Sucesso", value: stats.total_files > 0 ? `${Math.round((stats.processed_files / stats.total_files) * 100)}%` : "—", color: "text-emerald-600" },
-                  { label: "Total Processados", value: stats.processed_files || 0, color: "text-develoi-navy" },
-                  { label: "Candidatos Gerados", value: stats.created_candidates || 0, color: "text-develoi-gold" },
+                  { label: "Taxa de sucesso",   value: stats.total_files > 0 ? `${Math.round((stats.processed_files / stats.total_files) * 100)}%` : "—", color: "text-emerald-600" },
+                  { label: "Total processados", value: stats.processed_files || 0, color: "text-develoi-navy" },
+                  { label: "Candidatos gerados",value: stats.created_candidates || 0, color: "text-develoi-gold" },
                 ].map(m => (
-                  <div key={m.label} className="flex items-center justify-between py-2.5 border-b border-zinc-50 last:border-0">
-                    <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">{m.label}</span>
-                    <span className={cn("text-base font-black tracking-tight", m.color)}>{m.value}</span>
+                  <div key={m.label} className="flex items-center justify-between px-3 py-3">
+                    <span className="text-[11px] font-medium text-zinc-500">{m.label}</span>
+                    <span className={cn("text-[16px] font-black tabular-nums", m.color)}>{m.value}</span>
                   </div>
                 ))}
               </div>
-            </PanelCard>
+            </div>
           )}
         </div>
       </div>
@@ -593,15 +655,14 @@ export default function ImportResumes() {
 
   const HowItWorksButton = () => (
     <>
-      <Button
-        variant="outline"
-        size="sm"
-        iconLeft={<HelpCircle size={14} />}
+      <button
+        type="button"
         onClick={() => setShowHelp(true)}
-        className="border-white/20 text-white hover:bg-white/10 hover:border-white/40 rounded-xl"
+        className="flex h-8 items-center gap-1.5 rounded-lg border border-white/15 bg-white/8 px-3 text-[11px] font-medium text-white/70 transition-all hover:bg-white/12 hover:text-white"
       >
-        Como funciona?
-      </Button>
+        <HelpCircle size={13} />
+        <span className="hidden sm:inline">Como funciona?</span>
+      </button>
       <Modal
         open={showHelp}
         onClose={() => setShowHelp(false)}
@@ -672,68 +733,69 @@ export default function ImportResumes() {
     const canCommit = selectedBatch?.status === "completed" || (selectedBatch?.status === "processing" && allDone);
 
     return (
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
-        {/* Header */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-          <div>
-            <div className="flex items-center gap-3 mb-2">
-              <Badge color={batchStatusColor(selectedBatch?.status || "", selectedBatch?.processed_files, selectedBatch?.total_files)} size="sm">{batchStatusLabel(selectedBatch?.status || "", selectedBatch?.processed_files, selectedBatch?.total_files)}</Badge>
-              <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
-                {selectedBatch?.created_at ? new Date(selectedBatch.created_at).toLocaleString("pt-BR") : ""}
-              </span>
-            </div>
-            <h2 className="text-2xl font-black text-zinc-900 tracking-tighter uppercase">{selectedBatch?.name}</h2>
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
+        {/* Actions bar */}
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-zinc-200 bg-white px-4 py-3 shadow-sm">
+          <div className="flex items-center gap-2">
+            <button onClick={handleExportCSV} title="Exportar CSV"
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-200 text-zinc-400 transition-colors hover:border-zinc-300 hover:bg-zinc-50 hover:text-zinc-700">
+              <Download size={14} />
+            </button>
+            <button onClick={() => selectedBatch && openBatchDetails(selectedBatch)} title="Atualizar"
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-200 text-zinc-400 transition-colors hover:border-zinc-300 hover:bg-zinc-50 hover:text-zinc-700">
+              <RefreshCw size={14} />
+            </button>
+            {selectedBatch?.status !== "processing" && (
+              <button
+                onClick={() => { setAddQueue([]); setShowAddFiles(true); }}
+                className="flex h-8 items-center gap-1.5 rounded-lg border border-zinc-200 bg-zinc-50 px-3 text-[12px] font-medium text-zinc-600 transition-colors hover:border-develoi-navy/30 hover:bg-white hover:text-develoi-navy"
+              >
+                <Plus size={13} /> Adicionar CVs
+              </button>
+            )}
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <Button variant="outline" onClick={() => setView("dashboard")} className="h-11 px-5 rounded-2xl border-zinc-200" iconLeft={<ArrowLeft size={16} />}>
-              Voltar
-            </Button>
-            <IconButton onClick={handleExportCSV} variant="outline" className="h-11 w-11 rounded-2xl border-zinc-200">
-              <Download size={18} />
-            </IconButton>
-            <IconButton onClick={() => selectedBatch && openBatchDetails(selectedBatch)} className="h-11 w-11 rounded-2xl bg-zinc-900 text-white hover:bg-develoi-gold">
-              <RefreshCw size={18} />
-            </IconButton>
-            {selectedBatch?.status !== "processing" && (
-              <Button
-                variant="outline"
-                onClick={() => { setAddQueue([]); setShowAddFiles(true); }}
-                className="h-11 px-5 rounded-2xl border-develoi-navy text-develoi-navy hover:bg-develoi-navy hover:text-white"
-                iconLeft={<Plus size={16} />}
-              >
-                Adicionar CVs
-              </Button>
-            )}
-            {canCommit && (
-              <div className="flex items-center gap-3 bg-white p-2 pl-5 rounded-2xl border border-zinc-100 shadow-xl shadow-zinc-200/40">
-                <div>
-                  <p className="text-[8px] font-black uppercase tracking-widest text-zinc-400 mb-0.5">Avaliação Automática</p>
-                  <select
-                    value={autoToolId}
-                    onChange={e => setAutoToolId(e.target.value)}
-                    className="bg-transparent text-[10px] font-black text-develoi-navy outline-none cursor-pointer"
-                  >
-                    <option value="none">Sem avaliação automática</option>
-                    {availableTools.map(t => <option key={t.id} value={t.id}>Enviar {t.name}</option>)}
-                  </select>
-                </div>
-                <div className="w-px h-10 bg-zinc-100" />
-                <Button onClick={() => commitBatch(selectedBatch!.id)} className="h-11 px-6 bg-emerald-600 text-white rounded-xl shadow-lg shadow-emerald-600/20" iconLeft={<CheckCircle2 size={16} />}>
-                  Efetivar Lote
-                </Button>
+          {canCommit && (
+            <div className="flex items-center gap-3">
+              <div>
+                <p className="text-[9px] font-semibold uppercase tracking-wider text-zinc-400">Avaliação automática</p>
+                <select
+                  value={autoToolId}
+                  onChange={e => setAutoToolId(e.target.value)}
+                  className="bg-transparent text-[11px] font-medium text-develoi-navy outline-none cursor-pointer"
+                >
+                  <option value="none">Sem avaliação</option>
+                  {availableTools.map(t => <option key={t.id} value={t.id}>Enviar {t.name}</option>)}
+                </select>
               </div>
-            )}
-          </div>
+              <button
+                onClick={() => commitBatch(selectedBatch!.id)}
+                className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-[12px] font-semibold text-white shadow-sm transition-colors hover:bg-emerald-700"
+              >
+                <CheckCircle2 size={14} /> Efetivar Lote
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Stats */}
-        <StatGrid cols={2} className="lg:grid-cols-4">
-          <StatCard title="Processados" value={selectedBatch?.processed_files || 0} description={`de ${selectedBatch?.total_files || 0}`} icon={Zap} color="info" />
-          <StatCard title="Novos Talentos" value={selectedBatch?.created_candidates || 0} icon={Users} color="success" />
-          <StatCard title="Duplicados" value={selectedBatch?.duplicate_files || 0} icon={Copy} color="warning" />
-          <StatCard title="Falhas" value={selectedBatch?.error_files || 0} icon={AlertCircle} color="danger" />
-        </StatGrid>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {[
+            { label: "Processados",   value: selectedBatch?.processed_files || 0,  sub: `de ${selectedBatch?.total_files || 0}`, color: "text-sky-600",     bg: "bg-sky-50",     bar: "bg-sky-500",     icon: Zap },
+            { label: "Novos Talentos",value: selectedBatch?.created_candidates || 0, sub: "candidatos gerados",                   color: "text-emerald-600", bg: "bg-emerald-50", bar: "bg-emerald-500", icon: Users },
+            { label: "Duplicados",    value: selectedBatch?.duplicate_files || 0,  sub: "identificados",                          color: "text-amber-600",   bg: "bg-amber-50",   bar: "bg-amber-400",   icon: Copy },
+            { label: "Falhas",        value: selectedBatch?.error_files || 0,       sub: "com erro",                               color: "text-rose-600",    bg: "bg-rose-50",    bar: "bg-rose-500",    icon: AlertCircle },
+          ].map((s, i) => (
+            <div key={i} className="overflow-hidden rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
+              <div className={cn("mb-2.5 flex h-8 w-8 items-center justify-center rounded-lg", s.bg)}>
+                <s.icon size={15} className={s.color} />
+              </div>
+              <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-400">{s.label}</p>
+              <p className={cn("text-[26px] font-black leading-none tabular-nums", s.color)}>{s.value}</p>
+              {s.sub && <p className="mt-1 text-[10px] font-medium text-zinc-400">{s.sub}</p>}
+            </div>
+          ))}
+        </div>
 
         {/* Banner: próximo passo → efetivar lote */}
         <AnimatePresence>
@@ -1689,43 +1751,95 @@ export default function ImportResumes() {
   // ─── Root ─────────────────────────────────────────────────────────────────────
 
   return (
-    <PageWrapper>
-      <div className="space-y-8 px-3 py-5 sm:px-5 sm:py-7 lg:px-8 lg:py-10">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          {view === "dashboard" ? (
-            <SectionTitle
-              title="Importar CVs"
-              subtitle="Processamento em massa via Aurora IA — extração e estruturação automática"
-              icon={<Layers size={22} />}
-              actions={
-                <Button onClick={() => setShowNewBatch(true)} iconLeft={<Plus size={16} />}>
-                  Novo Lote
-                </Button>
-              }
-            />
-          ) : (
-            <div className="flex items-center gap-3">
-              <Button variant="outline" iconLeft={<ArrowLeft size={16} />} onClick={() => setView("dashboard")}>
-                Voltar ao Painel
-              </Button>
-              <SectionTitle
-                title={selectedBatch?.name ?? "Detalhes do Lote"}
-                subtitle="Revise e efetive os currículos processados"
-                icon={<Layers size={22} />}
-                className="mb-0"
-              />
+    <PageWrapper className="min-h-screen bg-[#f8fafc]">
+      <div className="space-y-5 px-4 pb-24 pt-5 sm:px-6">
+
+        {/* ── PAGE HEADER ── */}
+        {view === "dashboard" ? (
+          <div className="relative overflow-hidden rounded-2xl bg-develoi-navy px-5 py-5 sm:px-7">
+            <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-develoi-gold/10 blur-3xl" />
+            <div className="pointer-events-none absolute -bottom-12 left-1/3 h-36 w-36 rounded-full bg-sky-500/8 blur-3xl" />
+            <div className="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="mb-1 flex items-center gap-2">
+                  <Users size={11} className="text-develoi-gold/70" />
+                  <span className="text-[10px] font-medium uppercase tracking-[0.15em] text-white/40">Candidatos</span>
+                </div>
+                <h1 className="text-[22px] font-black leading-none tracking-tight text-white sm:text-[26px]">
+                  Importar Lote de Candidatos
+                </h1>
+                <p className="mt-1.5 text-[11px] font-medium text-white/40">
+                  Processamento em massa via Aurora IA — extração e estruturação automática
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <HowItWorksButton />
+                <button
+                  onClick={() => setShowNewBatch(true)}
+                  className="flex h-8 items-center gap-1.5 rounded-lg bg-develoi-gold px-4 text-[11px] font-bold text-develoi-navy shadow-lg shadow-develoi-gold/20 transition-all hover:bg-[#d4a83a]"
+                >
+                  <Plus size={13} /> Novo Lote
+                </button>
+              </div>
             </div>
-          )}
-        </div>
+
+            {/* Stats strip */}
+            {stats && (
+              <div className="relative z-10 mt-4 flex flex-wrap items-center gap-4 border-t border-white/[0.06] pt-4">
+                {[
+                  { label: "Arquivos",    value: stats.total_files || 0,         color: "text-white" },
+                  { label: "Candidatos",  value: stats.created_candidates || 0,  color: "text-emerald-400" },
+                  { label: "Erros",       value: stats.error_files || 0,          color: stats.error_files > 0 ? "text-rose-300" : "text-white" },
+                  { label: "Lotes",       value: batches.length,                  color: "text-white" },
+                ].map((s, i) => (
+                  <div key={i} className="flex items-center gap-2.5">
+                    {i > 0 && <span className="h-3 w-px bg-white/10" />}
+                    <span className={cn("text-[20px] font-black tabular-nums", s.color)}>{s.value}</span>
+                    <span className="text-[10px] font-medium text-white/35">{s.label}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          /* Details header */
+          <div className="relative overflow-hidden rounded-2xl bg-develoi-navy px-5 py-5 sm:px-7">
+            <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-develoi-gold/10 blur-3xl" />
+            <div className="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setView("dashboard")}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/15 text-white/60 transition-colors hover:bg-white/10 hover:text-white"
+                >
+                  <ArrowLeft size={16} />
+                </button>
+                <div>
+                  <div className="mb-1 flex items-center gap-2">
+                    <Badge color={batchStatusColor(selectedBatch?.status || "", selectedBatch?.processed_files, selectedBatch?.total_files)} size="sm">
+                      {batchStatusLabel(selectedBatch?.status || "", selectedBatch?.processed_files, selectedBatch?.total_files)}
+                    </Badge>
+                    <span className="text-[10px] text-white/30">
+                      {selectedBatch?.created_at ? new Date(selectedBatch.created_at).toLocaleString("pt-BR") : ""}
+                    </span>
+                  </div>
+                  <h1 className="text-[20px] font-black leading-none tracking-tight text-white sm:text-[24px]">
+                    {selectedBatch?.name ?? "Detalhes do Lote"}
+                  </h1>
+                  <p className="mt-1 text-[11px] font-medium text-white/40">Revise e efetive os currículos processados</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Content */}
         <AnimatePresence mode="wait">
           <motion.div
             key={view}
-            initial={{ opacity: 0, y: 16 }}
+            initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -16 }}
-            transition={{ duration: 0.25, ease: "easeOut" }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
           >
             {view === "dashboard" && renderDashboard()}
             {view === "details" && renderDetails()}

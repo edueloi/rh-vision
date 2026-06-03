@@ -1,6 +1,6 @@
-import React from "react";
-import { Table as TableIcon } from "lucide-react";
-import { PanelCard, Badge } from "@/src/components/ui";
+import { Building2 } from "lucide-react";
+import { Badge } from "./Badge";
+import { PanelCard } from "./PanelCard";
 
 interface UnitSummary {
   id: string;
@@ -15,39 +15,37 @@ interface UnitSummaryTableProps {
 }
 
 export function UnitSummaryTable({ summary }: UnitSummaryTableProps) {
-  if (!summary || summary.length === 0) return null;
+  if (!summary || summary.length <= 1) {
+    return null;
+  }
 
   return (
-    <PanelCard title="Resumo por Unidade" icon={TableIcon} description="Visão consolidada do ecossistema por unidade de negócio">
-      <div className="overflow-x-auto">
-        <table className="w-full text-left">
+    <PanelCard title="Resumo por Unidade" icon={Building2} description="Desempenho consolidado por unidade">
+      <div className="-mx-4 overflow-x-auto sm:-mx-6">
+        <table className="w-full min-w-[480px] text-left">
           <thead>
-            <tr className="border-b border-zinc-100 dark:border-white/5">
-              <th className="py-4 text-[9px] font-black uppercase tracking-widest text-zinc-400 dark:text-white/30">Unidade</th>
-              <th className="py-4 text-[9px] font-black uppercase tracking-widest text-zinc-400 dark:text-white/30">Vagas Ativas</th>
-              <th className="py-4 text-[9px] font-black uppercase tracking-widest text-zinc-400 dark:text-white/30">Candidatos</th>
-              <th className="py-4 text-[9px] font-black uppercase tracking-widest text-zinc-400 dark:text-white/30">Contratações</th>
-              <th className="py-4 text-[9px] font-black uppercase tracking-widest text-zinc-400 dark:text-white/30">Status</th>
+            <tr className="border-b border-zinc-100">
+              {["Unidade", "Vagas Ativas", "Candidatos", "Contratações", "Status"].map((header) => (
+                <th key={header} className="px-4 py-3 text-[9px] font-black uppercase tracking-widest text-zinc-400 sm:px-6">
+                  {header}
+                </th>
+              ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-zinc-50 dark:divide-white/5">
+
+          <tbody className="divide-y divide-zinc-50">
             {summary.map((unit) => (
-              <tr key={unit.id} className="group hover:bg-zinc-50 dark:hover:bg-white/5 transition-colors">
-                <td className="py-4">
-                  <p className="text-xs font-black text-zinc-900 dark:text-white">{unit.name}</p>
-                  <p className="text-[9px] font-bold text-zinc-400 dark:text-white/40 uppercase tracking-widest">ID: {unit.id}</p>
+              <tr key={unit.id} className="transition-colors hover:bg-zinc-50">
+                <td className="px-4 py-3 sm:px-6">
+                  <p className="text-[11px] font-black text-zinc-900">{unit.name}</p>
                 </td>
-                <td className="py-4">
-                  <span className="text-xs font-bold text-zinc-600 dark:text-white/60">{unit.active_jobs}</span>
-                </td>
-                <td className="py-4">
-                  <span className="text-xs font-bold text-zinc-600 dark:text-white/60">{unit.total_candidates}</span>
-                </td>
-                <td className="py-4">
-                  <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">+{unit.hires}</span>
-                </td>
-                <td className="py-4">
-                  <Badge color="success" size="sm">Ativa</Badge>
+                <td className="px-4 py-3 text-[11px] font-bold text-zinc-600 sm:px-6">{unit.active_jobs}</td>
+                <td className="px-4 py-3 text-[11px] font-bold text-zinc-600 sm:px-6">{unit.total_candidates}</td>
+                <td className="px-4 py-3 text-[11px] font-bold text-emerald-600 sm:px-6">+{unit.hires}</td>
+                <td className="px-4 py-3 sm:px-6">
+                  <Badge color="success" size="sm">
+                    Ativa
+                  </Badge>
                 </td>
               </tr>
             ))}

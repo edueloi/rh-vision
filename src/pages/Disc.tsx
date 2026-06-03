@@ -167,53 +167,69 @@ function ProfileBadge({ profile, size = "md" }: { profile?: string; size?: "sm" 
 function DiscCard({ result, onOpen }: { result: DiscResult; onOpen: () => void }) {
   const letter = getProfileLetter(result.predominant_profile);
   const cfg = DISC_COLORS[letter] || DISC_COLORS.D;
-  const total = (result.disc_d || 0) + (result.disc_i || 0) + (result.disc_s || 0) + (result.disc_c || 0);
-  const hasScores = total > 0;
+  const scores = { D: result.disc_d || 0, I: result.disc_i || 0, S: result.disc_s || 0, C: result.disc_c || 0 };
+  const hasScores = Object.values(scores).some(v => v > 0);
+  const dominantScore = Math.max(...Object.values(scores));
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="bg-white rounded-2xl border border-zinc-200 p-4 hover:border-zinc-300 hover:shadow-sm transition-all cursor-pointer"
+    <div
       onClick={onOpen}
+      className="group cursor-pointer overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition-all hover:-translate-y-0.5 hover:border-develoi-navy/20 hover:shadow-md"
     >
-      <div className="flex items-center gap-3">
-        <ProfileBadge profile={result.predominant_profile} size="md" />
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap mb-0.5">
-            <h3 className="text-sm font-black text-zinc-900 truncate">{result.full_name}</h3>
+      {/* Color band from dominant profile */}
+      <div className={cn("h-0.5", cfg.bar)} />
+
+      <div className="flex items-center gap-4 p-4">
+        {/* Profile avatar */}
+        <div className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border-2 text-[16px] font-black", cfg.bg, cfg.border, cfg.text)}>
+          {letter}
+        </div>
+
+        {/* Info */}
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-1.5 mb-0.5">
+            <h3 className="truncate text-[13px] font-bold text-zinc-900">{result.full_name}</h3>
             {result.predominant_profile && (
-              <span className={cn("text-[9px] font-black uppercase tracking-wide px-2 py-0.5 rounded-full border", cfg.bg, cfg.border, cfg.text)}>
+              <span className={cn("shrink-0 rounded-md px-2 py-0.5 text-[10px] font-semibold border", cfg.bg, cfg.border, cfg.text)}>
                 {cfg.label}
               </span>
             )}
           </div>
-          <p className="text-[10px] text-zinc-400 font-medium truncate">{result.email}</p>
-          {result.city && (
-            <p className="text-[10px] text-zinc-400 font-medium">{result.city}, {result.state}</p>
-          )}
+          <div className="flex flex-wrap items-center gap-2 text-[10px] text-zinc-400">
+            {result.email && <span className="truncate">{result.email}</span>}
+            {result.city && (
+              <>
+                <span className="h-0.5 w-0.5 shrink-0 rounded-full bg-zinc-300" />
+                <span>{result.city}, {result.state}</span>
+              </>
+            )}
+          </div>
         </div>
 
+        {/* DISC mini bars */}
         {hasScores && (
-          <div className="hidden sm:flex items-center gap-1.5 shrink-0">
-            {(["D", "I", "S", "C"] as const).map((l) => {
-              const val = { D: result.disc_d, I: result.disc_i, S: result.disc_s, C: result.disc_c }[l] || 0;
+          <div className="hidden shrink-0 items-end gap-1.5 sm:flex">
+            {(["D", "I", "S", "C"] as const).map(l => {
+              const val = scores[l];
               const c2 = DISC_COLORS[l];
+              const isDominant = val === dominantScore && val > 0;
               return (
                 <div key={l} className="flex flex-col items-center gap-0.5">
-                  <div className="w-5 h-12 bg-zinc-100 rounded-full overflow-hidden flex items-end">
-                    <div className={cn("w-full rounded-full transition-all", c2.bar)} style={{ height: `${val}%` }} />
+                  {isDominant && <span className={cn("text-[7px] font-bold", c2.text)}>▲</span>}
+                  <div className={cn("w-5 h-10 rounded-lg overflow-hidden flex items-end", isDominant ? c2.bg : "bg-zinc-100")}>
+                    <div className={cn("w-full rounded-sm transition-all", c2.bar)} style={{ height: `${val}%` }} />
                   </div>
-                  <span className="text-[8px] font-black text-zinc-400">{l}</span>
+                  <span className="text-[8px] font-bold text-zinc-400">{l}</span>
+                  <span className={cn("text-[8px] font-semibold tabular-nums", isDominant ? c2.text : "text-zinc-400")}>{val}%</span>
                 </div>
               );
             })}
           </div>
         )}
 
-        <ChevronRight size={14} className="text-zinc-300 shrink-0" />
+        <ChevronRight size={14} className="shrink-0 text-zinc-300 transition-transform group-hover:translate-x-0.5 group-hover:text-zinc-500" />
       </div>
-    </motion.div>
+    </div>
   );
 }
 
@@ -750,172 +766,233 @@ export default function Disc() {
   } : { D: 0, I: 0, S: 0, C: 0 };
 
   return (
-    <PageWrapper className="min-h-screen bg-zinc-50/60">
-      <div className="space-y-8 px-3 py-5 sm:space-y-10 sm:px-5 sm:py-7 lg:space-y-12 lg:px-8 lg:py-10">
+    <PageWrapper className="min-h-screen bg-[#f8fafc]">
+      <div className="space-y-5 px-4 pb-24 pt-5 sm:px-6">
 
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <SectionTitle
-            title="Avaliações DISC"
-            subtitle={`${currentUnit.name} · Perfis comportamentais e análises completas`}
-            icon={<Brain size={22} />}
-          />
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" iconLeft={<RefreshCw size={13} />} onClick={fetchResults}>
-              Atualizar
-            </Button>
-            <Button size="sm" iconLeft={<Plus size={13} />} onClick={() => setShowCreateLink(true)}>
-              Criar link DISC
-            </Button>
+        {/* ── PAGE HEADER ── */}
+        <div className="relative overflow-hidden rounded-2xl bg-develoi-navy px-5 py-5 sm:px-7">
+          <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-develoi-gold/10 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-12 left-1/4 h-36 w-36 rounded-full bg-violet-500/8 blur-3xl" />
+          <div className="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="mb-1 flex items-center gap-2">
+                <Brain size={11} className="text-develoi-gold/70" />
+                <span className="text-[10px] font-medium uppercase tracking-[0.15em] text-white/40">{currentUnit.name}</span>
+              </div>
+              <h1 className="text-[22px] font-black leading-none tracking-tight text-white sm:text-[26px]">
+                Avaliações DISC
+              </h1>
+              <p className="mt-1.5 text-[11px] font-medium text-white/40">
+                Perfis comportamentais e análises completas
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button onClick={fetchResults} title="Atualizar"
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/15 bg-white/8 text-white/50 transition-all hover:bg-white/12 hover:text-white">
+                <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
+              </button>
+              <button onClick={() => setShowCreateLink(true)}
+                className="flex h-8 items-center gap-1.5 rounded-lg bg-develoi-gold px-4 text-[11px] font-bold text-develoi-navy shadow-lg shadow-develoi-gold/20 transition-all hover:bg-[#d4a83a]">
+                <Plus size={13} /> Criar link DISC
+              </button>
+            </div>
+          </div>
+
+          {/* Stats strip */}
+          <div className="relative z-10 mt-4 flex flex-wrap items-center gap-4 border-t border-white/[0.06] pt-4">
+            {[
+              { label: "Avaliações",    value: results.length,                                                          color: "text-white" },
+              { label: "Perfil dominante", value: dominantProfile ? `${dominantProfile[0]} – ${DISC_COLORS[dominantProfile[0]]?.label}` : "—", color: "text-develoi-gold" },
+              ...Object.entries(profileCounts).map(([l, n]) => ({
+                label: DISC_COLORS[l]?.label ?? l,
+                value: n,
+                color: l === "D" ? "text-red-300" : l === "I" ? "text-amber-300" : l === "S" ? "text-emerald-300" : "text-sky-300",
+              })),
+            ].slice(0, 4).map((s, i) => (
+              <div key={i} className="flex items-center gap-2.5">
+                {i > 0 && <span className="h-3 w-px bg-white/10" />}
+                <span className={cn("text-[18px] font-black tabular-nums", s.color)}>{s.value}</span>
+                <span className="text-[10px] font-medium text-white/35">{s.label}</span>
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* Stats */}
+        {/* ── PROFILE KPI CARDS (filtráveis) ── */}
         {results.length > 0 && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {(["D", "I", "S", "C"] as const).map(l => {
               const cfg = DISC_COLORS[l];
               const count = profileCounts[l] || 0;
               const pct = results.length > 0 ? Math.round((count / results.length) * 100) : 0;
+              const isActive = profileFilter === l;
               return (
                 <button
                   key={l}
-                  onClick={() => setProfileFilter(profileFilter === l ? "all" : l)}
+                  onClick={() => setProfileFilter(isActive ? "all" : l)}
                   className={cn(
-                    "bg-white rounded-2xl border p-4 text-left transition-all hover:shadow-sm",
-                    profileFilter === l ? `${cfg.border} ${cfg.bg}` : "border-zinc-200 hover:border-zinc-300"
+                    "group relative overflow-hidden rounded-2xl border p-4 text-left transition-all hover:-translate-y-0.5 hover:shadow-md",
+                    isActive ? `${cfg.border} ${cfg.bg} shadow-sm` : "border-zinc-200 bg-white"
                   )}
                 >
-                  <div className="flex items-center justify-between mb-2">
-                    <span className={cn("text-lg font-black", cfg.text)}>{l}</span>
-                    <span className={cn("text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full border", cfg.bg, cfg.border, cfg.text)}>
-                      {pct}%
-                    </span>
+                  {/* Glow */}
+                  <div className={cn("absolute -right-4 -top-4 h-14 w-14 rounded-full blur-xl opacity-40", cfg.bar)} />
+                  <div className="relative z-10">
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className={cn("text-[18px] font-black leading-none", cfg.text)}>{l}</span>
+                      <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-bold", cfg.bg, cfg.text, "ring-1", cfg.border.replace("border-", "ring-"))}>
+                        {pct}%
+                      </span>
+                    </div>
+                    <p className={cn("text-[26px] font-black leading-none tabular-nums", cfg.text)}>{count}</p>
+                    <p className="mt-1 text-[10px] font-medium text-zinc-500">{cfg.label}</p>
+                    <div className="mt-2.5 h-1 overflow-hidden rounded-full bg-zinc-100">
+                      <motion.div
+                        className={cn("h-full rounded-full", cfg.bar)}
+                        initial={{ width: 0 }}
+                        animate={{ width: `${pct}%` }}
+                        transition={{ duration: 0.5 }}
+                      />
+                    </div>
                   </div>
-                  <p className={cn("text-xl font-black", cfg.text)}>{count}</p>
-                  <p className="text-[10px] font-bold text-zinc-400 mt-0.5">{cfg.label}</p>
-                  <div className="mt-2 h-1 bg-zinc-100 rounded-full overflow-hidden">
-                    <div className={cn("h-full rounded-full transition-all", cfg.bar)} style={{ width: `${pct}%` }} />
-                  </div>
+                  {isActive && (
+                    <div className="absolute bottom-2 right-2 flex h-5 w-5 items-center justify-center rounded-full bg-develoi-navy">
+                      <CheckCircle2 size={11} className="text-white" />
+                    </div>
+                  )}
                 </button>
               );
             })}
           </div>
         )}
 
-        {/* Gráfico médio geral (quando há dados) */}
+        {/* ── GRÁFICO MÉDIO ── */}
         {results.length > 0 && (
-          <ContentCard className="overflow-visible">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
-              <div>
-                <p className="text-[9px] font-black uppercase tracking-widest text-zinc-400 mb-1 flex items-center gap-1.5">
-                  <BarChart3 size={11} /> Média geral do grupo ({results.length} candidatos)
-                </p>
-                <DiscBarChart d={avgScores.D} i={avgScores.I} s={avgScores.S} c={avgScores.C} />
+          <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+            <div className="flex items-center gap-2.5 border-b border-zinc-100 px-4 py-3.5">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-develoi-navy/8">
+                <BarChart3 size={13} className="text-develoi-navy" />
               </div>
               <div>
-                <p className="text-[9px] font-black uppercase tracking-widest text-zinc-400 mb-1 flex items-center gap-1.5">
-                  <Target size={11} /> Radar médio
-                </p>
+                <span className="text-[13px] font-bold text-zinc-900">Perfil médio do grupo</span>
+                <p className="text-[10px] text-zinc-400">{results.length} candidatos avaliados</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 gap-0 divide-y divide-zinc-100 p-4 md:grid-cols-2 md:divide-x md:divide-y-0">
+              <div className="pb-4 md:pb-0 md:pr-5">
+                <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Barras por dimensão</p>
+                <DiscBarChart d={avgScores.D} i={avgScores.I} s={avgScores.S} c={avgScores.C} />
+              </div>
+              <div className="pt-4 md:pl-5 md:pt-0">
+                <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Radar do grupo</p>
                 <DiscRadarChart d={avgScores.D} i={avgScores.I} s={avgScores.S} c={avgScores.C} />
               </div>
             </div>
             {dominantProfile && (
-              <div className={cn("mt-4 flex items-center gap-3 rounded-2xl border p-3",
+              <div className={cn("mx-4 mb-4 flex items-center gap-3 rounded-xl border p-3",
                 DISC_COLORS[dominantProfile[0]]?.bg || "bg-zinc-50",
                 DISC_COLORS[dominantProfile[0]]?.border || "border-zinc-200"
               )}>
-                <Lightbulb size={14} className={DISC_COLORS[dominantProfile[0]]?.text || "text-zinc-500"} />
-                <p className="text-xs font-medium text-zinc-700">
-                  O perfil predominante do grupo é{" "}
-                  <span className={cn("font-black", DISC_COLORS[dominantProfile[0]]?.text)}>
+                <Lightbulb size={13} className={DISC_COLORS[dominantProfile[0]]?.text || "text-zinc-500"} />
+                <p className="text-[12px] font-medium text-zinc-700">
+                  Perfil predominante:{" "}
+                  <span className={cn("font-bold", DISC_COLORS[dominantProfile[0]]?.text)}>
                     {DISC_COLORS[dominantProfile[0]]?.label} ({dominantProfile[0]})
                   </span>{" "}
-                  com {dominantProfile[1]} candidatos — {DISC_COLORS[dominantProfile[0]]?.desc}.
+                  com {dominantProfile[1]} candidato{dominantProfile[1] !== 1 ? "s" : ""} — {DISC_COLORS[dominantProfile[0]]?.desc}.
                 </p>
               </div>
             )}
-          </ContentCard>
+          </div>
         )}
 
-        {/* Filtros */}
-        <ContentCard className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-            <div className="flex-1 relative">
-              <input
-                type="text"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="Buscar por nome ou e-mail..."
-                className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-zinc-200 text-xs font-medium outline-none focus:border-develoi-gold/60 focus:ring-2 focus:ring-develoi-gold/20 transition-all bg-white"
-              />
-              <Target size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
-            </div>
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <button
-                onClick={() => setProfileFilter("all")}
-                className={cn("text-[10px] font-black uppercase tracking-wide px-3 py-1.5 rounded-full border transition-all",
-                  profileFilter === "all" ? "bg-develoi-navy text-white border-develoi-navy" : "border-zinc-200 text-zinc-500 hover:border-zinc-300"
-                )}
-              >
-                Todos
-              </button>
-              {(["D", "I", "S", "C"] as const).map(l => {
-                const cfg = DISC_COLORS[l];
-                return (
-                  <button
-                    key={l}
-                    onClick={() => setProfileFilter(profileFilter === l ? "all" : l)}
-                    className={cn("text-[10px] font-black uppercase tracking-wide px-3 py-1.5 rounded-full border transition-all",
-                      profileFilter === l ? `${cfg.bar.replace("bg-", "bg-")} text-white ${cfg.bar.replace("bg-", "border-")}` :
-                        `${cfg.bg} ${cfg.border} ${cfg.text} hover:opacity-80`
-                    )}
-                  >
-                    {l} — {cfg.label}
-                  </button>
-                );
-              })}
-            </div>
+        {/* ── FILTER BAR ── */}
+        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-3 py-2.5 shadow-sm sm:gap-3 sm:px-4">
+          <div className="relative flex min-w-[180px] flex-1 items-center">
+            <Target size={13} className="pointer-events-none absolute left-3 text-zinc-400" />
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Buscar por nome ou e-mail…"
+              className="h-8 w-full rounded-lg border border-zinc-200 bg-zinc-50 pl-8 pr-3 text-[12px] font-medium text-zinc-800 outline-none transition-all placeholder:text-zinc-400 focus:border-develoi-gold/50 focus:bg-white focus:ring-2 focus:ring-develoi-gold/15"
+            />
           </div>
-        </ContentCard>
 
-        {/* Lista */}
-        <div className="space-y-2 pb-20">
+          {/* Profile filter pills */}
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setProfileFilter("all")}
+              className={cn("rounded-lg px-3 py-1.5 text-[11px] font-semibold transition-all",
+                profileFilter === "all" ? "bg-develoi-navy text-white shadow-sm" : "border border-zinc-200 bg-zinc-50 text-zinc-500 hover:bg-zinc-100"
+              )}
+            >
+              Todos
+            </button>
+            {(["D", "I", "S", "C"] as const).map(l => {
+              const cfg = DISC_COLORS[l];
+              const isActive = profileFilter === l;
+              return (
+                <button key={l}
+                  onClick={() => setProfileFilter(isActive ? "all" : l)}
+                  className={cn(
+                    "rounded-lg px-3 py-1.5 text-[11px] font-semibold transition-all",
+                    isActive ? `${cfg.bar} text-white shadow-sm` : `${cfg.bg} ${cfg.text} border ${cfg.border} hover:opacity-80`
+                  )}
+                >
+                  {l}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="flex-1" />
+          <span className="text-[11px] text-zinc-400">{filtered.length} resultado{filtered.length !== 1 ? "s" : ""}</span>
+        </div>
+
+        {/* ── LISTA ── */}
+        <div className="space-y-2.5 pb-4">
           {loading && (
-            <div className="flex items-center justify-center py-16">
-              <Loader2 size={28} className="animate-spin text-develoi-navy" />
+            <div className="flex flex-col items-center justify-center gap-3 py-16">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-develoi-navy/5">
+                <Loader2 size={20} className="animate-spin text-develoi-navy" />
+              </div>
+              <p className="text-[11px] font-medium text-zinc-400">Carregando avaliações…</p>
             </div>
           )}
 
           {!loading && results.length === 0 && (
-            <PanelCard padding={false}>
-              <EmptyState
-                icon={<Brain size={40} />}
-                title="Nenhuma avaliação DISC"
-                description="Crie um link DISC e envie para os candidatos preencherem. Os resultados aparecerão aqui após a análise."
-                className="py-20"
-                action={
-                  <Button size="sm" iconLeft={<Plus size={13} />} onClick={() => setShowCreateLink(true)}>
-                    Criar link DISC
-                  </Button>
-                }
-              />
-            </PanelCard>
+            <div className="flex flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-zinc-200 bg-white py-20 shadow-sm">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-100 text-zinc-400">
+                <Brain size={26} />
+              </div>
+              <div className="text-center">
+                <p className="text-[14px] font-semibold text-zinc-700">Nenhuma avaliação DISC ainda</p>
+                <p className="mt-1 max-w-xs text-[12px] text-zinc-400">
+                  Crie um link DISC e envie para candidatos preencherem. Os resultados aparecerão aqui.
+                </p>
+              </div>
+              <button onClick={() => setShowCreateLink(true)}
+                className="flex items-center gap-1.5 rounded-xl bg-develoi-navy px-4 py-2 text-[12px] font-semibold text-white transition-colors hover:bg-[#0a1e3a]">
+                <Plus size={13} /> Criar link DISC
+              </button>
+            </div>
           )}
 
           {!loading && results.length > 0 && filtered.length === 0 && (
-            <PanelCard padding={false}>
-              <EmptyState
-                icon={<Target size={40} />}
-                title="Nenhum resultado encontrado"
-                description="Tente ajustar os filtros de busca."
-                className="py-16"
-              />
-            </PanelCard>
+            <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-zinc-200 bg-white py-14 shadow-sm">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-zinc-100 text-zinc-400">
+                <Target size={22} />
+              </div>
+              <div className="text-center">
+                <p className="text-[13px] font-semibold text-zinc-600">Nenhum resultado</p>
+                <p className="mt-1 text-[11px] text-zinc-400">Ajuste os filtros de busca.</p>
+              </div>
+            </div>
           )}
 
           {!loading && filtered.map((result, idx) => (
-            <motion.div key={result.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.03 }}>
+            <motion.div key={result.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.025 }}>
               <DiscCard result={result} onOpen={() => setSelectedId(result.id)} />
             </motion.div>
           ))}

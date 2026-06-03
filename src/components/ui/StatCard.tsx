@@ -3,63 +3,77 @@ import { motion } from "motion/react";
 import { ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { cn } from "@/src/lib/utils";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// StatCard — Design System
-//
-// Responsivo:
-//  • Mobile (2 colunas): valor grande, ícone menor, menos padding
-//  • Tablet+ (4 colunas): versão completa com hover animado
-//
-// Variantes de cor de ícone: default (navy) | success | info | danger | purple | warning
-// ─────────────────────────────────────────────────────────────────────────────
-
 type StatCardColor = "default" | "success" | "info" | "danger" | "purple" | "warning" | "navy" | "red" | "gold";
 
-const colorMap: Record<StatCardColor, { wrap: string; icon: string; glow: string }> = {
+const colorMap: Record<StatCardColor, {
+  iconBg: string;
+  iconText: string;
+  accent: string;
+  glow: string;
+  bar: string;
+}> = {
   default: {
-    wrap: "bg-develoi-navy/5 border-develoi-navy/10 group-hover:bg-develoi-navy group-hover:border-develoi-navy",
-    icon: "text-develoi-navy group-hover:text-white",
-    glow: "bg-develoi-navy/5",
+    iconBg: "bg-develoi-navy/8 ring-1 ring-develoi-navy/12",
+    iconText: "text-develoi-navy",
+    accent: "text-develoi-navy",
+    glow: "from-develoi-navy/5",
+    bar: "bg-develoi-navy",
   },
   navy: {
-    wrap: "bg-develoi-navy/5 border-develoi-navy/10 group-hover:bg-develoi-navy group-hover:border-develoi-navy",
-    icon: "text-develoi-navy group-hover:text-white",
-    glow: "bg-develoi-navy/5",
+    iconBg: "bg-develoi-navy/8 ring-1 ring-develoi-navy/12",
+    iconText: "text-develoi-navy",
+    accent: "text-develoi-navy",
+    glow: "from-develoi-navy/5",
+    bar: "bg-develoi-navy",
   },
   gold: {
-    wrap: "bg-develoi-gold/5 border-develoi-gold/10 group-hover:bg-develoi-gold group-hover:border-develoi-gold",
-    icon: "text-develoi-gold group-hover:text-white",
-    glow: "bg-develoi-gold/5",
-  },
-  red: {
-    wrap: "bg-red-50 border-red-100 group-hover:bg-red-500 group-hover:border-red-500",
-    icon: "text-red-600 group-hover:text-white",
-    glow: "bg-red-500/5",
+    iconBg: "bg-develoi-gold/10 ring-1 ring-develoi-gold/15",
+    iconText: "text-develoi-gold",
+    accent: "text-develoi-gold",
+    glow: "from-develoi-gold/8",
+    bar: "bg-develoi-gold",
   },
   success: {
-    wrap: "bg-emerald-50 border-emerald-100 group-hover:bg-emerald-500 group-hover:border-emerald-500",
-    icon: "text-emerald-600 group-hover:text-white",
-    glow: "bg-emerald-500/5",
+    iconBg: "bg-emerald-50 ring-1 ring-emerald-200/60",
+    iconText: "text-emerald-600",
+    accent: "text-emerald-600",
+    glow: "from-emerald-500/5",
+    bar: "bg-emerald-500",
   },
   info: {
-    wrap: "bg-blue-50 border-blue-100 group-hover:bg-blue-500 group-hover:border-blue-500",
-    icon: "text-blue-600 group-hover:text-white",
-    glow: "bg-blue-500/5",
-  },
-  danger: {
-    wrap: "bg-red-50 border-red-100 group-hover:bg-red-500 group-hover:border-red-500",
-    icon: "text-red-600 group-hover:text-white",
-    glow: "bg-red-500/5",
+    iconBg: "bg-sky-50 ring-1 ring-sky-200/60",
+    iconText: "text-sky-600",
+    accent: "text-sky-600",
+    glow: "from-sky-500/5",
+    bar: "bg-sky-500",
   },
   purple: {
-    wrap: "bg-violet-50 border-violet-100 group-hover:bg-violet-500 group-hover:border-violet-500",
-    icon: "text-violet-600 group-hover:text-white",
-    glow: "bg-violet-500/5",
+    iconBg: "bg-violet-50 ring-1 ring-violet-200/60",
+    iconText: "text-violet-600",
+    accent: "text-violet-600",
+    glow: "from-violet-500/5",
+    bar: "bg-violet-500",
+  },
+  danger: {
+    iconBg: "bg-rose-50 ring-1 ring-rose-200/60",
+    iconText: "text-rose-600",
+    accent: "text-rose-600",
+    glow: "from-rose-500/5",
+    bar: "bg-rose-500",
+  },
+  red: {
+    iconBg: "bg-rose-50 ring-1 ring-rose-200/60",
+    iconText: "text-rose-600",
+    accent: "text-rose-600",
+    glow: "from-rose-500/5",
+    bar: "bg-rose-500",
   },
   warning: {
-    wrap: "bg-yellow-50 border-yellow-100 group-hover:bg-yellow-500 group-hover:border-yellow-500",
-    icon: "text-yellow-600 group-hover:text-white",
-    glow: "bg-yellow-500/5",
+    iconBg: "bg-amber-50 ring-1 ring-amber-200/60",
+    iconText: "text-amber-600",
+    accent: "text-amber-600",
+    glow: "from-amber-500/5",
+    bar: "bg-amber-500",
   },
 };
 
@@ -72,7 +86,6 @@ interface StatCardProps {
   description?: string;
   color?: StatCardColor;
   className?: string;
-  /** Animação com delay para entrada escalonada */
   delay?: number;
 }
 
@@ -86,76 +99,52 @@ export function StatCard({
   className,
   delay = 0,
 }: StatCardProps) {
-  const c = colorMap[color] || colorMap.default;
+  const c = colorMap[color] ?? colorMap.default;
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 16 }}
+      initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay, duration: 0.3, ease: "easeOut" }}
+      transition={{ delay, duration: 0.28, ease: "easeOut" }}
       className={cn(
-        "bg-white dark:bg-white/5 rounded-2xl border border-zinc-200 dark:border-white/10 shadow-sm",
-        "hover:shadow-md transition-all duration-300 group",
-        "relative overflow-hidden",
-        // Padding responsivo: menor no mobile
-        "p-4 sm:p-5",
+        "group relative overflow-hidden rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md sm:p-5",
         className
       )}
     >
-      {/* Círculo decorativo de fundo */}
-      <div
-        className={cn(
-          "absolute top-0 right-0 w-16 h-16 sm:w-20 sm:h-20 rounded-full -mr-8 -mt-8 sm:-mr-10 sm:-mt-10",
-          "transition-transform group-hover:scale-150 duration-700",
-          c.glow
-        )}
-      />
+      {/* Soft corner glow */}
+      <div className={cn("absolute -right-6 -top-6 h-20 w-20 rounded-full bg-gradient-to-br opacity-60 blur-2xl transition-all duration-500 group-hover:opacity-100 group-hover:scale-150", c.glow, "to-transparent")} />
 
-      {/* Header: ícone + trend */}
-      <div className="flex justify-between items-start mb-3 sm:mb-4 relative z-10">
-        <div
-          className={cn(
-            "p-2 sm:p-2.5 rounded-xl border transition-all duration-300",
-            c.wrap
-          )}
-        >
-          <Icon size={16} className={cn("transition-colors duration-300 sm:hidden", c.icon)} />
-          <Icon size={18} className={cn("hidden sm:block transition-colors duration-300", c.icon)} />
+      {/* Top row: icon + trend badge */}
+      <div className="relative z-10 flex items-start justify-between mb-3 sm:mb-4">
+        <div className={cn("flex h-9 w-9 items-center justify-center rounded-xl transition-transform duration-200 group-hover:scale-105 sm:h-10 sm:w-10", c.iconBg)}>
+          <Icon size={16} className={cn("sm:hidden", c.iconText)} />
+          <Icon size={18} className={cn("hidden sm:block", c.iconText)} />
         </div>
 
         {trend && (
-          <div
-            className={cn(
-              "flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-lg border text-[9px] sm:text-[10px] font-bold",
-              trend.isUp
-                ? "bg-emerald-50 text-emerald-600 border-emerald-200"
-                : "bg-red-50 text-red-500 border-red-200"
-            )}
-          >
-            {trend.isUp
-              ? <ArrowUpRight size={10} className="sm:hidden" />
-              : <ArrowDownRight size={10} className="sm:hidden" />
-            }
-            {trend.isUp
-              ? <ArrowUpRight size={11} className="hidden sm:block" />
-              : <ArrowDownRight size={11} className="hidden sm:block" />
-            }
+          <div className={cn(
+            "flex items-center gap-0.5 rounded-lg px-1.5 py-0.5 text-[10px] font-semibold",
+            trend.isUp
+              ? "bg-emerald-50 text-emerald-600"
+              : "bg-rose-50 text-rose-500"
+          )}>
+            {trend.isUp ? <ArrowUpRight size={11} /> : <ArrowDownRight size={11} />}
             {trend.value}%
           </div>
         )}
       </div>
 
-      {/* Conteúdo */}
+      {/* Value + label */}
       <div className="relative z-10">
-        <p className="text-[9px] sm:text-[10px] font-bold text-zinc-400 dark:text-white/40 uppercase tracking-widest mb-0.5 sm:mb-1 truncate">
+        <p className="mb-1 truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-400">
           {title}
         </p>
-        <h3 className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-white tracking-tight leading-none">
+        <h3 className="text-[26px] font-black leading-none tracking-tight text-zinc-900 sm:text-[28px]">
           {value}
         </h3>
         {description && (
-          <p className="text-[9px] sm:text-[10px] text-zinc-400 dark:text-white/30 mt-1 sm:mt-1.5 font-medium flex items-center gap-1">
-            <span className="w-1 h-1 rounded-full bg-zinc-300 dark:bg-white/20 shrink-0" />
+          <p className="mt-1.5 flex items-center gap-1 text-[10px] font-medium text-zinc-400">
+            <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", c.bar)} />
             <span className="truncate">{description}</span>
           </p>
         )}

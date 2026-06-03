@@ -69,11 +69,11 @@ export function prepare(sql: string) {
   return {
     /** Returns first matching row or null */
     get: (...params: any[]): Promise<any> =>
-      prisma.$queryRawUnsafe<any[]>(mysqlSql, ...params.flat()).then(r => serializeBigInt(r[0] ?? null)),
+      prisma.$queryRawUnsafe<any[]>(mysqlSql, ...params.flat()).then((r: any[]) => serializeBigInt(r[0] ?? null)),
 
     /** Returns all matching rows */
     all: (...params: any[]): Promise<any[]> =>
-      prisma.$queryRawUnsafe<any[]>(mysqlSql, ...params.flat()).then(r => serializeBigInt(r)),
+      prisma.$queryRawUnsafe<any[]>(mysqlSql, ...params.flat()).then((r: any[]) => serializeBigInt(r)),
 
     /** Executes a write query; returns { lastInsertRowid } */
     run: async (...params: any[]): Promise<{ lastInsertRowid: number | null; changes: number }> => {
@@ -114,14 +114,84 @@ function addDays(d: Date, days: number) {
   const r = new Date(d); r.setDate(r.getDate() + days); return r;
 }
 
+export async function runMigrations() {
+  // ── email unique per tenant (remove global unique, add composite) ────────────
+  try {
+    // 1. Drop the global unique index on email if it exists
+    const emailIdxRows = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT COUNT(*) as cnt FROM information_schema.STATISTICS
+       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users'
+       AND INDEX_NAME = 'users_email_key'`
+    ).catch(() => [{ cnt: 0 }]);
+    if (Number(emailIdxRows[0]?.cnt || 0) > 0) {
+      await prisma.$executeRawUnsafe(`ALTER TABLE users DROP INDEX users_email_key`).catch(() => {});
+    }
+    // 2. Add composite unique index (tenant_id, email) if not exists
+    const compositeIdxRows = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT COUNT(*) as cnt FROM information_schema.STATISTICS
+       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users'
+       AND INDEX_NAME = 'users_tenant_email_unique'`
+    ).catch(() => [{ cnt: 0 }]);
+    if (Number(compositeIdxRows[0]?.cnt || 0) === 0) {
+      await prisma.$executeRawUnsafe(
+        `ALTER TABLE users ADD UNIQUE INDEX users_tenant_email_unique (tenant_id, email)`
+      ).catch(() => {});
+    }
+  } catch (err) {
+    console.warn('[migration] email unique per tenant:', err);
+  }
+
+  // job_approvals table
+  await prisma.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS job_approvals (
+      id              INT AUTO_INCREMENT PRIMARY KEY,
+      job_id          INT NOT NULL,
+      tenant_id       VARCHAR(191) NOT NULL,
+      action          VARCHAR(50) NOT NULL,
+      actor_id        VARCHAR(191) NOT NULL,
+      actor_name      VARCHAR(255) NOT NULL,
+      notes           LONGTEXT,
+      created_at      DATETIME(0) DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_job_approvals_job_id (job_id),
+      INDEX idx_job_approvals_tenant_id (tenant_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  // action_permissions_json column on users
+  const actionPermCol = await prisma.$queryRawUnsafe<any[]>(
+    `SELECT COUNT(*) as cnt FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'action_permissions_json'`
+  ).catch(() => [{ cnt: 1 }]);
+  if (!actionPermCol[0]?.cnt || Number(actionPermCol[0].cnt) === 0) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE users ADD COLUMN action_permissions_json LONGTEXT NULL`).catch(() => {});
+  }
+
+  // approval columns on jobs — check information_schema before ALTER
+  const approvalCols: [string, string][] = [
+    ['approval_status',       'VARCHAR(50) NULL'],
+    ['approval_requested_by', 'VARCHAR(191) NULL'],
+    ['approval_requested_at', 'DATETIME(0) NULL'],
+    ['approval_resolved_at',  'DATETIME(0) NULL'],
+  ];
+  for (const [col, def] of approvalCols) {
+    const rows = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT COUNT(*) as cnt FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'jobs' AND COLUMN_NAME = ?`,
+      col
+    ).catch(() => [{ cnt: 1 }]);
+    if (!rows[0]?.cnt || Number(rows[0].cnt) === 0) {
+      await prisma.$executeRawUnsafe(`ALTER TABLE jobs ADD COLUMN ${col} ${def}`).catch(() => {});
+    }
+  }
+}
+
 export async function initDb() {
+  await runMigrations();
   const now = new Date();
 
   await prisma.tenant.upsert({
     where: { id: 'develoi' },
     update: {},
     create: {
-      id: 'develoi', name: 'Recrute IA', document: '00.000.000/0001-00',
+      id: 'develoi', name: 'Triagem Smart', document: '00.000.000/0001-00',
       status: 'Ativo', plan_label: 'Plano Anual', validity_days: 3650,
       starts_at: now, expires_at: addDays(now, 3650), max_users: 999,
       access_profile: 'admin-mestre',

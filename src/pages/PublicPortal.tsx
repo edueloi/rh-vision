@@ -735,7 +735,7 @@ export default function PublicPortal() {
             <p className="text-[9px] text-white/20 font-medium uppercase tracking-widest">
               © {new Date().getFullYear()} {companyName}. Todos os direitos reservados.
             </p>
-            <p className="text-[9px] text-white/15 font-medium uppercase tracking-widest">Powered by Recrute IA</p>
+            <p className="text-[9px] text-white/15 font-medium uppercase tracking-widest">Powered by Triagem Smart</p>
           </div>
         </div>
       </footer>

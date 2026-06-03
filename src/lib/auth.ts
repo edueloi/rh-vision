@@ -9,6 +9,7 @@ export interface AuthUser {
   status?: string;
   access_profile?: string;
   permissions_json?: unknown;
+  action_permissions_json?: string | null;
 }
 
 export function getAuthUser(): AuthUser | null {

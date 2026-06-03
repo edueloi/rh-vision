@@ -1,134 +1,207 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, Brain, Briefcase, Zap, ArrowRight, ShieldCheck, type LucideIcon } from 'lucide-react';
+import {
+  Sparkles, Brain, Briefcase, Zap, ArrowRight,
+  Target, Users, BarChart3, CheckCircle2,
+} from 'lucide-react';
 
 interface WelcomeProps {
   onComplete: () => void;
 }
 
-export default function Welcome({ onComplete }: WelcomeProps) {
+const STEPS = [
+  { icon: Brain,     label: "Aurora AI",         desc: "Motor de análise neural ativo" },
+  { icon: Target,    label: "Aderência Neural",   desc: "Matching por função e comportamento" },
+  { icon: Users,     label: "Banco de Talentos",  desc: "Pipeline de candidatos pronto" },
+  { icon: BarChart3, label: "Analytics RH",       desc: "Indicadores em tempo real" },
+];
+
+function useTypingEffect(text: string, speed = 40, delay = 0) {
+  const [displayed, setDisplayed] = useState('');
+  const [done, setDone] = useState(false);
+
   useEffect(() => {
-    // Auto-complete after animation or let user click
+    setDisplayed('');
+    setDone(false);
+    let i = 0;
+    const t = setTimeout(() => {
+      const id = setInterval(() => {
+        i++;
+        setDisplayed(text.slice(0, i));
+        if (i >= text.length) { clearInterval(id); setDone(true); }
+      }, speed);
+      return () => clearInterval(id);
+    }, delay);
+    return () => clearTimeout(t);
+  }, [text, speed, delay]);
+
+  return { displayed, done };
+}
+
+export default function Welcome({ onComplete }: WelcomeProps) {
+  const storedUser = JSON.parse(localStorage.getItem("auth_user") || "{}");
+  const firstName = (storedUser.full_name || "").split(" ")[0] || "Gestor";
+
+  const greeting = `Olá, ${firstName}.`;
+  const { displayed: typedGreeting, done: greetingDone } = useTypingEffect(greeting, 55, 600);
+
+  const subtitle = "Tudo pronto para você começar.";
+  const { displayed: typedSub } = useTypingEffect(subtitle, 35, greetingDone ? 200 : 9999);
+
+  const [stepsVisible, setStepsVisible] = useState(false);
+  const [btnVisible, setBtnVisible] = useState(false);
+
+  useEffect(() => {
+    const t1 = setTimeout(() => setStepsVisible(true), 1800);
+    const t2 = setTimeout(() => setBtnVisible(true), 2600);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
   }, []);
 
-  const features = [
-    { icon: Brain, title: "Análise Preditiva", color: "bg-blue-500" },
-    { icon: Zap, title: "Triagem Inteligente", color: "bg-amber-500" },
-    { icon: Briefcase, title: "Match em Tempo Real", color: "bg-emerald-500" }
-  ] satisfies { icon: LucideIcon; title: string; color: string }[];
-
   return (
-    <div className="fixed inset-0 z-[200] bg-zinc-950 flex items-center justify-center p-4 md:p-8 overflow-y-auto overflow-x-hidden">
-      {/* Aurora Effect Background */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <motion.div 
-          animate={{ 
-            scale: [1, 1.2, 1],
-            opacity: [0.2, 0.4, 0.2],
-            rotate: [0, 90, 0]
-          }}
-          transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
-          className="absolute top-[-10%] right-[-5%] w-[100%] h-[100%] bg-develoi-gold/10 blur-[180px] rounded-full"
+    <div className="fixed inset-0 z-[200] flex items-center justify-center overflow-hidden bg-[#060f1e]">
+
+      {/* ── Ambient background ── */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <motion.div
+          animate={{ scale: [1, 1.15, 1], opacity: [0.18, 0.32, 0.18] }}
+          transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute -right-[20%] -top-[20%] h-[80%] w-[80%] rounded-full bg-develoi-gold/12 blur-[140px]"
         />
-        <motion.div 
-          animate={{ 
-            scale: [1.2, 1, 1.2],
-            opacity: [0.1, 0.3, 0.1],
-            rotate: [0, -90, 0]
+        <motion.div
+          animate={{ scale: [1.1, 1, 1.1], opacity: [0.12, 0.22, 0.12] }}
+          transition={{ duration: 14, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute -bottom-[20%] -left-[10%] h-[70%] w-[70%] rounded-full bg-sky-500/10 blur-[140px]"
+        />
+        {/* Grid dots */}
+        <div
+          className="absolute inset-0 opacity-[0.018]"
+          style={{
+            backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.8) 1px, transparent 1px)",
+            backgroundSize: "40px 40px",
           }}
-          transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-          className="absolute bottom-[-10%] left-[-5%] w-[90%] h-[90%] bg-develoi-navy/30 blur-[180px] rounded-full"
         />
       </div>
 
-      <div className="w-full max-w-7xl relative z-10 py-12">
-        <div className="grid lg:grid-cols-2 gap-10 lg:gap-20 items-center">
-          <div className="space-y-6 md:space-y-10 text-center lg:text-left relative z-20 max-w-2xl mx-auto lg:mx-0">
-             <motion.div 
-               initial={{ opacity: 0, y: -20 }}
-               animate={{ opacity: 1, y: 0 }}
-               className="inline-flex items-center gap-2.5 px-4 py-2 bg-white/5 backdrop-blur-md border border-white/10 rounded-full"
-             >
-                <Sparkles size={12} className="text-develoi-gold animate-pulse" />
-                <span className="text-[9px] md:text-[10px] font-black text-white/70 uppercase tracking-[0.25em]">Tecnologia Aurora AI</span>
-             </motion.div>
+      {/* ── Content ── */}
+      <div className="relative z-10 flex w-full max-w-5xl flex-col items-center gap-12 px-6 py-12 text-center lg:flex-row lg:items-center lg:gap-20 lg:text-left">
 
-             <div className="space-y-6">
-                <motion.h1 
-                  initial={{ opacity: 0, y: 30 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.2, duration: 0.8, ease: "circOut" }}
-                  className="text-4xl md:text-6xl lg:text-7xl xl:text-8xl font-black text-white tracking-tighter leading-[0.85]"
-                >
-                  RECRUITMENT<br />
-                  <span className="text-develoi-gold inline-block mt-2">HUB.</span>
-                </motion.h1>
-                <motion.p 
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.4, duration: 1 }}
-                  className="text-white/50 text-sm md:text-base lg:text-lg font-medium leading-relaxed max-w-sm mx-auto lg:mx-0"
-                >
-                  Bem-vindo à nova era da contratação proativa. 
-                  Eu sou <span className="text-white font-black underline decoration-develoi-gold/50 underline-offset-8">Aurora AI</span>, 
-                  sua assistente estratégica de talentos.
-                </motion.p>
-             </div>
+        {/* LEFT — identity + CTA */}
+        <div className="flex flex-col items-center gap-8 lg:flex-1 lg:items-start">
 
-             <motion.div
-               initial={{ opacity: 0, scale: 0.9 }}
-               animate={{ opacity: 1, scale: 1 }}
-               transition={{ delay: 0.8 }}
-             >
-               <button 
-                 onClick={onComplete}
-                 className="group relative px-8 md:px-12 py-5 bg-develoi-gold text-white font-black uppercase text-[10px] md:text-xs tracking-[0.4em] rounded-2xl hover:bg-white hover:text-develoi-navy transition-all duration-500 flex items-center gap-4 mx-auto lg:mx-0 shadow-2xl shadow-develoi-gold/20 overflow-hidden"
-               >
-                  <span className="relative z-10">Iniciar Expediente</span>
-                  <ArrowRight size={18} className="relative z-10 group-hover:translate-x-2 transition-transform duration-500" />
-                  <div className="absolute inset-0 bg-white translate-y-full group-hover:translate-y-0 transition-transform duration-500" />
-               </button>
-             </motion.div>
+          {/* Badge */}
+          <motion.div
+            initial={{ opacity: 0, y: -12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 backdrop-blur-md"
+          >
+            <Sparkles size={11} className="text-develoi-gold animate-pulse" />
+            <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-white/60">
+              Triagem Smart · Aurora AI
+            </span>
+          </motion.div>
+
+          {/* Greeting — typing effect */}
+          <div className="space-y-3">
+            <h1 className="min-h-[1.1em] text-[40px] font-black leading-none tracking-tight text-white sm:text-[52px] lg:text-[60px]">
+              {typedGreeting}
+              {!greetingDone && (
+                <span className="ml-0.5 inline-block h-[0.85em] w-[3px] animate-pulse rounded-full bg-develoi-gold align-middle" />
+              )}
+            </h1>
+
+            <div className="min-h-[1.6em]">
+              {greetingDone && (
+                <p className="text-[16px] font-medium text-white/45 sm:text-[18px]">
+                  {typedSub}
+                  {typedSub.length < subtitle.length && (
+                    <span className="ml-0.5 inline-block h-[1em] w-[2px] animate-pulse rounded-full bg-white/30 align-middle" />
+                  )}
+                </p>
+              )}
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-4 md:gap-5 relative z-10">
-             {features.map((feature, idx) => (
-                <motion.div 
-                  key={idx}
-                  initial={{ opacity: 0, x: 50 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.5 + (idx * 0.15), duration: 0.8 }}
-                  className="bg-white/5 backdrop-blur-2xl border border-white/5 p-6 md:p-8 rounded-[32px] flex items-center gap-6 group hover:bg-white/10 hover:border-white/10 transition-all duration-500 cursor-default"
-                >
-                   <div className={`${feature.color} w-14 h-14 md:w-16 md:h-16 rounded-2xl flex items-center justify-center text-white shadow-xl shadow-black/20 group-hover:scale-110 transition-transform duration-500`}>
-                      <feature.icon size={28} />
-                   </div>
-                   <div>
-                      <h3 className="text-base md:text-lg font-black text-white uppercase tracking-tight group-hover:text-develoi-gold transition-colors">{feature.title}</h3>
-                      <p className="text-white/40 text-[9px] font-bold uppercase tracking-widest mt-1.5 opacity-60 group-hover:opacity-100 transition-opacity">Powered by Aurora AI</p>
-                   </div>
-                </motion.div>
-             ))}
+          {/* Subtitle copy */}
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 1.4, duration: 0.8 }}
+            className="max-w-sm text-[13px] font-medium leading-relaxed text-white/35 lg:max-w-none"
+          >
+            A plataforma está inicializada e pronta. Seus candidatos, vagas e
+            análises Aurora AI aguardam você no painel.
+          </motion.p>
 
-             <motion.div 
-               initial={{ opacity: 0, y: 20 }}
-               animate={{ opacity: 1, y: 0 }}
-               transition={{ delay: 1.2 }}
-               className="md:col-span-2 lg:col-span-1 p-6 md:p-8 bg-develoi-navy/20 backdrop-blur-xl border border-develoi-navy/30 rounded-[32px] flex items-start gap-5"
-             >
-                <div className="w-10 h-10 shrink-0 bg-white/5 rounded-xl flex items-center justify-center text-develoi-gold border border-white/5">
-                   <ShieldCheck size={20} />
-                </div>
-                <div>
-                   <p className="text-[10px] md:text-xs font-medium text-white/50 leading-relaxed italic">
-                     "Infraestrutura SQLite inicializada com sucesso. Sistema pronto para operação em escala."
-                   </p>
-                   <p className="text-[8px] font-black text-develoi-gold uppercase tracking-widest mt-2">Status: Sistema Online</p>
-                </div>
-             </motion.div>
-          </div>
+          {/* CTA */}
+          <AnimatePresence>
+            {btnVisible && (
+              <motion.button
+                initial={{ opacity: 0, y: 10, scale: 0.97 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ duration: 0.4, ease: "easeOut" }}
+                onClick={onComplete}
+                className="group relative flex items-center gap-3 overflow-hidden rounded-2xl bg-develoi-gold px-8 py-4 text-[12px] font-bold uppercase tracking-[0.2em] text-develoi-navy shadow-2xl shadow-develoi-gold/25 transition-all duration-300 hover:scale-[1.02] hover:shadow-develoi-gold/40"
+              >
+                <span className="relative z-10">Entrar no Painel</span>
+                <ArrowRight size={16} className="relative z-10 transition-transform duration-300 group-hover:translate-x-1" />
+                {/* Shine sweep */}
+                <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
+              </motion.button>
+            )}
+          </AnimatePresence>
+
+          {/* Status indicator */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 2.8 }}
+            className="flex items-center gap-2"
+          >
+            <CheckCircle2 size={13} className="text-emerald-400" />
+            <span className="text-[11px] font-medium text-white/30">
+              Sistema operacional · Aurora AI ativa
+            </span>
+          </motion.div>
         </div>
+
+        {/* RIGHT — feature cards */}
+        <div className="grid w-full grid-cols-2 gap-3 sm:grid-cols-2 lg:w-[340px] lg:shrink-0 lg:grid-cols-1 xl:w-[380px]">
+          <AnimatePresence>
+            {stepsVisible && STEPS.map((step, i) => (
+              <motion.div
+                key={step.label}
+                initial={{ opacity: 0, x: 24 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: i * 0.12, duration: 0.45, ease: "easeOut" }}
+                className="group flex items-center gap-3.5 rounded-2xl border border-white/[0.06] bg-white/[0.04] p-4 backdrop-blur-md transition-all duration-300 hover:border-white/10 hover:bg-white/[0.07]"
+              >
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-develoi-gold/12 text-develoi-gold ring-1 ring-develoi-gold/20 transition-all group-hover:bg-develoi-gold/20">
+                  <step.icon size={17} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[12px] font-bold text-white">{step.label}</p>
+                  <p className="mt-0.5 truncate text-[10px] font-medium text-white/35">{step.desc}</p>
+                </div>
+                {/* Active dot */}
+                <div className="ml-auto flex h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400" />
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </div>
+
       </div>
+
+      {/* Bottom copyright */}
+      <motion.p
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 3 }}
+        className="absolute bottom-6 left-1/2 -translate-x-1/2 text-[10px] font-medium text-white/15"
+      >
+        © {new Date().getFullYear()} Triagem Smart · Todos os direitos reservados
+      </motion.p>
+
     </div>
   );
 }
