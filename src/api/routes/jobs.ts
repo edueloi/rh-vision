@@ -6,6 +6,7 @@ import { upload } from '../helpers/files';
 import { saveImportedJobFile, extractJobTextFromBuffer, extractJobTextFromStoredFile } from '../helpers/files';
 import { normalizeImportedJobParsedData, parseJsonFromAiResponseSafe } from '../helpers/jobs-normalize';
 import { pushJobToShiguenoPortal } from '../services/shigueno-portal-sync';
+import { checkJobLimit } from '../helpers/tenant-limits';
 
 export function registerJobRoutes(app: Express) {
   app.get('/api/jobs', async (req, res) => {
@@ -47,6 +48,15 @@ export function registerJobRoutes(app: Express) {
   app.post('/api/jobs', async (req, res) => {
     const job = req.body;
     if (!job.title || !job.city || !job.state) return res.status(400).json({ error: 'Title, city and state are required' });
+
+    // Verificar limite de vagas do tenant
+    if (job.tenant_id) {
+      const limitCheck = checkJobLimit(job.tenant_id);
+      if (!limitCheck.allowed) {
+        return res.status(403).json({ error: limitCheck.error, limit_exceeded: 'jobs', current: limitCheck.current, limit: limitCheck.limit });
+      }
+    }
+
     const keys = Object.keys(job).filter(k => k !== 'id' && k !== 'created_at' && k !== 'updated_at' && !k.startsWith('_'));
     const placeholders = keys.map(() => '?').join(',');
     const values = keys.map(k => job[k]);

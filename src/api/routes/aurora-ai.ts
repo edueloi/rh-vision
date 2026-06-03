@@ -2,6 +2,7 @@ import { Express } from 'express';
 import db from '../../lib/db';
 import { createAIClient as createGeminiClient, GEMINI_MODEL, normalizeAuroraChatReply, GeminiTemporaryUnavailableError } from '../helpers/ai';
 import type { AIMessage, AIMessageRole } from '../helpers/ai';
+import { checkAiAnalysisLimit, incrementAiAnalysis } from '../helpers/tenant-limits';
 
 export function registerAuroraAIRoutes(app: Express) {
   app.get('/api/aurora-ai/settings', async (req, res) => {
@@ -160,6 +161,14 @@ export function registerAuroraAIRoutes(app: Express) {
     const numericMinScore = Number(minScore) || 0;
 
     try {
+      // Verificar limite de análises IA do mês
+      if (tenantId) {
+        const limitCheck = checkAiAnalysisLimit(tenantId);
+        if (!limitCheck.allowed) {
+          return res.status(403).json({ error: limitCheck.error, limit_exceeded: 'ai_analyses', current: limitCheck.current, limit: limitCheck.limit });
+        }
+      }
+
       const job = await db.prepare('SELECT * FROM jobs WHERE id = ?').get(jobId) as any;
       if (!job) return res.status(404).json({ error: 'Job not found' });
 
@@ -408,6 +417,8 @@ Retorne SOMENTE JSON válido sem markdown:
 
         newAiResults = analysis.results;
         summary = analysis.summary;
+        // Incrementa contador de análises do mês
+        if (tenantId) incrementAiAnalysis(tenantId);
 
         const insertResultStmt = db.prepare(`
           INSERT INTO ai_search_results

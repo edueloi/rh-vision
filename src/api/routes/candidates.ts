@@ -9,6 +9,7 @@ import { extractPdfTextFromBuffer, sanitizeUploadFileName, CANDIDATE_UPLOADS_DIR
 import { createAIClient as createGeminiClient } from '../helpers/ai';
 import { GEMINI_MODEL } from '../helpers/ai';
 import { parseJsonFromAiResponseSafe } from '../helpers/resume';
+import { checkCandidateLimit } from '../helpers/tenant-limits';
 
 export function registerCandidateRoutes(app: Express) {
   // Candidate File Import (single-file quick import)
@@ -233,6 +234,14 @@ export function registerCandidateRoutes(app: Express) {
     const candidate = req.body;
     if (!candidate.full_name || !candidate.email) {
       return res.status(400).json({ error: 'Name and email are required' });
+    }
+
+    // Verificar limite de candidatos do tenant
+    if (candidate.tenant_id) {
+      const limitCheck = checkCandidateLimit(candidate.tenant_id);
+      if (!limitCheck.allowed) {
+        return res.status(403).json({ error: limitCheck.error, limit_exceeded: 'candidates', current: limitCheck.current, limit: limitCheck.limit });
+      }
     }
 
     const keys = Object.keys(candidate).filter(k => k !== 'id' && k !== 'created_at' && k !== 'updated_at');

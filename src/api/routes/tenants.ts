@@ -10,6 +10,7 @@ import {
 import { isRootCaller } from '../middleware/auth';
 import { addDays, toSqlDateTime, getPlanLabel, getTenantContractStatus } from '../helpers/dates';
 import { IMPORT_UPLOADS_DIR } from '../helpers/files';
+import { getTenantUsage } from '../helpers/tenant-limits';
 
 export function registerTenantRoutes(app: Express) {
   app.get('/api/tenants', async (req, res) => {
@@ -183,6 +184,41 @@ export function registerTenantRoutes(app: Express) {
     } catch (error) {
       console.error(error);
       res.status(500).json({ error: 'Failed to create tenant access' });
+    }
+  });
+
+  // Uso atual do tenant (vagas, candidatos, análises do mês)
+  app.get('/api/tenants/:id/usage', async (req, res) => {
+    if (!isRootCaller(req)) return res.status(403).json({ error: 'Only root admin' });
+    try {
+      res.json(getTenantUsage(req.params.id));
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch usage' });
+    }
+  });
+
+  // Atualizar limites do tenant
+  app.patch('/api/tenants/:id/limits', async (req, res) => {
+    if (!isRootCaller(req)) return res.status(403).json({ error: 'Only root admin' });
+    const { id } = req.params;
+    const { max_jobs, max_candidates, max_ai_analyses_month } = req.body;
+    try {
+      await db.prepare(`
+        UPDATE tenants SET
+          max_jobs = ?,
+          max_candidates = ?,
+          max_ai_analyses_month = ?,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `).run(
+        Number(max_jobs ?? 0),
+        Number(max_candidates ?? 0),
+        Number(max_ai_analyses_month ?? 0),
+        id
+      );
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to update limits' });
     }
   });
 

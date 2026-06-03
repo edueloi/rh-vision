@@ -4,6 +4,8 @@ import { useLocation, useNavigate } from "react-router-dom";
 import {
   AlertTriangle,
   BadgeCheck,
+  Brain,
+  Briefcase,
   Building2,
   CalendarClock,
   ChevronRight,
@@ -212,6 +214,9 @@ export default function SuperAdmin() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [showTenantModal, setShowTenantModal] = useState(false);
   const [showContractModal, setShowContractModal] = useState(false);
+  const [showLimitsModal, setShowLimitsModal] = useState(false);
+  const [tenantUsage, setTenantUsage] = useState<any>(null);
+  const [limitsForm, setLimitsForm] = useState({ max_jobs: 0, max_candidates: 0, max_ai_analyses_month: 0 });
   const [isLoading, setIsLoading] = useState(true);
   const [isAccessLoading, setIsAccessLoading] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Tenant | null>(null);
@@ -292,10 +297,45 @@ export default function SuperAdmin() {
   useEffect(() => {
     if (selectedTenantId) {
       fetchTenantAccesses(selectedTenantId);
+      fetchTenantUsage(selectedTenantId);
     } else {
       setTenantAccesses([]);
+      setTenantUsage(null);
     }
   }, [selectedTenantId]);
+
+  const fetchTenantUsage = async (tenantId: string) => {
+    try {
+      const res = await fetch(`/api/tenants/${tenantId}/usage`, { headers: getAuthHeaders() });
+      if (res.ok) setTenantUsage(await res.json());
+    } catch { /* silent */ }
+  };
+
+  const openLimitsModal = () => {
+    if (!selectedTenant) return;
+    setLimitsForm({
+      max_jobs:              Number((selectedTenant as any).max_jobs || 0),
+      max_candidates:        Number((selectedTenant as any).max_candidates || 0),
+      max_ai_analyses_month: Number((selectedTenant as any).max_ai_analyses_month || 0),
+    });
+    setShowLimitsModal(true);
+  };
+
+  const handleSaveLimits = async () => {
+    if (!selectedTenant) return;
+    try {
+      await fetch(`/api/tenants/${selectedTenant.id}/limits`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify(limitsForm),
+      });
+      toast.success('Limites atualizados com sucesso.');
+      setShowLimitsModal(false);
+      await fetchTenants();
+    } catch {
+      toast.error('Erro ao salvar limites.');
+    }
+  };
 
   const fetchTenants = async () => {
     try {
@@ -844,6 +884,69 @@ export default function SuperAdmin() {
                     </div>
                   </div>
 
+                  {/* Limites de uso */}
+                  <div className="border-t border-zinc-100 px-5 py-4">
+                    <div className="mb-3 flex items-center justify-between">
+                      <p className="text-[13px] font-bold text-zinc-900">Limites de uso</p>
+                      <button
+                        onClick={openLimitsModal}
+                        className="flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-[11px] font-semibold text-zinc-700 transition-colors hover:border-develoi-navy/30 hover:text-develoi-navy"
+                      >
+                        <Settings2 size={12} /> Configurar
+                      </button>
+                    </div>
+                    <div className="space-y-2.5">
+                      {[
+                        {
+                          label: 'Vagas ativas',
+                          current: tenantUsage?.jobs_active ?? '—',
+                          max: Number((selectedTenant as any).max_jobs || 0),
+                          color: 'bg-develoi-navy',
+                        },
+                        {
+                          label: 'Candidatos',
+                          current: tenantUsage?.candidates_total ?? '—',
+                          max: Number((selectedTenant as any).max_candidates || 0),
+                          color: 'bg-emerald-500',
+                        },
+                        {
+                          label: `Análises IA (${tenantUsage?.year_month ?? 'mês atual'})`,
+                          current: tenantUsage?.ai_analyses_month ?? '—',
+                          max: Number((selectedTenant as any).max_ai_analyses_month || 0),
+                          color: 'bg-develoi-gold',
+                        },
+                      ].map(item => {
+                        const isUnlimited = item.max === 0;
+                        const pct = (!isUnlimited && typeof item.current === 'number' && item.max > 0)
+                          ? Math.min(100, Math.round((item.current / item.max) * 100))
+                          : 0;
+                        const isNearLimit = pct >= 80;
+                        return (
+                          <div key={item.label}>
+                            <div className="mb-1 flex items-center justify-between">
+                              <span className="text-[11px] font-medium text-zinc-500">{item.label}</span>
+                              <span className={cn(
+                                "text-[11px] font-bold tabular-nums",
+                                isNearLimit ? "text-rose-600" : "text-zinc-800"
+                              )}>
+                                {item.current}{isUnlimited ? '' : `/${item.max}`}
+                                {isUnlimited && <span className="ml-1 text-zinc-400 font-normal">(ilimitado)</span>}
+                              </span>
+                            </div>
+                            {!isUnlimited && (
+                              <div className="h-1.5 overflow-hidden rounded-full bg-zinc-100">
+                                <div
+                                  className={cn("h-full rounded-full transition-all", isNearLimit ? "bg-rose-500" : item.color)}
+                                  style={{ width: `${pct}%` }}
+                                />
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
                   {/* Sync Shigueno toggle */}
                   <div className="border-t border-zinc-100 px-5 py-4">
                     <div className="flex items-center justify-between gap-3">
@@ -1232,6 +1335,86 @@ export default function SuperAdmin() {
                   <button onClick={handleDelete}
                     className="flex-1 rounded-xl bg-rose-500 py-2.5 text-[12px] font-bold text-white shadow-sm transition-colors hover:bg-rose-600">
                     Remover
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Modal: Limites de uso ── */}
+      <AnimatePresence>
+        {showLimitsModal && selectedTenant && (
+          <div className="fixed inset-0 z-[130] flex items-center justify-center p-4 sm:p-8">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setShowLimitsModal(false)} className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+            <motion.div
+              initial={{ opacity: 0, y: 16, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 16, scale: 0.97 }}
+              transition={{ duration: 0.2 }}
+              className="relative w-full max-w-md overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-2xl"
+            >
+              {/* Header navy */}
+              <div className="relative overflow-hidden bg-develoi-navy px-6 py-5">
+                <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-develoi-gold/10 blur-3xl" />
+                <div className="relative z-10 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-develoi-gold/15 ring-1 ring-develoi-gold/25">
+                      <ShieldCheck size={16} className="text-develoi-gold" />
+                    </div>
+                    <div>
+                      <p className="text-[14px] font-bold text-white">Limites de uso</p>
+                      <p className="text-[11px] text-white/40">{selectedTenant.name}</p>
+                    </div>
+                  </div>
+                  <button onClick={() => setShowLimitsModal(false)}
+                    className="flex h-7 w-7 items-center justify-center rounded-lg text-white/40 transition-colors hover:bg-white/10 hover:text-white">✕</button>
+                </div>
+              </div>
+
+              <div className="p-6 space-y-5">
+                <p className="text-[12px] text-zinc-500 leading-relaxed">
+                  Defina os limites máximos para este cliente. <strong>0 = ilimitado</strong>.
+                  Análises IA reiniciam todo mês automaticamente.
+                </p>
+
+                {[
+                  { key: 'max_jobs' as const, label: 'Máximo de vagas ativas', desc: 'Vagas com status diferente de Encerrada', icon: Briefcase, current: tenantUsage?.jobs_active },
+                  { key: 'max_candidates' as const, label: 'Máximo de candidatos', desc: 'Total no banco de talentos', icon: Users, current: tenantUsage?.candidates_total },
+                  { key: 'max_ai_analyses_month' as const, label: 'Máximo de análises IA / mês', desc: `Análises de aderência geradas (renova em ${new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toLocaleDateString('pt-BR')})`, icon: Brain, current: tenantUsage?.ai_analyses_month },
+                ].map(field => (
+                  <div key={field.key}>
+                    <div className="mb-1.5 flex items-center gap-2">
+                      <field.icon size={14} className="text-develoi-navy" />
+                      <label className="text-[12px] font-semibold text-zinc-800">{field.label}</label>
+                    </div>
+                    <p className="mb-1.5 text-[11px] text-zinc-400">{field.desc}</p>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min={0}
+                        value={limitsForm[field.key]}
+                        onChange={e => setLimitsForm(f => ({ ...f, [field.key]: Number(e.target.value) || 0 }))}
+                        className="h-9 w-28 rounded-lg border border-zinc-200 bg-zinc-50 px-3 text-[13px] font-semibold text-zinc-900 outline-none transition-all focus:border-develoi-gold/50 focus:bg-white focus:ring-2 focus:ring-develoi-gold/15"
+                      />
+                      <span className="text-[11px] text-zinc-400">
+                        atual: <strong className="text-zinc-700">{field.current ?? '—'}</strong>
+                        {limitsForm[field.key] === 0 && <span className="ml-2 text-emerald-600 font-medium">ilimitado</span>}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+
+                <div className="flex gap-3 pt-1">
+                  <button onClick={() => setShowLimitsModal(false)}
+                    className="flex-1 rounded-xl border border-zinc-200 bg-zinc-50 py-2.5 text-[12px] font-semibold text-zinc-600 transition-colors hover:bg-zinc-100">
+                    Cancelar
+                  </button>
+                  <button onClick={handleSaveLimits}
+                    className="flex-1 rounded-xl bg-develoi-navy py-2.5 text-[12px] font-bold text-white shadow-sm transition-colors hover:bg-[#0a1e3a]">
+                    Salvar limites
                   </button>
                 </div>
               </div>
