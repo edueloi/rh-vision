@@ -832,15 +832,15 @@ function SharePanel({ job, onPublish, onOpenPoster }: { job: Job; onPublish?: ()
         </button>
       )}
 
-      {/* Portal público — desativado no momento */}
-      {/* {!isPublic ? (
+      {/* Portal Triagem Smart */}
+      {!isPublic ? (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 overflow-hidden">
           <div className="flex items-start gap-3 p-4">
             <AlertCircle size={15} className="text-amber-600 mt-0.5 shrink-0" />
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-black text-amber-800">Vaga não está pública</p>
+              <p className="text-xs font-black text-amber-800">Vaga não publicada no Portal</p>
               <p className="text-[11px] text-amber-700 mt-0.5 leading-relaxed">
-                O link funciona para preview, mas a vaga <strong>não aparece no portal nem nos feeds</strong> (Indeed, Google for Jobs). Ative abaixo para divulgar.
+                Essa vaga não aparece no <strong>Portal de Empregos Triagem Smart</strong> nem nos feeds (Google for Jobs, Indeed). Publique para começar a receber candidatos.
               </p>
             </div>
           </div>
@@ -852,16 +852,38 @@ function SharePanel({ job, onPublish, onOpenPoster }: { job: Job; onPublish?: ()
             >
               {publishing
                 ? <><Loader2 size={13} className="animate-spin" /> Publicando…</>
-                : <><Zap size={13} /> Ativar publicação agora</>}
+                : <><Zap size={13} /> Publicar no Portal agora</>}
             </button>
           </div>
         </div>
       ) : (
-        <div className="flex items-center gap-2 px-4 py-3 bg-emerald-50 border border-emerald-200 rounded-2xl">
-          <CheckCircle2 size={14} className="text-emerald-600 shrink-0" />
-          <p className="text-xs font-black text-emerald-800">Vaga pública — aparece no portal e feeds</p>
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 overflow-hidden">
+          <div className="flex items-center gap-3 px-4 py-3">
+            <CheckCircle2 size={14} className="text-emerald-600 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-black text-emerald-800">Publicada no Portal de Empregos</p>
+              <p className="text-[11px] text-emerald-700 mt-0.5">Visível no portal, feeds e Google for Jobs</p>
+            </div>
+            <button
+              onClick={() => window.open('/empregos', '_blank')}
+              className="shrink-0 flex items-center gap-1 text-[10px] font-black text-emerald-700 hover:text-emerald-900 transition-colors"
+            >
+              <ExternalLink size={11} /> Ver portal
+            </button>
+          </div>
+          <div className="px-4 pb-3">
+            <button
+              onClick={handlePublish}
+              disabled={publishing}
+              className="w-full flex items-center justify-center gap-2 py-2 bg-white/60 hover:bg-white border border-emerald-200 text-emerald-700 rounded-xl text-[10px] font-black transition-all disabled:opacity-60"
+            >
+              {publishing
+                ? <><Loader2 size={11} className="animate-spin" /> Atualizando…</>
+                : <><RefreshCw size={11} /> Republicar / atualizar no portal</>}
+            </button>
+          </div>
         </div>
-      )} */}
+      )}
 
       {/* Link público */}
       <div className="space-y-2">

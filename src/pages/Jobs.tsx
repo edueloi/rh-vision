@@ -352,6 +352,12 @@ export default function Jobs() {
               </p>
             </div>
             <div className="flex items-center gap-2">
+              <button
+                onClick={() => window.open('/empregos', '_blank')}
+                className="flex h-8 items-center gap-1.5 rounded-lg border border-white/15 bg-white/8 px-3.5 text-[11px] font-medium text-white/70 transition-all hover:bg-white/12 hover:text-white"
+              >
+                <Globe size={11} /> Portal de Empregos
+              </button>
               {actions.can_create_jobs && (
                 <>
                   <button

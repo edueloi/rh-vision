@@ -42,6 +42,8 @@ import HRTools from "./pages/HRTools";
 import Administration from "./pages/Administration";
 import ImportResumes from "./pages/ImportResumes";
 import PublicPortal from "./pages/PublicPortal";
+import EmpregoPortal from "./pages/EmpregoPortal";
+import Distribuicao from "./pages/Distribuicao";
 import PublicToolResponse from "./pages/PublicToolResponse";
 import PublicJobPage from "./pages/PublicJobPage";
 import AuroraAI from "./pages/AuroraAI";
@@ -82,6 +84,7 @@ const APP_MENU_ITEMS: MenuItem[] = [
   { path: "/aderencia", label: "Aderência", helper: "Triagem, aderência e inteligência", icon: Brain, permissionKey: "aurora_ai" },
   { path: "/vagas", label: "Vagas", helper: "Requisições e pipeline", icon: Briefcase, permissionKey: "jobs" },
   { path: "/aprovacoes", label: "Aprovações", helper: "Workflow de aprovação de vagas", icon: ShieldAlert, permissionKey: "jobs" },
+  { path: "/distribuicao", label: "Distribuição", helper: "Feeds e canais de publicação", icon: Globe, permissionKey: "jobs" },
   { path: "/candidatos", label: "Candidatos", helper: "Banco de talentos", icon: Users, permissionKey: "candidates" },
   { path: "/importar-cvs", label: "Importar em Lote", helper: "Importar candidatos em lote via IA", icon: FileUp, permissionKey: "imports" },
   { path: "/ferramentas", label: "Ferramentas", helper: "Avaliações e recursos", icon: Settings, permissionKey: "tools" },
@@ -91,7 +94,7 @@ const APP_MENU_ITEMS: MenuItem[] = [
 ];
 
 const APP_MENU_SECTIONS: MenuSection[] = [
-  { title: "Operação", items: ["/dashboard", "/aderencia", "/vagas", "/aprovacoes", "/candidatos", "/importar-cvs"] },
+  { title: "Operação", items: ["/dashboard", "/aderencia", "/vagas", "/aprovacoes", "/distribuicao", "/candidatos", "/importar-cvs"] },
   { title: "Pipeline & Dados", items: ["/ferramentas", "/disc"] },
   { title: "Administração", items: ["/administracao", "/configuracoes"] },
 ];
@@ -225,6 +228,7 @@ function AppContent() {
   const isPortalRoute = location.pathname === "/portal" || location.pathname.startsWith("/portal/");
   const isToolRoute = location.pathname.startsWith("/public/tools/");
   const isPublicJobRoute = location.pathname.startsWith("/vaga/");
+  const isEmpregoPortalRoute = location.pathname === "/empregos" || location.pathname.startsWith("/empregos/");
   const defaultPath = useMemo(() => getDefaultPath(user), [user]);
 
   const menuItems = useMemo(() => {
@@ -377,6 +381,10 @@ function AppContent() {
 
   if (legacyPortalMode && !isPortalRoute) {
     return <Navigate to="/portal" replace />;
+  }
+
+  if (isEmpregoPortalRoute) {
+    return <EmpregoPortal />;
   }
 
   if (isPortalRoute) {
@@ -1034,6 +1042,7 @@ function AppContent() {
             <Route path="/aderencia/*" element={guard(permissions.aurora_ai, <AuroraAI />)} />
             <Route path="/vagas/*" element={guard(permissions.jobs, <Jobs />)} />
             <Route path="/aprovacoes" element={guard(permissions.jobs, <Approvals />)} />
+            <Route path="/distribuicao" element={guard(permissions.jobs, <Distribuicao />)} />
             <Route path="/candidatos" element={guard(permissions.candidates, <Candidates />)} />
             <Route path="/candidatos/novo" element={guard(permissions.candidates, <Candidates />)} />
             <Route path="/candidatos/:candidateId/editar" element={guard(permissions.candidates, <Candidates />)} />
